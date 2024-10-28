@@ -1,0 +1,117 @@
+﻿@layout AppLayout
+@page "/orders"
+@attribute [Authorize(Roles = "Master, Admin, Manager, Cashier")]
+@inject IOrderService OrderService
+@inject IStoreService StoreService
+
+@if (AppState.IsBusy)
+{
+    <DataGridSkeleton/>
+}
+else
+{
+    <MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
+             <MudText Typo="Typo.h5">Manage Billings</MudText>
+             @* <AuthorizeView Roles="Admin, Master, Manager">
+                 <MudToggleGroup T="string" Style="width: 300px;" Value="AppState.SelectedOption" ValueChanged="OptionChanged" Outline Delimiters Dense Rounded CheckMark FixedContent>
+                    <MudToggleItem Value="@("Store")" />
+                    <MudToggleItem Value="@("Lab")" />
+                 </MudToggleGroup>
+            </AuthorizeView> *@
+         </MudStack>
+     </MudHidden>
+
+    <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudStack AlignItems="AlignItems.Start" Class="pt-4" Spacing="1">
+            <MudText Typo="Typo.h5">Manage Billings</MudText>
+            @* <AuthorizeView Roles="Admin, Master, Manager">
+                <MudToggleGroup T="string" Style="width: 300px;" Value="AppState.SelectedOption" ValueChanged="OptionChanged" Outline Delimiters Dense Rounded CheckMark FixedContent>
+                 <MudToggleItem Value="@("Store")" />
+                 <MudToggleItem Value="@("Lab")" />
+             </MudToggleGroup>
+         </AuthorizeView> *@
+        </MudStack>
+    </MudHidden>    
+     <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-2 pb-2">
+         <div style="width:250px;">
+             <AuthorizeView Roles="Admin, Master, Manager" Context="auth">
+                 <Authorized>
+                     <MudSelect T="Guid" Dense="true" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" Strict="true" Label="Search By Store" Value="@AppState!.StoreID" ValueChanged="StoreChanged" Variant="Variant.Outlined">
+                         @foreach (var branch in stores!)
+                        {
+                            <MudSelectItem Value="@branch.Id">@branch.BranchName</MudSelectItem>
+                        }
+                    </MudSelect>
+                </Authorized>
+            </AuthorizeView>
+            <AuthorizeView Roles="Cashier">
+                <Authorized>
+                    <MudItem xs="12">
+                        <MudTextField Label="Store" ReadOnly="true" @bind-Value="Store!.BranchName" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                </Authorized>
+            </AuthorizeView>
+         </div>         
+        <AuthorizeView Context="auth">
+            <Authorized>
+                <MudTooltip Text="New Sale" Duration="2000" Placement="Placement.Top">
+                    <MudFab Label="New Sale" DisableElevation="true"
+                            OnClick="() => NavigateToSales()" Color="Color.Primary" Size="Size.Small" />
+                </MudTooltip>
+            </Authorized>
+        </AuthorizeView>        
+    </MudStack> 
+    
+    <Orders/>
+}
+
+@code {
+    private EventHandler? OnChange;
+    private Guid UserID;
+    private Store? Store; private Store[]? stores = [];
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        if (string.IsNullOrEmpty(AppState.SelectedOption))
+            AppState.SelectedOption = "Store";
+        UserID = await localStorage.GetItemAsync<Guid>("uid");
+        var access = await localStorage.GetItemAsync<string?>("access");
+        if (access == "Admin" || access == "Master")
+        {
+            stores = await StoreService.GetStores();
+            Store = stores!.LastOrDefault();
+            AppState!.StoreID = Store!.Id;
+        }
+        else
+        {
+            AppState!.StoreID = await localStorage.GetItemAsync<Guid>("branch");
+            Store = await StoreService.GetStore(AppState!.StoreID);
+            @* if (access == "Lab")
+                AppState.SelectedOption = "Lab";
+            else
+                AppState.SelectedOption = "Store"; *@
+        }
+        AppState.IsBusy = false;
+    }
+    void NavigateToSales()
+    {
+        nav.NavigateTo("order");
+    }
+
+    void StoreChanged(Guid id)
+    {
+        Store = stores!.FirstOrDefault(x => x.Id == id);
+        AppState!.StoreID = Store!.Id;  
+    }
+
+    void OptionChanged(string option)
+    {
+        AppState.SelectedOption = option;                
+    }    
+
+    void FireChange(object sender, EventArgs e)
+    {
+
+    }
+}

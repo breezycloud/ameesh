@@ -1,0 +1,108 @@
+﻿@using ApexCharts
+
+@if (IsBusy)
+{
+    <MudSkeleton Class="rounded-lg" Animation="Animation.Wave" SkeletonType="SkeletonType.Rectangle" Height="500px" />
+}
+else
+{
+    <MudPaper Class="d-flex align-center justify-center" Style="height:500px;" Outlined="true">
+        @if (Data.Any())
+        {
+            <div style="overflow-x:scroll;overflow-y:hidden">
+                <ApexChart TItem="BranchSalesChart" Title="Transaction Summary" Options="@options" Width="750" Height="450" @ref="chart">
+                    <ApexPointSeries TItem="BranchSalesChart"
+                                     Items="Data"
+                                     Name="Store"
+                                     XValue="@(e => e.Branch)"
+                                     YAggregate="@(e => e.Sum(e => e.PharmacySales))"
+                                     SeriesType="SeriesType.Bar"
+                                     ShowDataLabels />
+                    <ApexPointSeries TItem="BranchSalesChart"
+                                     Items="Data"
+                                     Name="Lab"
+                                     XValue="@(e => e.Branch)"
+                                     YAggregate="@(e => e.Sum(e => e.LabSales))"
+                                     SeriesType="SeriesType.Bar"
+                                     ShowDataLabels />
+                </ApexChart>
+            </div>
+        }
+    </MudPaper>
+}
+
+@code {
+    [EditorRequired]
+    [Parameter] public BranchSalesChart[] Data { get; set; } = Array.Empty<BranchSalesChart>();
+    [Parameter] public bool IsBusy { get; set; } = false;
+    private ApexChart<BranchSalesChart>? chart = default!;
+    private List<BranchSalesChart> Items = new();
+    private ApexChartOptions<BranchSalesChart> options = new ApexChartOptions<BranchSalesChart>
+        {
+            Chart = new Chart
+            {
+                Animations = new()
+                {
+                    Enabled = true,
+                    Easing = Easing.Linear,
+                    DynamicAnimation = new()
+                    {
+                        Speed = 1000
+                    }
+                },
+                Toolbar = new()
+                {
+                    Show = false
+                },
+                Zoom = new()
+                {
+                    Enabled = false
+                }
+            },
+            Theme = new Theme
+            {
+                Mode = Mode.Light,
+                Palette = PaletteType.Palette2
+            },
+            Xaxis = new XAxis { DecimalsInFloat = 5 },
+            Legend = new Legend { Position = LegendPosition.Bottom }
+        };
+    protected override async Task OnParametersSetAsync()
+    {
+        var akwai = Data.Any();
+        if (chart is not null && akwai)
+        {
+            options.DataLabels = new DataLabels { DropShadow = new DropShadow { Enabled = false } };
+            await chart.ResetSeriesAsync(true, true);
+            chart!.Options.Theme = new Theme
+                {
+                    Palette = PaletteType.Palette1
+                };
+            await InvokeAsync(() => chart!.UpdateSeriesAsync());
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    async Task ApplyTheme()
+    {
+        options = new ApexChartOptions<BranchSalesChart>
+            {
+                Theme = new Theme
+                {
+                    Mode = Mode.Light,
+                    Palette = PaletteType.Palette2
+                },
+                Xaxis = new XAxis { DecimalsInFloat = 5 },
+            };
+        await Task.Yield();
+    }
+
+    @* private string GetColor(BranchSalesChart col)
+    {
+        return col.Color!;
+    } *@
+
+}
+@code {
+
+}

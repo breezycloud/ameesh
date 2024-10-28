@@ -1,0 +1,114 @@
+﻿@layout EmptyLayout
+@page "/"
+@inject IAuthService Auth
+@inject CustomAuthenticationStateProvider authStateProvider
+
+
+<div class="container-login">
+    <div class="wrap-login">
+        <MudPaper Outlined="true" Style="height: 410px; border-radius:10px; padding:15px;">
+            <EditForm Model="@model" OnValidSubmit="@Login">
+                <DataAnnotationsValidator />
+                <MudGrid Spacing="2" Justify="Justify.Center">
+                    <MudItem xs="12">
+                        <div class="d-flex justify-center align-center">
+                            <MudImage Src="icon-512.png" Width="100" Height="100" ObjectFit="ObjectFit.Cover" Class="rounded-lg" />
+                        </div>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudText Align="Align.Center" Typo="Typo.body1">Enter your login credentials</MudText>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="model.Username" Variant="Variant.Outlined"
+                                      Placeholder="Username" For="@(() => model.Username)">
+
+                        </MudTextField>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="model.Password" Variant="Variant.Outlined"
+                                      Adornment="Adornment.End" Placeholder="Password"
+                                      For="@(() => model.Password)" InputType="@PasswordInput"
+                                      AdornmentIcon="@PasswordInputIcon" OnAdornmentClick="PasswordVisibilityClick">
+                        </MudTextField>
+                    </MudItem>
+                    <MudItem xs="12" Class="d-flex justify-center align-center">
+                        <MudFab Disabled="@AppState.IsProcessing" ButtonType="ButtonType.Submit" Color="Color.Primary" Label="@(AppState.IsProcessing ? "Processing" : "Login")" Size="Size.Medium" Style="width:200px;">
+                        </MudFab>
+                    </MudItem>
+                    @*<MudItem xs="12">
+                    <div class="login-head">
+                    <MudText Typo="Typo.caption">Don't' have an account? <a href="#">Sign up</a></MudText>
+                    </div>
+                    </MudItem>*@
+                </MudGrid>
+            </EditForm>
+        </MudPaper>
+    </div>
+</div>
+
+@code {
+
+    [CascadingParameter] public Task<AuthenticationState> authenticationState { get; set; } = default!;
+    private LoginModel model = new();
+    private LoginResponse? response; 
+
+    string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+    InputType PasswordInput = InputType.Password;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var userAuthenticationState = await authenticationState;
+        var claims = userAuthenticationState.User;
+        if (claims!.Identity!.IsAuthenticated)
+        {
+            if (claims.IsInRole("Admin") || claims.IsInRole("Master"))
+                nav.NavigateTo("dashboard");
+            else                
+                nav.NavigateTo("index");
+        }
+    }
+
+    private async Task Login()
+    {                
+        try
+        {
+            AppState.IsProcessing = true;
+            response = await Auth.Login(model);
+            if (response is null)
+            {
+                SnackBar.Add("Invalid login details", Severity.Error);
+            }
+            else
+            {
+                await authStateProvider.SetTokenAsync(response);
+                if (response.Role == "Admin" || response.Role == "Master")
+                    nav.NavigateTo("dashboard", true);
+                else
+                    nav.NavigateTo("index", true);
+            }
+        }
+        catch
+        {
+            SnackBar.Add("Invalid login details", Severity.Error);
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+    }
+    void PasswordVisibilityClick()
+    {
+        if (AppState.DialogVisibility)
+        {
+            AppState.DialogVisibility = false;
+            PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+            PasswordInput = InputType.Password;
+        }
+        else
+        {
+            AppState.DialogVisibility = true;
+            PasswordInputIcon = Icons.Material.Filled.Visibility;
+            PasswordInput = InputType.Text;
+        }
+    }
+}

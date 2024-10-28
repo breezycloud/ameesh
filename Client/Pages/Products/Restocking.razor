@@ -1,0 +1,73 @@
+﻿@layout AppLayout
+@inject IProductService ProductService
+@inject IStoreService StoreService
+@implements IAsyncDisposable
+@page "/restocking"
+@attribute [Authorize(Roles = "Admin, Master, Manager, Store, PharmacyStore, PharmacyManager")]
+
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexStart" Class="pa-1">
+		<MudTooltip Text="Back" Duration="2000" Placement="Placement.Top">
+			<MudFab Label="Back" DisableElevation="true" StartIcon="@Icons.Material.Filled.ArrowBack"
+					OnClick="@(() => Navigate())" Color="Color.Dark" Size="Size.Small" />
+		</MudTooltip>
+		<MudText Typo="Typo.h5">Restock</MudText>
+	</MudStack>
+</MudHidden>
+<MudHidden Breakpoint="Breakpoint.MdAndUp">
+	<MudStack AlignItems="AlignItems.Start" Justify="Justify.FlexStart" Class="pa-1">
+		<MudTooltip Text="Back" Duration="2000" Placement="Placement.Top">
+			<MudFab Label="Back" DisableElevation="true" StartIcon="@Icons.Material.Filled.ArrowBack"
+					OnClick="@(() => Navigate())" Color="Color.Dark" Size="Size.Small" />
+		</MudTooltip>
+		<MudText Typo="Typo.h5">Restock</MudText>
+	</MudStack>
+</MudHidden>
+
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Class="pb-1">
+	<MudToggleGroup T="string" Style="width: 300px;" Value="SelectedOption" ValueChanged="OptionChanged" Outline Delimiters Dense Rounded CheckMark FixedContent>
+		<MudToggleItem Value="@("Dispensary")" />
+		<MudToggleItem Value="@("Store")" />
+	</MudToggleGroup>
+</MudStack>
+
+
+@if (SelectedOption == "Dispensary")
+{
+	<RestockDispensary/>
+}
+else
+{
+	<RestockStore/>
+}
+
+@code {
+
+	private string? SelectedOption = "Dispensary";
+
+	private HubConnection? hub;
+
+	protected override async Task OnParametersSetAsync()
+	{
+		hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithStatefulReconnect().Build();
+		var mode = await localStorage.GetItemAsync<bool?>("mode");
+		if (mode is not null || mode!.Value)
+			await hub.StartAsync();
+
+	}
+
+	void OptionChanged(string option)
+	{
+		SelectedOption = option;
+		StateHasChanged();
+	}
+
+	void Navigate() => nav.NavigateTo("products");
+
+	public async ValueTask DisposeAsync()
+	{
+		await hub!.StopAsync();
+		await hub!.DisposeAsync();
+	}
+}

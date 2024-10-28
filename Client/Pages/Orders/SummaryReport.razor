@@ -1,0 +1,150 @@
+﻿@using Shared.Enums
+@inject IOrderService OrderService
+@inject IStoreService StoreService
+@inject IUserService UserService
+
+<EditForm Model="reportFilter" OnValidSubmit="GetReport">
+    <DataAnnotationsValidator/>
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">Report</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudStack Spacing="5" AlignItems="AlignItems.Center" Justify="Justify.Center" Wrap="Wrap.Wrap">
+                <AuthorizeView Roles="Admin, Master, Manager" Context="auth">
+                    <Authorized>
+                        <MudToggleGroup T="string" Style="width: 300px;" @bind-Value="reportFilter!.Type" Outline Delimiters Dense Rounded CheckMark FixedContent>
+                            <MudToggleItem Value="@("Store")" />
+                            <MudToggleItem Value="@("Lab")" />                
+                        </MudToggleGroup>
+                        <MudAutocomplete AnchorOrigin="Origin.BottomCenter" Dense="true" Label="Branch" T="Store"
+                                 @bind-Value="Store" SearchFunc="@Search" ShowProgressIndicator="true"
+                                 Variant="Variant.Outlined" Immediate="true" ResetValueOnEmptyText Margin="Margin.Dense"
+                                 ToStringFunc="@(e => e == null ? null : $"{e.BranchName}")" />
+        
+                    </Authorized>
+                </AuthorizeView>                
+                <MudDatePicker @bind-Date="StartDate" PickerVariant="PickerVariant.Dialog"
+                               Label="@(reportFilter!.Criteria == "Date" ? "Date" : "Start Date")" DisableToolbar="true" />                
+            </MudStack>        
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Close">Close</MudButton>
+            <MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                       Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Process")</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+@code {
+    [CascadingParameter]
+    public MudDialogInstance? DialogInstance { get; set; }
+    ReportFilter? reportFilter = new();
+    private string Criteria = "Date";
+    private PaymentStatus Status = PaymentStatus.Unpaid;
+    private MudDateRangePicker? _picker;
+    private DateTime? StartDate = DateTime.Now;
+    private DateTime? EndDate = DateTime.Now;
+    private DateRange _dateRange = new DateRange(DateTime.Now.Date, DateTime.Now.AddDays(7).Date);
+
+    private string? SelectedOption = "Store";
+
+    private Store? Store; private Store[]? stores = [];
+
+    private User? User; private User[]? Users = [];
+    protected override async Task OnInitializedAsync()
+    {
+        var access = await localStorage.GetItemAsync<string?>("access");
+        if (access == "Admin" || access == "Master")
+        {            
+        }
+        else
+        {
+            AppState!.StoreID = await localStorage.GetItemAsync<Guid>("branch");
+            Store = await StoreService.GetStore(AppState!.StoreID);
+            if (access.Contains("Store") || access.Contains("Cashier"))
+            {
+                SelectedOption = "Store";
+                reportFilter.Type = SelectedOption;
+            }
+        }
+    }
+
+    void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+    void FilterChanged(string option)
+    {
+        reportFilter!.Criteria = option;
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<Store>?> Search(string value)
+    {
+        try
+        {
+            stores = await StoreService.GetStores();
+            if (string.IsNullOrEmpty(value))
+                return stores;
+
+            return stores!.Where(x => x.BranchName!.Contains(value, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private async Task<IEnumerable<User>?> SearchUsers(string value, CancellationToken token)
+    {
+        try
+        {
+            Users = await UserService.GetUsers(token);
+            if (string.IsNullOrEmpty(value))
+                return Users.AsParallel().Where(x => x.Role.ToString().Contains("Cashier", StringComparison.OrdinalIgnoreCase));
+
+            return Users!.AsParallel().Where(x => x.ToString()!.Contains(value, StringComparison.OrdinalIgnoreCase)
+                && x.Role.ToString().Contains("Cashier", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private async Task GetReport()
+    {
+        AppState.IsProcessing = true;
+        if (Store!.Id == Guid.Empty)
+        {
+            SnackBar.Add("Select store to proceed", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+    }        
+        
+        reportFilter!.StoreID = Store!.Id;
+        if (reportFilter!.Criteria == "Date")
+        {
+            if (StartDate is null)
+            {
+                SnackBar.Add("Select date to proceed", Severity.Warning);
+                AppState.IsProcessing = false;
+                return;
+            }
+            reportFilter!.StartDate = StartDate;
+        }
+        
+        try
+        {
+            await OrderService.SaleReport(reportFilter);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+    }
+}

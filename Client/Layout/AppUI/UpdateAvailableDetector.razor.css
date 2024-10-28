@@ -1,0 +1,17 @@
+.main {  
+  float: left;  
+  position: relative;
+  text-align: center;
+}
+
+.update-button {  
+  position: fixed;
+  bottom: 10px;
+  cursor: pointer;
+  animation: fadein 2s ease-out;
+}
+
+@keyframes fadein {
+    from { right: -100%; }
+    to { right: 2rem; }
+  }

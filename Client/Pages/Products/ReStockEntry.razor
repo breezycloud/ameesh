@@ -1,0 +1,180 @@
+﻿@using Shared.Enums
+@inject IProductService ItemService
+@implements IAsyncDisposable
+
+
+<EditForm Model="@Stock" OnValidSubmit="Save">
+    <DataAnnotationsValidator />
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">Stock @(Option)</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="ProductName" Label="Product" Variant="Variant.Outlined" ReadOnly  />
+                </MudItem>
+                @if (Option == "Dispensary")
+                {
+                    <MudItem xs="12">
+                        <MudSelect T="Stock" AnchorOrigin="Origin.BottomCenter" @bind-Value="@Stock" Label="Select stock"
+                                   Dense Variant="Variant.Outlined">
+                            @foreach (var e in Stocks!)
+                            {
+                                <MudSelectItem T="Stock" Value="@e">@($"Qty left {e.Quantity} Exp on {e.ExpiryDate!.Value:dd/MM/yyyy}")</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                }
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Stock!.BuyPrice" ReadOnly="IsReadOnly" Format="N2" Label="Cost Price" Variant="Variant.Outlined" For="() => Stock!.BuyPrice"></MudTextField>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="SellPrice" ReadOnly="IsReadOnly" Format="N2" Label="Sell Price" Variant="Variant.Outlined"></MudTextField>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="Stock!.ExpiryDate" ReadOnly="IsReadOnly" PickerVariant="PickerVariant.Dialog" DisableToolbar DateFormat="dd/MM/yyyy" Label="Expiry Date" Variant="Variant.Outlined" For="(() => Stock!.ExpiryDate)" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="int?" @bind-Value="Stock!.Quantity" Label="Quantity" ReadOnly="IsReadOnly"  Variant="Variant.Outlined" For="() => Stock!.Quantity"></MudNumericField>
+                </MudItem>
+                @if (Option == "Dispensary")
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField T="int?" Value="@(Stock!.Quantity - NewQty)" Label="Quantity" ReadOnly Variant="Variant.Outlined" For="() => Stock!.Quantity"></MudNumericField>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField id="figure-right" T="int?" @bind-Value="NewQty" Label="New Quantity" Max="Stock!.Quantity" Variant="Variant.Outlined"></MudNumericField>
+                    </MudItem>                    
+                }                
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Close">Close</MudButton>
+            <MudButton Disabled="@AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                       Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+@code {
+
+    [CascadingParameter]
+    public MudDialogInstance? DialogInstance { get; set; }
+    [Parameter]
+    public string? Option { get; set; }
+    [Parameter]
+    public Guid ProductId { get; set; }
+    [Parameter]
+    public string? ProductName { get; set; }
+    [Parameter]
+    public decimal SellPrice { get; set; }
+    [Parameter]
+    public Guid StoreID { get; set; }
+    [Parameter]
+    public Stock? Stock { get; set; } = new();    
+    [Parameter]
+    public List<Stock>? Stocks { get; set; } = new();
+
+    private bool IsReadOnly = false;
+    private int? NewQty;
+    private DateTime? _ExpDate;
+
+    private HubConnection? hub;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs"), option =>
+        {
+            option.AccessTokenProvider = () => Task.FromResult(AppState.Token)!;
+        }).WithStatefulReconnect().Build();
+        var mode = await localStorage.GetItemAsync<bool?>("mode");
+        if (mode is not null || mode!.Value)
+            await hub.StartAsync();
+
+        if (Stocks!.Any())
+        {
+            Stock = Stocks!.FirstOrDefault();
+        }
+        IsReadOnly = Option == "Dispensary" ? true : false;
+    }
+
+
+    void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+
+    private async Task Save()
+    {
+        AppState.IsProcessing = true;
+        if (Stock!.BuyPrice > SellPrice)
+        {
+            SnackBar.Add("Cost price cannot be more than sell price", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+        if (Stock!.Quantity <= 0 || Stock!.Quantity is null)
+        {
+            SnackBar.Add("Quantity is required", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+        @* if (Stock!.ExpiryDate is null)
+        {
+            SnackBar.Add("Enter expiry date", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        } *@
+        var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to save", yesText: "Yes", cancelText: "No");
+        if (prompt is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        try
+        {
+            bool result = false;
+            if (Option == "Dispensary")
+            {
+                var stock = Stock;
+                stock.Quantity = NewQty;
+                result = await ItemService.AddStock(ProductId, "Dispensary", stock);
+            }   
+            else
+            {
+                result = await ItemService.AddStock(ProductId, "Store", Stock);
+            }
+            if (!result)
+            {
+                SnackBar.Add("Operation failed", Severity.Warning);
+            }
+            else
+            {
+                await hub!.SendAsync("UpdateProducts");
+                SnackBar.Add("Stock Successfully Updated", Severity.Success);
+                Close();
+            }
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+    }
+
+    void StockChanged(Stock stock)
+    {
+        Stock = stock;
+        StateHasChanged();
+    }
+    Func<Stock, string> converter = p => $"Quantity {p?.Quantity} Expires on {p?.ExpiryDate}";
+    public async ValueTask DisposeAsync()
+    {
+        await hub!.StopAsync();
+        await hub!.DisposeAsync();
+    }
+
+}

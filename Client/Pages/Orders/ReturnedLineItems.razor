@@ -1,0 +1,70 @@
+﻿@inject IReturnService Service
+<MudDataGrid T="ReturnedProduct" Items="Data!.OrderByDescending(x => x.Date)" Outlined="true" Context="ctx" Dense="true">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Returned Products</MudText>
+        <MudSpacer />        
+        @if (Data!.Any())
+        {
+            <MudChip T="string" Color="Color.Error">Total Refund: @((Data!.Sum(x => x.Cost * x.Quantity).GetValueOrDefault() - Deduction).ToString("N2"))</MudChip>
+        }
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x=>x.Product!.Item!.ProductName" Title="Product" />
+        <PropertyColumn Property="x=>x.Quantity" Title="Quantity" />
+        <TemplateColumn Context="stx">
+            <CellTemplate>
+                @* <MudFab Size="Size.Small" Icon="@Icons.Material.Filled.Edit" OnClick="@(() => EditStock(StockContext))" /> *@
+                <MudIconButton Disabled="@AppState.IsProcessing" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete"
+                        OnClick="@(() => Delete(stx.Item))" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.h6">Empty record</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="ReturnedProduct" />
+    </PagerContent>
+</MudDataGrid>
+
+
+@code {
+    [Parameter]
+    public ReturnedProduct[]? Data { get; set; } = [];
+    [Parameter]
+    public decimal Deduction { get; set; } = 0;
+
+    async Task Delete(ReturnedProduct product)
+    {
+        AppState.IsProcessing = true;
+        bool? result = await Dialog.ShowMessageBox("Confirmation",
+        $"Do you wish to Delete?", yesText: "Yes", cancelText: "No");
+        if (result is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        else if (!result.Value)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+
+        try
+        {
+            await Service.Delete(product!.Id);
+            SnackBar.Add($"Record Successfully Deleted!", Severity.Success);
+            AppState.UpdateLayout();
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            SnackBar.Add($"Error occured!", Severity.Error);
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+    }
+
+}

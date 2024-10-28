@@ -1,0 +1,206 @@
+﻿@layout AppLayout
+@inject IProductService ItemService
+@implements IAsyncDisposable
+@page "/Items"
+@attribute [Authorize]
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
+			<MudText Typo="Typo.h5">Manage Items</MudText>
+			<MudTooltip Text="New Item" Duration="2000" Placement="Placement.Top">
+				<MudFab Label="New Item" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+						OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+			</MudTooltip>
+		</MudStack>
+	</MudHidden>
+
+	<MudHidden Breakpoint="Breakpoint.MdAndUp">
+		<MudStack AlignItems="AlignItems.Start" Class="pb-4" Spacing="1">			
+			<MudText Typo="Typo.h5">Manage Items</MudText>
+			<MudTooltip Text="New Item" Duration="2000" Placement="Placement.Top">
+				<MudFab Label="New Item" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+						OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+			</MudTooltip>
+		</MudStack>
+	</MudHidden>
+
+@if (AppState.IsBusy)
+{
+	<DataGridSkeleton/>
+}
+else
+{
+	<MudDataGrid @ref="_gridComponent"
+				 T="Item"
+				 ServerData="GetGridData"
+				 RowClick="@HandleSelectedDataItemChanged"
+				 @bind-SelectedDataItem="category"
+				 Dense
+			 Outlined>
+		<Columns>
+			<PropertyColumn Title="Category" Property="x => x!.Category!.CategoryName" />
+			<PropertyColumn Title="Brand" Property="x => x!.Brand!.BrandName" />
+			<PropertyColumn Title="Name" Property="x => x.ProductName" />
+			<PropertyColumn Title="Date Created" Property="x => x.CreatedDate" />
+			<TemplateColumn>
+				<CellTemplate>
+					<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>					
+					<AuthorizeView Roles="Admin, Master" Context="auth">
+						<Authorized>							
+							<MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+						</Authorized>
+					</AuthorizeView>									
+				</CellTemplate>
+			</TemplateColumn>
+		</Columns>
+		<NoRecordsContent>
+			<MudText Typo="Typo.h6">Empty record</MudText>
+		</NoRecordsContent>
+		<PagerContent>
+			<MudDataGridPager T="Item" />
+		</PagerContent>
+	</MudDataGrid>
+}
+
+
+
+@code {
+	private MudDataGrid<Item>? _gridComponent;
+	private Item? category =new();
+	private HubConnection? hub;
+	protected override async Task OnInitializedAsync()
+	{
+		AppState.IsBusy = true;
+		await InitSignalR();		
+	}
+
+	private async Task InitSignalR()
+	{
+		try
+		{
+			var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+			hub = builder.Build();
+			await hub.StartAsync();
+			hub.On("UpdateItems", async () =>
+			{
+				await _gridComponent!.ReloadServerData();
+			}); 
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex);
+		}
+	}
+	protected override void OnAfterRender(bool firstRender)
+	{
+		if (firstRender)
+		{
+			AppState.IsBusy = false;
+		}
+	}
+
+	private async Task<GridData<Item>> GetGridData(GridState<Item> request)
+	{
+		try
+		{
+			var page = request.Page * request.PageSize;
+			var parameter = new PaginationParameter { Page = page , PageSize = request.PageSize };
+			var response = await ItemService.GetPagedItems(parameter);
+			return new GridData<Item>()
+			{
+				Items = response!.Data!.OrderByDescending(x => x.CreatedDate),
+				TotalItems = response.TotalCount
+			};
+		}
+		catch (Exception)
+		{
+			return new GridData<Item>();
+		}
+		finally
+		{
+			AppState.IsBusy = false;
+			StateHasChanged();
+		}
+	}
+
+	async Task HandleSelectedDataItemChanged(DataGridRowClickEventArgs<Item> category)
+	{
+		await OnEdit(category.Item);
+	}
+
+	private async Task OnNew()
+	{
+		var parameters = new DialogParameters
+			{
+				["IsEdit"] = false
+			};
+		await Dialog.ShowAsync<ItemEntryDialog>("", parameters);
+	}	
+
+	private async Task OnEdit(Item Item)
+	{
+		var parameters = new DialogParameters
+			{
+				["Item"] = Item,
+				["IsEdit"] = true
+			};
+		await Dialog.ShowAsync<ItemEntryDialog>("", parameters);
+	}
+
+	private async Task OnDelete(Guid id)
+	{
+		AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to delete", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await ItemService.DeleteItem(id);
+			SnackBar.Add("Item Successfully Deleted", Severity.Success);
+			await hub!.SendAsync("UpdateItems");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+	}
+
+
+	private async Task Save()
+	{
+		// AppState.IsProcessing = true
+		var response = await Dialog.ShowMessageBox("Confirm", "Do you want to save...?");
+		if (response is null)
+		{
+			return;
+		}
+		Console.Write("Confirmation working");
+		SnackBar.Add("Saved");
+	}
+
+	private async void UpdateComponent(object sender, EventArgs e)
+	{
+		await _gridComponent!.ReloadServerData();
+		StateHasChanged();
+	}
+	public async ValueTask DisposeAsync()
+	{
+		//AppState.OnUpdateLayout -= UpdateComponent!;
+		if (hub is not null)
+		{
+			await hub!.StopAsync();
+			await hub!.DisposeAsync();
+		}		
+	}
+
+}

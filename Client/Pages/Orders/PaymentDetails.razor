@@ -1,0 +1,68 @@
+﻿<MudDataGrid Items="Items.AsParallel().Where(x => x.Amount > 0).OrderByDescending(x => x.PaymentDate)" Dense="true" Outlined="true">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Payment Details</MudText>
+        <MudSpacer />
+        <AuthorizeView Roles="Admin, Master, Cashier, PharmacyCashier">
+            <Authorized>
+                @if (!PaymentCompleted)
+                {
+                    <MudTooltip Text="New Payment" Duration="2000" Placement="Placement.Top">
+                        <MudFab Label="New Payment" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+                                OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+                    </MudTooltip>
+                }
+            </Authorized>
+        </AuthorizeView>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.PaymentDate" Title="Date" />
+        <PropertyColumn Property="x => x.Amount" Title="Amount" Format="N2" />
+        <PropertyColumn Property="x => x.PaymentMode" Title="Payment Mode" />
+        <PropertyColumn Property="x => x.Cashier.ToString()" Title="Cashier" />
+        <TemplateColumn CellClass="d-flex justify-end">
+            <CellTemplate>
+                <MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.h6">Empty record</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="Payment" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    [Parameter]
+    public List<Payment> Items { get; set; } = new();
+    [Parameter]
+    public bool PaymentCompleted { get; set; } = false;
+    [Parameter]
+    public decimal AmountDue { get; set; }
+
+    private async Task OnNew()
+    {
+        var parameters = new DialogParameters
+            {
+                ["Payment"] = new Payment(),
+                ["IsEdit"] = false,
+                ["AmountDue"] = AmountDue,
+                ["Completed"] = PaymentCompleted
+            };
+        await Dialog.ShowAsync<PaymentDialog>("", parameters);
+    }
+
+    private async Task OnEdit(Payment payment)
+    {
+        var parameters = new DialogParameters
+            {
+                ["Payment"] = payment,
+                ["IsEdit"] = true,
+                ["AmountDue"] = AmountDue,
+                ["Completed"] = PaymentCompleted
+            };
+        await Dialog.ShowAsync<PaymentDialog>("", parameters);
+    }
+
+}

@@ -1,0 +1,78 @@
+@inject ISyncService SyncService
+@implements IAsyncDisposable
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Backup Data</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Align="MudBlazor.Align.Center">@SyncLabel</MudText>
+        @if (!string.IsNullOrEmpty(SyncLabel))
+        {
+            <MudProgressLinear Color="MudBlazor.Color.Primary" Rounded Value="@SyncCompleted" Size="Size.Large" Class="my-7">
+                <MudText Typo="Typo.caption" Color="MudBlazor.Color.Default">
+                    <b>@string.Format("{0}%", SyncCompleted)</b>
+                </MudText>
+            </MudProgressLinear>
+        }        
+    </DialogContent>
+    <DialogActions>
+            <MudButton OnClick="Close">Close</MudButton>
+            <MudButton Disabled="AppState.IsProcessing" OnClick="@(() => Sync())" Variant="Variant.Filled"
+                       Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Sync")</MudButton>
+        </DialogActions>
+</MudDialog>
+
+@code {
+
+    [CascadingParameter]
+    public MudDialogInstance? DialogInstance { get; set; }
+    void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+    private HubConnection? hub;
+    bool internetfound = true;
+
+    private string? SyncLabel = string.Empty;
+    private double SyncCompleted = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+        builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+        hub = builder.Build();
+        internetfound = await js.InvokeAsync<bool>("checkinternet");
+        if (internetfound)
+            await hub.StartAsync();
+
+        hub.On("SyncProgress", (SyncProgress progress) => {            
+            SyncLabel = progress.Message;
+            SyncCompleted = progress.Percentage;
+            StateHasChanged();
+        });
+    }
+    private async Task Sync()
+    {
+        AppState.IsProcessing = true;
+        if (!internetfound)
+        {
+            SnackBar.Add("No internet connection found", Severity.Error);
+            AppState.IsProcessing = false;
+            return;
+        }
+        try
+        {
+            await SyncService.Sync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            SnackBar.Add("Error occurred while sync", Severity.Error);
+        }
+        AppState.IsProcessing = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await hub!.DisposeAsync();
+    }
+
+}

@@ -1,0 +1,20 @@
+@inject IJSRuntime js
+<MudDataGrid Items="Data" Dense Outlined>
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Referrers</MudText>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Referer!.CustomerName" Title="Name" />
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.h6">Empty record</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="OrderReferer" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    [Parameter]
+    public List<OrderReferer> Data { get; set; } = new();
+}

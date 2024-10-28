@@ -1,0 +1,25 @@
+@using ApexCharts
+@attribute [Authorize]
+@inject IJSRuntime js
+
+@if (IsLoading)
+{
+    <MudSkeleton Class="rounded-lg" Animation="Animation.Wave" SkeletonType="SkeletonType.Rectangle" Height="450px" />
+}
+else
+{    
+    <MudDataGrid Items="@Data" Outlined Dense>
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">@($"{Data.FirstOrDefault()!.Date} Summary By Cashiers")</MudText>
+        </ToolBarContent>
+        <Columns>            
+            <PropertyColumn Property="x => x.Cashier" Title="Cashier"/>
+            <PropertyColumn Property="x => x.Amount" Title="Amount" Format="N2" />
+        </Columns>
+    </MudDataGrid>      
+}   
+
+@code {    
+    [Parameter, EditorRequired] public bool IsLoading { get; set; } = false;
+    [Parameter, EditorRequired] public SummaryByCashier[] Data { get; set; } = [];    
+}

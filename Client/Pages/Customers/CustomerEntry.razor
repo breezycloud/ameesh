@@ -1,0 +1,116 @@
+﻿@using Client.Handlers
+@using Shared.Enums
+@inject ICustomerService CustomerService
+@implements IAsyncDisposable
+
+<EditForm Model="Customer" OnValidSubmit="Save">
+    <DataAnnotationsValidator />
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">@(IsEdit ? "Update" : "Add") Customer</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudGrid Spacing="1">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @ref="_TxtName" @bind-Value="Customer!.CustomerName" Label="Customer Name" Margin="Margin.Dense" Variant="Variant.Outlined" For="@(() => Customer.CustomerName)"></MudTextField>
+                 </MudItem>
+                 <MudItem xs="12" sm="6">
+                     <MudTextField @bind-Value="Customer!.PhoneNo" Label="Phone Number" Margin="Margin.Dense" Variant="Variant.Outlined" For="@(() => Customer.PhoneNo)"></MudTextField>
+                 </MudItem>                              
+                 <MudItem xs="12">
+                     <MudTextField @bind-Value="Customer!.ContactAddress" Lines="3" Label="Home Address" Variant="Variant.Outlined"></MudTextField>
+                 </MudItem>                 
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Close</MudButton>
+            <MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                       Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+@code {
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    [Parameter] public Customer Customer { get; set; } = new();
+    [Parameter] public bool IsEdit { get; set; } = false;
+    [Parameter] public string? RedirectRoute { get; set; } = string.Empty;
+    private HubConnection? hub;
+
+    MudTextField<string?>? _TxtName { get; set; } = new();
+    protected override async Task OnInitializedAsync()
+    {
+        var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+        builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+        hub = builder.Build();
+        var internetfound = await js.InvokeAsync<bool>("checkinternet");
+        if (internetfound)
+            await hub.StartAsync();
+        await _TxtName.FocusAsync();
+    }
+
+    void Cancel() => MudDialog!.Close(DialogResult.Ok(true));
+
+    async Task Save()
+    {
+        AppState.IsProcessing = true;
+        var result = await Dialog.ShowMessageBox("Confirmation",
+        $"Do you wish to save", yesText: "Yes", cancelText: "No");
+        if (result is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        else if (!result.Value)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        var exist = await CustomerService.GetCustomerByPhone(Customer.PhoneNo!);
+        if (!string.IsNullOrEmpty(exist!.PhoneNo) && Customer!.Id != exist.Id)
+        {
+            await Dialog.ShowMessageBox("Notification", $"Phone No has already regitered to {exist.CustomerName}");
+            AppState.IsProcessing = false;
+            return;
+        }
+        bool response = false;
+        try
+        {
+            Customer.CreatedDate = AppState.CurrentDateTime;
+            Customer.ModifiedDate = AppState.CurrentDateTime;
+            Customer.CustomerName = StringConverter.ConvertToTitleCase(Customer.CustomerName!);
+            Customer!.ContactAddress = string.IsNullOrEmpty(Customer!.ContactAddress) ? 
+            "" : StringConverter.ConvertToTitleCase(Customer.ContactAddress!);
+            if (!IsEdit)
+            {
+                Customer.Id = Guid.NewGuid();
+                response = await CustomerService.AddCustomer(Customer);
+            }
+            else
+            {
+                response = await CustomerService.EditCustomer(Customer);
+            }
+            SnackBar.Add("Customer Successfully Saved", Severity.Success);
+            await hub!.SendAsync("UpdateCustomers");
+            Cancel();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            if (!response)
+            {
+                SnackBar.Add("Operation failed", Severity.Error);
+            }
+        }
+        finally
+        {
+            AppState.IsProcessing = false;            
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await hub!.StopAsync();
+        await hub!.DisposeAsync();
+    }
+}

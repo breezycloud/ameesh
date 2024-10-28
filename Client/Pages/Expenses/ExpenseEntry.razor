@@ -1,0 +1,168 @@
+﻿@using Client.Handlers
+@using Shared.Enums
+@inject IExpenseService Service
+@implements IAsyncDisposable
+<EditForm Model="@Data" OnValidSubmit="Save">
+	<DataAnnotationsValidator />
+	<MudDialog>
+		<TitleContent>
+			<MudText Typo="Typo.h6">@(IsEdit ? "Update" : "Add") Expense</MudText>
+		</TitleContent>
+		<DialogContent>
+			<MudGrid>
+				<MudItem xs="12" sm="6">
+					<MudDatePicker @bind-Date="Data!.Date" DisableToolbar PickerVariant="PickerVariant.Dialog" DateFormat="dd/MM/yyyy" Label="Date" Variant="Variant.Outlined" For="(() => Data!.Date)"
+								   Margin="Margin.Dense" />
+				</MudItem>
+				<MudItem xs="12" sm="6">
+					<MudAutocomplete AnchorOrigin="Origin.BottomCenter" Dense Label="Type" T="ExpenseType"
+									 Value="Type" ValueChanged="ExpenseTypeChanged" SearchFunc="@Search" ShowProgressIndicator="true" Margin="Margin.Dense"
+									 Variant="Variant.Outlined" Immediate="true" ResetValueOnEmptyText
+									 ToStringFunc="@(e => e == null ? null : $"{e.Expense}")" />
+				</MudItem>				
+				<MudItem xs="12">
+					<MudTextField Lines="3" @bind-Value="Data.Description" Label="Description" Variant="Variant.Outlined" For="@(() => Data.Description)"
+								  Margin="Margin.Dense" />
+				</MudItem>
+				<MudItem xs="12" sm="6">
+					<MudTextField @bind-Value="Data.Reference" ReadOnly="ReadOnly" Label="Reference" Variant="Variant.Outlined" For="@(() => Data.Reference)" 
+						Margin="Margin.Dense"/>
+				</MudItem>				
+				<MudItem xs="12" sm="6">
+					<MudTextField id="figure-right" @bind-Value="Data.Amount"  Format="N2" Label="Amount" Variant="Variant.Outlined" For="@(() => Data.Amount)"
+								  Margin="Margin.Dense" />
+				</MudItem>
+				<MudItem xs="12" sm="6">
+					<MudSelect T="PaymentMode" AnchorOrigin="Origin.BottomCenter" @bind-Value="@Data!.PaymentMode" Label="Payment Mode"
+							   Dense Variant="Variant.Outlined" Margin="Margin.Dense">
+						@foreach (PaymentMode mode in Enum.GetValues<PaymentMode>().Where(x => x != PaymentMode.None).ToArray()!)
+						{
+							<MudSelectItem Value="@mode">@mode.ToString()</MudSelectItem>
+						}
+					</MudSelect>
+				</MudItem>
+			</MudGrid>			
+		</DialogContent>
+		<DialogActions>
+			<MudButton OnClick="Close">Close</MudButton>
+			<MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+					   Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+		</DialogActions>
+	</MudDialog>
+</EditForm>
+
+@code {
+	[CascadingParameter]
+	public MudDialogInstance? DialogInstance { get; set; }
+	[Parameter]
+	public Expense Data { get; set; } = new();
+	[Parameter]
+	public bool IsEdit { get; set; } = false;
+	private OrderReferer? OrderReferer = new();
+	private OrderReferer[]? OrderReferers = [];
+	private Referer[]? Referers = [];
+	private Referer? Referer = new();
+	private HubConnection? hub;
+	private ExpenseType? Type = new();
+	private ExpenseType[]? Types = [];
+	private bool ReadOnly = false;
+	private Guid UserID;
+	protected override async Task OnInitializedAsync()
+	{
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		var internetfound = await js.InvokeAsync<bool>("checkinternet");
+		if (internetfound)
+			await hub.StartAsync();
+	}
+
+	void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+	private async Task<IEnumerable<ExpenseType>?> Search(string value)
+	{
+		try
+		{
+			Types = await Service.GetExpenseTypes();
+			if (string.IsNullOrEmpty(value))			
+				return Types;
+
+			return Types!.Where(x => x.Expense!.Contains(value, StringComparison.OrdinalIgnoreCase));
+		}
+		catch
+		{
+			throw;
+		}		
+	}
+
+	void ExpenseTypeChanged(ExpenseType type)
+	{
+		ReadOnly = false;
+		Referers = [];
+		Referer = new();
+		OrderReferers = [];
+		OrderReferer =new();
+		Type = type;
+		Data!.TypeId = type.Id;
+		StateHasChanged();
+	}
+
+
+
+	private async Task Save()
+	{
+		AppState.IsProcessing = true;		
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to save", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			if (!IsEdit)
+			{
+				Data!.Id = Guid.NewGuid();
+				Data.UserId = await localStorage.GetItemAsync<Guid>("uid");
+			}
+			Data!.Description = StringConverter.ConvertToTitleCase(Data!.Description!);
+			Data!.StoreId = AppState.StoreID;
+			bool result = await Service.PutExpense(Data!);			
+			if (result)
+			{
+				SnackBar.Add("Expense Successfully Updated", Severity.Success);
+				await hub!.SendAsync("UpdateExpenses");
+				await ClearControls();
+				Close();				
+			}
+			else
+			{
+				SnackBar.Add("Failed to save", Severity.Error);
+			}
+		}
+		catch
+		{
+			SnackBar.Add("Failed to save", Severity.Error);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}		
+	}
+
+	async Task ClearControls()
+	{
+		Data = new();
+		Referers = [];
+		Referer = new();
+		OrderReferers = [];
+		OrderReferer = new();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		await hub!.StopAsync();
+		await hub!.DisposeAsync();
+	}
+}

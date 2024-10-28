@@ -1,0 +1,158 @@
+﻿@using Shared.Enums
+@attribute [Authorize]
+@inject IOrderService OrderService
+@inject IStoreService StoreService
+@inject IJSRuntime js
+@implements IAsyncDisposable
+
+<MudDataGrid T="OrderWithData"
+             @ref="_gridComponent"             
+             ServerData="GetGridData"
+             RowClick="@HandleSelectedDataItemChanged"
+             @bind-SelectedDataItem="data"
+             Dense             
+             Outlined>
+    <ToolBarContent>
+        <MudSpacer />
+        <MudTextField T="string" Value="AppState._searchString" ValueChanged="@(s => OnSearch(s))" Placeholder="Search" Immediate="false"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>        
+        <PropertyColumn Property="x => x.ReceiptNo" Title="Receipt No" CellStyleFunc="_cellStyleFunc" />
+        <PropertyColumn Property="x => x.Date" Title="Date" Format="dd/MM/yyyy" />
+        <PropertyColumn Property="x => x.CreatedDate.ToShortTimeString()" Title="Time" />
+        <PropertyColumn Property="x => x.TotalAmount" Title="Total" Format="N2" />
+        <PropertyColumn Property="x => x.Discount" Title="Discount" Format="N2" />
+        <PropertyColumn Property="x => x.SubTotal" Title="Sub Total" Format="N2" />
+        <TemplateColumn Title="Status" Context="ctx">
+            <CellTemplate>
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Wrap="Wrap.Wrap">                    
+                    @if (ctx.Item.PaymentStatus == "Paid")
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Success">Paid</MudChip>                        
+                    }
+                    else
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Error">Unpaid</MudChip>
+                    }      
+                </MudStack>
+            </CellTemplate>
+        </TemplateColumn>        
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.h6">No records found</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="OrderWithData" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    private MudDataGrid<OrderWithData>? _gridComponent;
+    private OrderWithData? data;    
+    private string searchString = "";
+    private string? timer = "";
+    private HubConnection? hub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithStatefulReconnect().Build();
+        await hub.StartAsync();
+        hub!.On("RefreshOrderTimer", async () =>
+        {
+            await _gridComponent!.ReloadServerData();
+        });        
+    }
+
+    private async Task<GridData<OrderWithData>> GetGridData(GridState<OrderWithData> request)
+    {                
+        var parameter = new PaginationParameter { FilterId = AppState.StoreID, Page = request.Page * request.PageSize, PageSize = request.PageSize };
+        if (!string.IsNullOrEmpty(AppState._searchString))
+            parameter.SearchTerm = AppState._searchString;
+        var response = await OrderService.GetOrderByStore(AppState.SelectedOption!, parameter);
+        return new GridData<OrderWithData>()
+        {
+            Items = response!.Data!.OrderByDescending(x => x.ModifiedDate)!,
+            TotalItems = response.TotalCount
+        };
+    }
+
+    void HandleSelectedDataItemChanged(DataGridRowClickEventArgs<OrderWithData> item)
+    {
+        OnExpand(item.Item.Id);
+    }
+
+    private Func<OrderWithData, string> _cellStyleFunc => x =>
+    {
+        string style = "";
+
+        if (x.IsHasDiscount && x.Balance > 0)
+            style += "color:red";
+        else if  (x.DiscountAboveLimit())
+            style += "color:red";
+        else if  (x.HasReturns)
+            style += "color:red";
+        else
+            style += "";
+        return style;
+    };
+
+    private async Task PrintSlip(string receipt)
+    {
+        bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
+        if (connected)
+            await OrderService.PrintBill(receipt!);
+    }
+
+    async Task ReloadServerData()
+    {
+        await _gridComponent!.ReloadServerData();
+        StateHasChanged();
+    }
+
+    void OnExpand(Guid id)
+    {
+        nav.NavigateTo($"order/{id}");
+    }
+
+    async void OnSearch(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            AppState._searchString = string.Empty;
+        else
+            AppState._searchString = text;
+
+        await _gridComponent!.ReloadServerData();
+    }
+
+    async Task Print(Guid id)
+    {
+        AppState.IsProcessing = true;
+        // var report = await OrderService.GetReportData(id);
+        // await OrderService.GetReceipt(report);
+        await Task.Delay(100);
+        AppState.IsProcessing = false;
+    }
+
+    async Task Complete(Guid id)
+    {
+        AppState.IsProcessing = true;      
+        var uid = await localStorage.GetItemAsync<Guid>("uid");
+        var result = await OrderService.CompleteOrder(id, uid);
+        if (result)
+        {
+            if (hub!.State != HubConnectionState.Disconnected)
+            {
+                await hub!.SendAsync("RefreshOrderTimer");
+                await hub!.SendAsync("UpdateOrder");                    
+            }
+        }
+        AppState.IsProcessing = false;
+    }
+    
+    public async ValueTask DisposeAsync()
+    {
+        await hub!.StopAsync();
+        await hub!.DisposeAsync();
+    }
+}

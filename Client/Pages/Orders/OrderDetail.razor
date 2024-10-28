@@ -1,0 +1,298 @@
+﻿@layout AppLayout
+@page "/order/{id:guid}"
+@using Shared.Enums
+@inject IOrderService OrderService
+@implements IAsyncDisposable
+@attribute [Authorize(Roles = "Admin, Master, Manager, Cashier")]
+
+@if (AppState.IsBusy)
+{
+    <DataGridSkeleton />
+}
+else
+{
+    <MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexStart" Class="pa-2">
+             <MudTooltip Text="Back" Duration="2000" Placement="Placement.Top">
+                 <MudFab Label="Back" DisableElevation="true" StartIcon="@Icons.Material.Filled.ArrowBack"
+                         OnClick="@(() => Navigate())" Color="Color.Dark" Size="Size.Small" />
+             </MudTooltip>
+             <MudText Typo="Typo.h5">Manage Order</MudText>
+        </MudStack>
+    </MudHidden>
+
+    <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudStack AlignItems="AlignItems.Start" Justify="Justify.FlexStart" Class="pa-3">
+             <MudTooltip Text="Back" Duration="2000" Placement="Placement.Top">
+                 <MudFab Label="Back" DisableElevation="true" StartIcon="@Icons.Material.Filled.ArrowBack"
+                         OnClick="@(() => Navigate())" Color="Color.Dark" Size="Size.Small" />
+             </MudTooltip>
+             <MudText Typo="Typo.h5">Manage Order</MudText>
+         </MudStack>
+    </MudHidden>    
+    <MudGrid Spacing="1">
+        <MudItem xs="12" sm="6">
+            <MudTextField Label="Receipt #" Variant="Variant.Outlined" ReadOnly Value="Data!.ReceiptNo" />
+            </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField Label="Date" Format="dd/MM/yyyy" Variant="Variant.Outlined"ReadOnly @bind-Value="Data!.OrderDate" />
+        </MudItem>
+        @if (Data!.Customer! is not null)
+        {
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Customer Name" Variant="Variant.Outlined"ReadOnly @bind-Value="Data!.Customer!.CustomerName" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Phone No" Variant="Variant.Outlined"ReadOnly @bind-Value="Data!.Customer!.PhoneNo" />
+                </MudItem>                     
+        }        
+        <MudItem xs="12" sm="6">
+            <MudTextField Label="Total Amount" Format="N2" Variant="Variant.Outlined"ReadOnly Value="Data!.TotalAmount" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField Label="Sub Total" Format="N2" Variant="Variant.Outlined"ReadOnly Value="Data!.SubTotal" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField Label="Discount" Format="N2" Variant="Variant.Outlined" ReadOnly="false" @bind-Value="Data!.Discount" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+             <MudTextField Label="Last Amount Paid" Format="N2" ReadOnly Variant="Variant.Outlined" @bind-Value="Data!.Payments.OrderByDescending(x => x.PaymentDate).First().Amount" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField Label="Balance" Format="N2" Variant="Variant.Outlined"ReadOnly Value="Data!.Balance" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField Label="Last Payment Mode" Variant="Variant.Outlined"ReadOnly @bind-Value="Data!.Payments.OrderByDescending(x => x.PaymentDate).First().PaymentMode" />
+        </MudItem>        
+        <MudItem xs="12" sm="6">
+            <MudTextField Label="Sales Person" Variant="Variant.Outlined" ReadOnly Value="Data!.User!.ToString()" />
+        </MudItem>        
+        <MudItem xs="12" sm="6">            
+        </MudItem>        
+        <AuthorizeView Roles="Admin, Master">
+            <Authorized>
+                @if (Data.Status == OrderStatus.Canceled && Data.Balance == 0)
+                {
+                    <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
+                        Label="@(AppState.IsBusy ? "Processing" : "Complete Order")" Style="width:190px;"
+                        OnClick="() => CompleteOrder()" Color="Color.Primary"
+                        StartIcon="@Icons.Material.Filled.Verified"
+                        DisableElevation="true" />
+                }                
+            </Authorized>
+        </AuthorizeView>
+          <MudItem xs="12">
+            <LineItems Data="Data!.ProductOrders.ToList()" CId="Data!.Customer!.Id" CType="Data!.Customer!.Regular" Returns="Data!.ReturnedProducts.ToArray()" OrderStatus="Data!.Status" PaymentStatus="@(Data!.Balance > 0 && Data!.Status != OrderStatus.Canceled ? false : true)" />
+        </MudItem>        
+        <MudItem xs="12" sm="6">
+            <PaymentDetails Items="Data!.Payments.ToList()" PaymentCompleted="@(Data!.Balance > 0 && Data!.Status != OrderStatus.Canceled ? false : true)" AmountDue="Data!.Balance"/>
+        </MudItem>
+         <MudItem xs="12" sm="6">
+            <ReturnedLineItems Deduction="Deduction" Data="Data!.ReturnedProducts.ToArray()"/>
+        </MudItem>       
+    </MudGrid>
+}
+
+
+@code {
+    [Parameter]
+    public Guid id { get; set; }
+
+    [Parameter]
+    public Order? Data { get; set; }
+    public decimal Deduction { get; set; } = 0;
+    private HubConnection? hub;
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        AppState!.OnUpdateLayout += ComponentUpdateOccured!;
+        AppState!.OnCheckOut += HandleCheckOut!;
+        AppState.OnPayment += PaymentUpdate!;
+        hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect().Build();
+        await hub.StartAsync();
+        hub!.On("UpdateOrder", async () =>
+        {
+            await GetData();
+            StateHasChanged();
+        });
+        await GetData();
+        AppState.IsBusy = false;
+    }
+
+    private async Task CompleteOrder()
+    {
+        var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to update order", yesText: "Yes", cancelText: "No");
+        if (prompt is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        bool result = false;
+        try
+        {            
+            result = await OrderService.CompleteOrder(Data);
+            if (result)
+            {
+                SnackBar.Add("Order Successfully Updated", Severity.Success);                
+                await hub!.SendAsync("RefreshOrderTimer");
+                await hub!.SendAsync("UpdateOrder");                    
+            }
+            else
+            {
+                SnackBar.Add("Operation failed", Severity.Warning);
+            }
+        }
+        catch (Exception)
+        {
+            if (!result)
+                SnackBar.Add("Operation failed", Severity.Warning);
+        }        
+    }    
+
+    async Task GetData()
+    {
+        if (AppState.Pharmacy is not null)
+            Data = AppState.Pharmacy;
+        else
+            Data = await OrderService.GetOrder(id);
+
+        Deduction += Data!.Discount;        
+    }   
+
+    private void ComponentUpdateOccured(object sender, EventArgs e)
+    {
+        InvokeAsync(() => hub!.SendAsync("UpdateOrder"));
+    }
+
+    private void HandleCheckOut(object sender, EventArgs e)
+    {
+        InvokeAsync(() => CheckOut());
+    }
+
+    void Navigate()
+    {
+        if (string.IsNullOrEmpty(AppState.Route))
+            nav.NavigateTo("orders");
+        else
+            nav.NavigateTo(AppState.Route);
+    }
+
+    private async void PaymentUpdate(object sender, Payment payment)
+    {
+        payment.OrderId = id;
+        if (Data!.Payments.Any(x => x.Id == payment.Id))
+        {
+            var exist = Data.Payments.SingleOrDefault(x => x.Id == payment.Id);
+            exist!.PaymentMode = payment.PaymentMode;
+            exist.Amount = payment.Amount;
+            exist.CreatedDate = AppState.CurrentDateTime; 
+        }
+        else
+        {
+            payment.Id = Guid.NewGuid();
+            Data.Payments.Add(payment);
+        }
+        if (Data!.Balance == 0)
+        {
+            var items = Data!.ProductOrders.ToList();
+            items.ForEach(item => item.Status = OrderStatus.Completed);            
+            await InvokeAsync(() => OrderService.UpdateOrderItems(items));
+        }        
+        await InvokeAsync(() => OrderService.PutPayment(payment));
+        AppState!.ReportDataModel = new ReportData 
+        { 
+            ReportType = "Store",
+            Branch = Data.Store,
+            Customer = Data!.Customer,
+            Order = Data!
+        };                       
+        AppState.UpdateLayout();
+        if (Data!.Balance == 0)
+        {
+            bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
+            if (connected)
+                await InvokeAsync(() => OrderService.PrintReceipt("Store", AppState!.ReportDataModel));
+        }        
+    }
+
+    private async Task Save()
+    {
+        var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to update order", yesText: "Yes", cancelText: "No");
+        if (prompt is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        try
+        {
+
+            bool result = await OrderService.UpdateOrder(Data);
+            if (result)
+            {
+                SnackBar.Add("Order Successfully Updated", Severity.Success);                
+            }
+            else
+            {
+                SnackBar.Add("Operation failed", Severity.Warning);
+            }
+        }
+        catch (Exception)
+        {
+            SnackBar.Add("Operation failed", Severity.Warning);
+        }
+    }
+
+    public async Task CheckOut()
+    {
+        AppState.IsBusy = true;
+        bool? result = await Dialog.ShowMessageBox("Confirmation", "Do you wish to chect out products?",
+         yesText: "Yes", cancelText: "No");
+        if (result is null)
+        {
+            AppState.IsBusy = false;
+            return;
+        }
+        try
+        {
+            var id = await localStorage.GetItemAsync<Guid>("uid");
+            Data!.User = null;
+            Data!.Status = OrderStatus.Completed;     
+            Data!.ModifiedDate = AppState.CurrentDateTime;
+            foreach (var item in Data!.ProductOrders)
+                item.Status = OrderStatus.Completed;
+
+            foreach (var item in Data!.Payments)
+                item.Cashier = null;
+            var response = await OrderService.UpdateOrder(Data);
+            if (response)
+            {
+                SnackBar.Add("Products Successfully Checked out", Severity.Success);
+                AppState.UpdateLayout();
+                if (hub!.State != HubConnectionState.Disconnected)
+                {
+                    await hub!.SendAsync("RefreshOrderTimer");
+                    await hub!.SendAsync("UpdateOrder");                    
+                }
+            }
+            else
+            {
+                SnackBar.Add("Failed to check out products", Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            
+            throw;
+        }
+        AppState.IsBusy = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        AppState!.OnUpdateLayout -= ComponentUpdateOccured!;
+        AppState!.OnCheckOut -= HandleCheckOut!;
+        AppState.OnPayment -= PaymentUpdate!;
+        await hub!.DisposeAsync();
+    }
+
+}

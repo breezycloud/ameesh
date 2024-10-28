@@ -1,0 +1,253 @@
+﻿@layout AppLayout
+@inject IUserService Service
+@inject IStoreService StoreService
+@implements IAsyncDisposable
+@page "/users"
+@attribute [Authorize (Roles = "Admin, Master, PharmacyManager")]
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
+			<MudText Typo="Typo.h5">Manage Users</MudText>
+			<MudTooltip Text="New User" Duration="2000" Placement="Placement.Top">
+				<MudFab Label="New User" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+						OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+			</MudTooltip>
+		</MudStack>
+	</MudHidden>
+
+	<MudHidden Breakpoint="Breakpoint.MdAndUp">
+		<MudStack AlignItems="AlignItems.Start" Class="pt-4" Spacing="1">			
+			<MudText Typo="Typo.h5">Manage Users</MudText>
+			<MudTooltip Text="New User" Duration="2000" Placement="Placement.Top">
+				<MudFab Label="New User" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+						OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+			</MudTooltip>
+		</MudStack>
+	</MudHidden>
+@if (AppState.IsBusy)
+{
+	<DataGridSkeleton/>
+}
+else
+{
+	<div class="pt-2" style="width:250px">
+		<MudSelect T="Guid" Dense="true" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" Strict="true" Label="Search By Store" Value="@StoreID" ValueChanged="StoreChanged" Variant="Variant.Outlined">
+			@foreach (var branch in stores!)
+			{
+				<MudSelectItem Value="@branch.Id">@branch.BranchName</MudSelectItem>
+			}
+		</MudSelect>
+	</div>
+	<MudDataGrid T="User"
+				 Items="Users"
+				 RowClick="@HandleSelectedDataItemChanged"
+				 @bind-SelectedDataItem="user"
+			     Outlined
+				 Dense>
+		<Columns>			
+			<PropertyColumn Title="Name" Property="x => x.ToString()" />
+			<PropertyColumn Title="Role" Property="x => x.Role.ToString()" />
+			<TemplateColumn Title="Status">
+				<CellTemplate>
+					@if (context.Item.UserCredential is not null)
+					{
+						@if (context.Item.UserCredential.IsActive)
+						{
+							<MudChip Size="Size.Small" Color="Color.Tertiary">Active</MudChip>
+						}
+						else
+						{
+							<MudChip Size="Size.Small" Color="Color.Error">Not Active</MudChip>
+						}
+					}					
+					else
+					{
+						<MudChip Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Color="Color.Error">Not Authorized</MudChip>
+					}
+				</CellTemplate>
+			</TemplateColumn>
+			<PropertyColumn Title="Date Created" Property="x => x.CreatedDate.ToString()" />			
+			<TemplateColumn>
+				<CellTemplate>
+					<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
+					@if (context.Item.UserCredential is not null && context.Item.Role != Shared.Enums.UserRole.Admin)
+					{
+						<MudButton StartIcon="@Icons.Material.Filled.NoAccounts" Color="Color.Secondary" OnClick="() => RevokeAccount(context.Item.UserCredential)" Size="Size.Small">Revoke Access</MudButton>					
+					}				
+					<MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+				</CellTemplate>
+			</TemplateColumn>
+		</Columns>
+		<NoRecordsContent>
+			<MudText Typo="Typo.h6">Empty record</MudText>
+		</NoRecordsContent>
+		<PagerContent>
+			<MudDataGridPager T="User" />
+		</PagerContent>
+	</MudDataGrid>
+
+}
+
+
+
+@code {
+	private User? user = new();
+	private MudDataGrid<User>? _gridComponent;
+	private User[]? Users = [];
+
+	private Guid StoreID;
+	private Store? Store; private Store[]? stores = [];
+	private HubConnection? hub;
+	protected override async Task OnInitializedAsync()
+	{		
+		AppState.IsBusy = true;
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs"), option =>
+		{
+			option.AccessTokenProvider = () => Task.FromResult(AppState.Token)!;
+		}).WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		await hub.StartAsync();
+		stores = await StoreService.GetStores();
+		Store = stores!.FirstOrDefault();
+		StoreID = Store!.Id;
+		hub.On("UpdateUsers", async () =>
+		{
+			await GetUsers();
+			StateHasChanged();
+		});		
+		await GetUsers();
+		AppState.IsBusy = false;
+	}
+	async Task GetUsers()
+	{		
+		Users = await Service.GetUsers(StoreID);								
+	}
+	async void StoreChanged(Guid id)
+	{
+		Store = stores!.FirstOrDefault(x => x.Id == id);
+		StoreID = Store!.Id;
+		await GetUsers();
+		StateHasChanged();
+	}
+
+
+
+	async Task HandleSelectedDataItemChanged(DataGridRowClickEventArgs<User> user)
+	{
+		await OnEdit(user.Item);
+	}
+
+	private async Task OnNew()
+	{
+		var parameters = new DialogParameters
+			{
+				["Data"] = new User(),
+				["stores"] = stores,
+				["IsEdit"] = false
+			};
+		await Dialog.ShowAsync<UserEntry>("", parameters);
+	}	
+
+	private async Task OnEdit(User User)
+	{
+		var parameters = new DialogParameters
+			{
+				["Data"] = User,
+				["stores"] = stores,
+				["IsEdit"] = true,
+			};
+		await Dialog.ShowAsync<UserEntry>("", parameters);
+	}
+
+	private async Task RevokeAccount(UserCredential credential)
+	{
+		AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to revoke user account", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+		bool response = false;
+		try
+		{
+			response = await Service.DeleteUser(credential.Id);
+			if (response)
+			{
+				SnackBar.Add("User Account Successfully Deleted", Severity.Success);
+				await hub!.SendAsync("UpdateUsers");
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);			
+			if (!response)
+				SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}		
+	}
+
+	private async Task OnDelete(Guid id)
+	{
+		AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to delete", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+		bool response = false;
+		try
+		{
+			response = await Service.DeleteUser(id);
+			if (response)
+			{
+				SnackBar.Add("User Successfully Deleted", Severity.Success);
+				await hub!.SendAsync("UpdateUsers");
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);			
+			if (!response)
+				SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+	}
+
+
+	private async Task Save()
+	{
+		// AppState.IsProcessing = true
+		var response = await Dialog.ShowMessageBox("Confirm", "Do you want to save...?");
+		if (response is null)
+		{
+			return;
+		}
+		Console.Write("Confirmation working");
+
+		SnackBar.Add("Saved");
+	}
+
+	private async void UpdateComponent(object sender, EventArgs e)
+	{
+		await InvokeAsync(GetUsers);
+		StateHasChanged();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		//AppState.OnUpdateLayout -= UpdateComponent!;
+		await hub!.DisposeAsync();
+	}
+
+}

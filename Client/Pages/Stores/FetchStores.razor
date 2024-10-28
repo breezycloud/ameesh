@@ -1,0 +1,193 @@
+﻿@layout AppLayout
+@inject IStoreService Service
+@implements IAsyncDisposable
+@page "/stores"
+@attribute [Authorize]
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
+			<MudText Typo="Typo.h5">Manage Stores</MudText>
+			<MudTooltip Text="New Store" Duration="2000" Placement="Placement.Top">
+				<MudFab Label="New Store" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+						OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+			</MudTooltip>
+		</MudStack>
+	</MudHidden>
+
+	<MudHidden Breakpoint="Breakpoint.MdAndUp">
+		<MudStack AlignItems="AlignItems.Start" Class="pt-4" Spacing="1">
+			<MudTooltip Text="New Store" Duration="2000" Placement="Placement.Top">
+				<MudFab Label="New Store" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+						OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+			</MudTooltip>
+			<MudText Typo="Typo.h5">Manage Stores</MudText>
+		</MudStack>
+	</MudHidden>
+
+@if (AppState.IsBusy)
+{
+	<DataGridSkeleton/>
+}
+else
+{
+	<MudDataGrid @ref="_gridComponent"
+				 T="Store"
+				 ServerData="GetGridData"
+				 RowClick="@HandleSelectedDataItemChanged"
+				 @bind-SelectedDataItem="category"
+			 Outlined>
+		<Columns>
+			<PropertyColumn Title="Name" Property="x => x.BranchName" />
+			<PropertyColumn Title="Address" Property="x => x.BranchAddress" />
+			<PropertyColumn Title="Contact No" Property="x => x.PhoneNo1" />
+			<PropertyColumn Title="Date Created" Property="x => x.CreatedDate.ToString()" />
+			<TemplateColumn>
+				<CellTemplate>
+					<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
+					<MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+				</CellTemplate>
+			</TemplateColumn>
+		</Columns>
+		<NoRecordsContent>
+			<MudText Typo="Typo.h6">Empty record</MudText>
+		</NoRecordsContent>
+		<PagerContent>
+			<MudDataGridPager T="Store" />
+		</PagerContent>
+	</MudDataGrid>
+}
+
+
+
+@code {
+	private MudDataGrid<Store>? _gridComponent;
+	private Store? category =new();
+
+	private HubConnection? hub;
+	protected override async Task OnInitializedAsync()
+	{
+		AppState.IsBusy = true;
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs"), option =>
+		{
+			option.AccessTokenProvider = () => Task.FromResult(AppState.Token)!;
+		}).WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		await hub.StartAsync();
+		hub.On("UpdateStores", async () =>
+		{
+			await _gridComponent!.ReloadServerData();
+		});
+	}
+
+	protected override void OnAfterRender(bool firstRender)
+	{
+		if (firstRender)
+		{
+			AppState.IsBusy = false;
+		}
+	}
+
+	private async Task<GridData<Store>> GetGridData(GridState<Store> request)
+	{
+		try
+		{
+			var parameter = new PaginationParameter { Page = request.Page, PageSize = request.PageSize };
+			var response = await Service.GetPagedStores(parameter);
+			return new GridData<Store>()
+				{
+					Items = response!.Data!,
+					TotalItems = response.TotalCount
+				};
+		}
+		catch (Exception)
+		{
+			return new GridData<Store>();
+		}
+		finally
+		{
+			AppState.IsBusy = false;
+			StateHasChanged();
+		}
+	}
+
+	async Task HandleSelectedDataItemChanged(DataGridRowClickEventArgs<Store> category)
+	{
+		await OnEdit(category.Item);
+	}
+
+	private async Task OnNew()
+	{
+		var parameters = new DialogParameters
+			{
+				["Data"] = new Store(),
+				["IsEdit"] = false
+			};
+		await Dialog.ShowAsync<StoreEntry>("", parameters);
+	}	
+
+	private async Task OnEdit(Store Store)
+	{
+		var parameters = new DialogParameters
+			{
+				["Data"] = Store,
+				["IsEdit"] = true,
+			};
+		await Dialog.ShowAsync<StoreEntry>("", parameters);
+	}
+
+	private async Task OnDelete(Guid id)
+	{
+		AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to delete", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await Service.DeleteStore(id);
+			SnackBar.Add("Store Successfully Deleted", Severity.Success);
+			AppState.UpdateLayout();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+	}
+
+
+	private async Task Save()
+	{
+		// AppState.IsProcessing = true
+		var response = await Dialog.ShowMessageBox("Confirm", "Do you want to save...?");
+		if (response is null)
+		{
+			return;
+		}
+		Console.Write("Confirmation working");
+
+		SnackBar.Add("Saved");
+	}
+
+	private async void UpdateComponent(object sender, EventArgs e)
+	{
+		await _gridComponent!.ReloadServerData();
+		StateHasChanged();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		//AppState.OnUpdateLayout -= UpdateComponent!;
+		await hub!.DisposeAsync();
+	}
+
+}

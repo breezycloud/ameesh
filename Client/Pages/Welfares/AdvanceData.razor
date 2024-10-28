@@ -1,0 +1,152 @@
+@using Client.Services.Welfare
+@using Shared.Models.Welfare
+@attribute [Authorize]
+@inject ISalaryAdvanceService SalaryService
+@implements IAsyncDisposable
+
+<MudDataGrid @ref="_gridComponent"
+             T="WelfareData"
+             ServerData="GetGridData"
+             RowClick="@HandleSelectedDataItemChanged"
+             @bind-SelectedDataItem="data"
+              Dense
+              Outlined>
+    <ToolBarContent>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString" Placeholder="Search" Immediate="true"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>        
+        <PropertyColumn Property="x => x.Month" />
+        <PropertyColumn Property="x => x.Year" />                
+        <PropertyColumn Property="x => x.StaffName" Title="Staff Name" />                
+        <PropertyColumn Property="x => x.Amount" Format="N2" />        
+        <PropertyColumn Property="x => x.CreatedDate" Title="Created Date" />
+        <TemplateColumn>
+            <CellTemplate>
+                <MudButton Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="() => OnEdit(context.Item)" Size="Size.Small">
+                           Edit                        
+                </MudButton>
+                <MudButton Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
+                           OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">
+                           Delete                           
+                </MudButton>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.h6">No records found</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="WelfareData" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    private MudDataGrid<WelfareData>? _gridComponent;
+    private WelfareData? data;
+    private string searchString = "";
+    [Parameter]
+    public EventHandler? OnUpdate { get; set; }
+
+
+    private HubConnection? hub;
+    protected override async Task OnInitializedAsync()
+    {
+        var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+        builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+        hub = builder.Build();
+        await hub.StartAsync();
+        hub.On("RefreshWelfare", async () =>
+        {
+            await _gridComponent!.ReloadServerData();
+        });        
+    }
+
+
+    private async Task<GridData<WelfareData>> GetGridData(GridState<WelfareData> request)
+    {
+        var parameter = new PaginationParameter { FilterId = AppState.StoreID, Page = request.Page * request.PageSize, PageSize = request.PageSize };
+        var response = await SalaryService.GetPagedData(parameter);
+        return new GridData<WelfareData>()
+        {
+            Items = response!.Data!,
+            TotalItems = response.TotalCount
+        };
+    }
+
+    void HandleSelectedDataItemChanged(DataGridRowClickEventArgs<WelfareData> item)
+    {
+        OnExpand(item.Item.Id);
+    }
+
+    async Task ReloadServerData()
+    {
+        await _gridComponent!.ReloadServerData();
+        StateHasChanged();
+    }
+
+    void OnExpand(Guid id)
+    {
+        nav.NavigateTo($"salarydetails/{id}");
+    }
+
+    async Task OnEdit(WelfareData data)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Type"] = AppState.WelfareType,
+            ["Data"] = data,
+            ["IsEdit"] = true
+        };
+        await Dialog.ShowAsync<WelfareEntry>("", parameters);
+    }
+
+    private async Task OnDelete(Guid id)
+	{
+		AppState.IsProcessing = true;		
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to delete", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+		bool response = false;
+		try
+		{
+			response = await SalaryService.DeleteAsync(id);
+			if (response)
+			{
+				SnackBar.Add("Record Successfully Deleted", Severity.Success);
+				await hub!.SendAsync("RefreshWelfare");
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);			
+			if (!response)
+				SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+	}
+
+    async Task Print(Guid id)
+    {
+        AppState.IsProcessing = true;
+        // var report = await OrderService.GetReportData(id);
+        // await OrderService.GetReceipt(report);
+        await Task.Delay(100);
+        AppState.IsProcessing = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await hub!.StopAsync();
+        await hub!.DisposeAsync();
+    }
+
+}

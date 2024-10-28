@@ -1,0 +1,29 @@
+﻿@layout AppLayout
+@page "/manageorder/{id:guid}/{option}"
+@inject IOrderService OrderService
+
+@if (AppState.IsBusy)
+{
+    <DataGridSkeleton/>
+}
+else
+{
+    <OrderDetail Data="@Order"/>
+}
+
+
+@code {
+    [Parameter]
+    public Guid id { get; set; }
+    [Parameter]
+    public string? option { get; set; }
+
+    Order? Order { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Order = await OrderService.GetOrder(id);
+    }
+
+
+}

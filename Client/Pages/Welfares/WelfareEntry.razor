@@ -1,0 +1,186 @@
+@using Client.Handlers
+@using Client.Services.Welfare
+@using Shared.Enums
+@using Shared.Models.Welfare
+@attribute [Authorize]
+
+@inject IUserService UserService
+@inject ISalaryBonusService BonusService
+@inject ISalaryService SalaryService
+@inject ISalaryAdvanceService AdvanceService
+@inject IPenaltyService PenaltyService
+
+@implements IAsyncDisposable
+
+<EditForm Model="@Data" OnValidSubmit="Save">
+	<DataAnnotationsValidator/>
+	<MudDialog>
+		<TitleContent>
+			<MudText Typo="Typo.h6">@(IsEdit ? "Update" : "Add") @(Type)</MudText>
+		</TitleContent>
+		<DialogContent>
+            <MudGrid Spacing="1">
+                <MudItem xs="12" sm="6">
+                    <MudTextField id="figure-center" @bind-Value="Data!.Month" Disabled Label="Month" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField id="figure-center" @bind-Value="Data!.Year" Disabled Label="Year" Variant="Variant.Outlined" Margin="Margin.Dense" />                                        
+                </MudItem>
+                <MudItem xs="12">
+                    @if (!IsEdit)
+                    {
+                        <MudAutocomplete T="StaffDto" AnchorOrigin="Origin.BottomCenter" Value="Staff" Label="Staff" ShowProgressIndicator="true"
+                                     SearchFunc="@SearchStaff" Dense="true" Variant="Variant.Outlined" ValueChanged="StaffChanged" ProgressIndicatorColor="Color.Primary"
+                                     ToStringFunc="@(e => e==null ? null : $"{e.ToString()}")" Margin="Margin.Dense" />
+                    }                    
+                    else    
+                    {
+                        <MudTextField @bind-Value="Staff" Disabled Label="Staff" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    }
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Value="Staff!.Role" Disabled Label="Position" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField id="figure-right" Format="N2" @bind-Value="Data!.Amount" Label="Amount" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                @if (Type != WelfareType.Salary)
+                {
+                    <MudItem xs="12">
+                        <MudTextField Lines="3" @bind-Value="Data!.Comment" Label="Comment" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                }                
+            </MudGrid>
+		</DialogContent>
+		<DialogActions>
+			<MudButton OnClick="Close">Close</MudButton>
+			<MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+					   Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+		</DialogActions>
+	</MudDialog>	
+</EditForm>
+
+@code {
+	[CascadingParameter]
+	public MudDialogInstance? DialogInstance { get; set; }	
+	[Parameter]
+	public WelfareData Data { get; set; } = new();
+    private StaffDto Staff = new();
+    private StaffDto[]? Staffs = [];
+	[Parameter]
+	public bool IsEdit { get; set; } = false;
+    [Parameter] 
+    public WelfareType Type { get; set; }
+	private HubConnection? hub;
+	protected override async Task OnInitializedAsync()
+	{
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		var internetfound = await js.InvokeAsync<bool>("checkinternet");
+		if (internetfound)
+			await hub.StartAsync();
+	}
+
+	void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+    private async Task<IEnumerable<StaffDto>?> SearchStaff(string value)
+    {
+        try
+        {
+            if (Staffs!.Length == 0)
+            {
+                if (Type == WelfareType.Salary)
+                    Staffs = await SalaryService.GetStaffNotPaid();
+                else
+                    Staffs = await UserService.GetStaffOnly();
+            }                
+            if (string.IsNullOrEmpty(value))
+                return Staffs!;
+
+            return Staffs!.Where(x => x.ToString()!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+        return [];
+    }
+
+    void StaffChanged(StaffDto user)
+    {
+        Data.UserId = user.Id;     
+        Staff = user;
+        StateHasChanged();
+    }
+
+	private async Task Save()
+	{
+		AppState.IsProcessing = true;
+        if (Data.UserId == Guid.Empty || Data.UserId is null)
+        {
+            await Dialog.ShowMessageBox("Error", "Kindly select staff to proceed");
+            AppState.IsProcessing = false;                
+            return;
+        }
+        if (Data.Amount <= 0)
+        {
+            await Dialog.ShowMessageBox("Error", "Kindly enter amount to proceed");
+            AppState.IsProcessing = false;                
+            return;
+        }
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to save", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+        bool response = false;
+		try
+		{                        			 
+			if (!IsEdit)
+            {
+                Data.CreatedDate = DateTime.Now;
+                if (Type == WelfareType.Salary)
+                    response = await SalaryService.AddAsync(new Salary(Data));
+                else if (Type == WelfareType.Bonus)
+                    response = await BonusService.AddAsync(new SalaryBonus(Data));
+                else if (Type == WelfareType.Advance)
+                    response = await AdvanceService.AddAsync(new SalaryAdvance(Data));
+                else 
+                    response = await PenaltyService.AddAsync(new Penalty(Data));
+                
+            }				
+			else
+            {
+                Data.ModifiedDate = DateTime.Now;
+                if (Type == WelfareType.Salary)
+                    response = await SalaryService.EditAsync(new Salary(Data));
+                else if (Type == WelfareType.Bonus)
+                    response = await BonusService.EditAsync(new SalaryBonus(Data));
+                else if (Type == WelfareType.Advance)
+                    response = await AdvanceService.EditAsync(new SalaryAdvance(Data));
+                else 
+                    response = await PenaltyService.EditAsync(new Penalty(Data));
+            }				
+			SnackBar.Add($"{Type.ToString()} Successfully Updated", Severity.Success);
+			//AppState.UpdateLayout();
+			await hub!.SendAsync("RefreshWelfare");
+            Close();
+		}
+		catch (Exception)
+		{
+            if (!response)			
+            {
+                SnackBar.Add("Failed to save", Severity.Error);
+            }
+			throw;
+		}
+		AppState.IsProcessing = false;
+	}	
+	
+	public async ValueTask DisposeAsync()
+	{		
+		await hub!.DisposeAsync();
+	}
+}

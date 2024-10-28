@@ -1,0 +1,35 @@
+@using Shared.Enums
+
+@if (IsLoading)
+{
+    <DataGridSkeleton />
+}
+else
+{
+    <MudDataGrid T="RecentOrder" Items="@Data" Dense Outlined>
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Recent Orders</MudText>
+            <MudSpacer/>
+            <MudButton Color="Color.Info" OnClick="PharmSales" Size="Size.Small">See all</MudButton>
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.ReceiptNo" Title="#"/>
+            <PropertyColumn Property="x => x.Date" Title="Date" Format="dd/MM/yyyy"/>
+            <PropertyColumn Property="x => x.Total" Title="Total" Format="N2"/>
+            <PropertyColumn Property="x => x.Discount" Title="Discount" Format="N2"/>
+            <PropertyColumn Property="x => x.SubTotal" Title="Sub Total" Format="N2"/>            
+        </Columns>
+    </MudDataGrid>
+}
+
+@code {
+    [Parameter, EditorRequired] public bool IsLoading { get; set; } = false;
+    [Parameter] public RecentOrder[]? Data { get; set; } = [];  
+
+
+    private void PharmSales()
+    {
+        AppState.SelectedOption = "Store";
+        nav.NavigateTo("orders");        
+    } 
+}

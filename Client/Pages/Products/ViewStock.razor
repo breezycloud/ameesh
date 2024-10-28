@@ -1,0 +1,275 @@
+﻿@layout AppLayout
+@page "/viewstock/{id:guid}"
+@using Client.Handlers
+@attribute [Authorize]
+@inject IProductService ItemService
+@inject IStoreService StoreService
+@implements IAsyncDisposable
+
+@if (AppState.IsBusy)
+{
+    <DataGridSkeleton />
+}
+else
+{
+    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexStart" Class="pa-2">
+         <MudTooltip Text="Back" Duration="2000" Placement="Placement.Top">
+             <MudFab Label="Back" DisableElevation="true" StartIcon="@Icons.Material.Filled.ArrowBack"
+                     OnClick="@(() => nav.NavigateTo("products"))" Color="Color.Dark" Size="Size.Small" />
+         </MudTooltip>
+         <MudText Typo="Typo.h5">Product Details</MudText>
+     </MudStack>
+     <EditForm Model="Product" OnValidSubmit="Update">
+         <DataAnnotationsValidator/>
+             <MudGrid Spacing="1">
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="Product!.Store!.BranchName" ReadOnly Label="Store" Variant="Variant.Outlined"></MudTextField>
+         </MudItem>
+         <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="Product!.Item!.Category!.CategoryName" ReadOnly Label="Category" Variant="Variant.Outlined"></MudTextField>
+         </MudItem>
+         <MudItem xs="12" sm="6">
+             <MudTextField @bind-Value="Product!.Item!.ProductName" ReadOnly Label="Item Name" Variant="Variant.Outlined"></MudTextField>
+         </MudItem>
+         <MudItem xs="12" sm="6">
+             <MudTextField @bind-Value="Product!.Item!.Barcode" ReadOnly Label="Barcode" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.QrCodeScanner"></MudTextField>
+         </MudItem>
+         <MudItem xs="12">
+             <MudTextField Lines="3" @bind-Value="Product!.Item!.Description" ReadOnly Label="Description" Variant="Variant.Outlined"></MudTextField>
+         </MudItem>         
+         <MudItem xs="12" sm="6">
+             <MudTextField id="figure-right" @bind-Value="Product!.SellPrice" Format="N2" Label="Unit Price" Variant="Variant.Outlined" For="() => Product!.SellPrice"></MudTextField>
+         </MudItem>
+         <MudItem xs="12" sm="6">
+             <MudTextField Value="Product!.StockOnHand" ReadOnly Format="N0" Label="Current Qty" Variant="Variant.Outlined"></MudTextField>
+         </MudItem>
+         <MudItem xs="12" sm="6">
+             <MudTextField Value="Product!.StoreQuantity" ReadOnly Format="N0" Label="Store Qty" Variant="Variant.Outlined"></MudTextField>
+         </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField Value="Product!.QuantitySold" ReadOnly Format="N0" Label="Qty Sold" Variant="Variant.Outlined"></MudTextField>
+        </MudItem>
+        <MudItem xs="12" Class="d-flex flex-row align-center justify-end">
+            <MudFab Disabled="AppState.IsProcessing" Size="Size.Small" Label="@(AppState.IsProcessing ? "Processing" : "Update")" OnClick="() => Update()" Style="width:150px" Color="Color.Primary"/>
+        </MudItem>
+         <MudItem xs="12">
+             <MudDataGrid T="Stock" Items="Product!.Stocks.OrderByDescending(x => x.Date)" Outlined="true" Context="ctx" Dense="true">
+                 <ToolBarContent>
+                     <MudText Typo="Typo.h6">Stocks</MudText>
+                     <MudSpacer />
+                     @* <MudTooltip Text="Restock" Duration="2000" Placement="Placement.Top">
+                         <MudFab Label="Restock" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+                                 OnClick="@(() => AddStock())" Color="Color.Primary" Size="Size.Small" />
+                     </MudTooltip> *@
+                 </ToolBarContent>
+                 <Columns>
+                     <PropertyColumn Property="x=>x.Date" Title="Date" Format="dd/MM/yyyy" />
+                    <PropertyColumn Property="x=>x.Quantity" Title="Qty" Format="N0" />
+                    <PropertyColumn Property="x=>x.BuyPrice" Title="Buy Price" Format="N2" />
+                    <PropertyColumn Property="x=>x.ExpiryDate" Format="dd/MM/yyyy" Title="Expiry Date" />
+                     <TemplateColumn Context="stx">
+                         <CellTemplate>
+                             @* <MudFab Size="Size.Small" Icon="@Icons.Material.Filled.Edit" OnClick="@(() => EditStock(StockContext))" /> *@
+                             <MudIconButton Disabled="@AppState.IsProcessing" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete"
+                                     OnClick="@(() => DeleteStock(stx.Item))" />
+                         </CellTemplate>
+                     </TemplateColumn>
+                 </Columns>
+                 <PagerContent>
+                     <MudDataGridPager T="Stock" />
+                 </PagerContent>
+             </MudDataGrid>
+         </MudItem>
+         <MudItem xs="12">
+             <MudDataGrid T="ReturnedProduct" Items="Product!.ReturnedProducts.OrderByDescending(x => x.Date)" Outlined="true" Context="ctx" Dense="true">
+                 <ToolBarContent>
+                     <MudText Typo="Typo.h6">Returned Products</MudText>
+                     <MudSpacer />
+                 </ToolBarContent>
+                 <Columns>
+                     <PropertyColumn Property="x=>x.Date" Title="Date" />
+                     <PropertyColumn Property="x=>x.Quantity" Title="Quantity" />
+                 </Columns>
+                 <PagerContent>
+                     <MudDataGridPager T="ReturnedProduct" />
+                 </PagerContent>
+             </MudDataGrid>
+         </MudItem>
+     </MudGrid>
+         <ValidationSummary/>
+     </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid id { get; set; }
+    private Product? Product { get; set; } = new();
+    private HubConnection? hub;
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs"), option =>
+        {
+            option.AccessTokenProvider = () => Task.FromResult(AppState.Token)!;
+        }).WithStatefulReconnect();
+        builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+        hub = builder.Build();
+        await hub.StartAsync();
+        hub.On("UpdateProduct", async () =>
+        {
+            await GetData();
+            StateHasChanged();
+        });
+        await GetData();
+        AppState.IsBusy = false;
+    }           
+
+    private async Task GetData()
+    {
+        Product = await ItemService.GetProductById(id);
+    }
+    async Task AddStock()
+    {
+        var parameters = new DialogParameters
+            {
+                ["Product"] = Product,
+                ["Stock"] = new Stock(),
+                ["IsEdit"] = false,
+            };
+        await Dialog.ShowAsync<ReStockEntry>("", parameters);
+    }
+
+    private async Task MoveToStore(Stock stock)
+	{
+		AppState.IsProcessing = true;
+        bool? result = await Dialog.ShowMessageBox("Confirmation",
+        $"Do you wish to move stock to store?", yesText: "Yes", cancelText: "No");
+        if (result is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        else if (!result.Value)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+    
+        Product!.Stocks.Where(x=> x.id == stock.id)!.FirstOrDefault()!.Quantity += stock!.Quantity;
+
+        bool response = false;
+        try
+        {
+            Product!.ModifiedDate = AppState.CurrentDateTime;            
+            SetNulls();
+            response = await ItemService.EditProduct(Product!);
+            if (response)
+            {
+                SnackBar.Add($"Stock Successfully Updated!", Severity.Success);
+                await hub!.SendAsync("UpdateProduct");
+                await hub!.SendAsync("UpdateProducts");
+            }            
+        }
+        catch (System.Exception ex)
+        {
+            if (!response)
+            {
+                SnackBar.Add($"Error occured!", Severity.Error);
+            }            
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+	}
+
+    private void SetNulls()
+    {
+        Product!.Item!.Brand = null;
+        Product!.Item!.Category = null;
+    }
+
+    async Task DeleteStock(Stock stock)
+    {
+        AppState.IsProcessing = true;
+        bool? result = await Dialog.ShowMessageBox("Confirmation",
+        $"Do you wish to Delete Stock?", yesText: "Yes", cancelText: "No");
+        if (result is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        else if (!result.Value)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+
+        if (Product!.SellPrice is null || Product!.SellPrice.GetValueOrDefault() <= 0)
+        {
+            SnackBar.Add("Price is required", Severity.Warning);
+            AppState.IsProcessing = false;
+            return; 
+        }
+
+        Product!.StockOnHand -= stock!.Quantity.GetValueOrDefault();
+        try
+        {
+            Product!.ModifiedDate = AppState.CurrentDateTime;
+            Product!.Stocks.Remove(stock);
+            SetNulls();
+            await ItemService.EditProduct(Product!);
+            SnackBar.Add($"Stock Successfully Deleted!", Severity.Success);
+            await hub!.SendAsync("UpdateProduct");
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            SnackBar.Add($"Error occured!", Severity.Error);
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+    }
+    
+    async Task Update()
+    {
+        AppState.IsProcessing = true;
+        bool? result = await Dialog.ShowMessageBox("Confirmation",
+        $"Do you wish to update product?", yesText: "Yes", cancelText: "No");
+        if (result is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        else if (!result.Value)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+
+        try
+        {
+            Product!.ModifiedDate = AppState.CurrentDateTime;
+            SetNulls();
+            await ItemService.EditProduct(Product!);
+            SnackBar.Add($"Product Successfully Updated!", Severity.Success);
+            await hub!.SendAsync("UpdateProduct");
+            await hub!.SendAsync("UpdateProducts");
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            SnackBar.Add($"Error occured!", Severity.Error);
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        await hub!.DisposeAsync();
+    }
+}

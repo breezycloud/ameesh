@@ -1,0 +1,88 @@
+﻿@using Client.Handlers
+@using Shared.Enums
+@inject IExpenseService Service
+
+@implements IAsyncDisposable
+<EditForm Model="@Data" OnValidSubmit="Save">
+	<DataAnnotationsValidator />
+	<MudDialog>
+		<TitleContent>
+			<MudText Typo="Typo.h6">@(IsEdit ? "Update" : "Add") Expense Type</MudText>
+		</TitleContent>
+		<DialogContent>
+			<MudTextField @ref="_TxtName" @bind-Value="Data.Expense" Label="Expense" Variant="Variant.Outlined" For="@(() => Data.Expense)" />			
+		</DialogContent>
+		<DialogActions>
+			<MudButton OnClick="Close">Close</MudButton>
+			<MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+					   Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+		</DialogActions>
+	</MudDialog>
+</EditForm>
+
+@code {
+	[CascadingParameter]
+	public MudDialogInstance? DialogInstance { get; set; }
+	[Parameter]
+	public ExpenseType Data { get; set; } = new();
+	[Parameter]
+	public bool IsEdit { get; set; } = false;
+
+	MudTextField<string?>? _TxtName { get; set; } = new();
+	private HubConnection? hub;
+	protected override async Task OnInitializedAsync()
+	{
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		var internetfound = await js.InvokeAsync<bool>("checkinternet");
+		if (internetfound)
+			await hub.StartAsync();
+		await _TxtName.FocusAsync();
+	}
+
+	void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+	private async Task Save()
+	{
+		AppState.IsProcessing = true;
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to save", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+
+			Data!.Expense = StringConverter.ConvertToTitleCase(Data!.Expense!);			
+			await Service.PutExpenseType(Data!);
+			SnackBar.Add("Expense Successfully Updated", Severity.Success);
+			//AppState.UpdateLayout();
+			await hub!.SendAsync("UpdateExpenses");
+			Close();
+		}
+		catch (Exception)
+		{
+			SnackBar.Add("Failed to save", Severity.Error);
+			throw;
+		}
+		AppState.IsProcessing = false;
+	}
+
+	async Task ClearControls()
+	{
+		if (!IsEdit)
+			Data.Id = Guid.NewGuid();
+		Data.Expense = "";
+		await _TxtName!.FocusAsync();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		await hub!.StopAsync();
+		await hub!.DisposeAsync();
+	}
+
+}

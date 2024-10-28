@@ -1,0 +1,452 @@
+﻿@using Client.Handlers
+@using Client.Pages.Products
+@using Shared.Enums
+@inject IProductService ProductService
+@inject IStoreService StoreService
+@implements IAsyncDisposable
+
+<EditForm Model="Item" OnValidSubmit="Save" Context="ftx">
+    <DataAnnotationsValidator />
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">@(IsEdit ? "Update" : "Add") Product</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudGrid Spacing="1">
+                <MudItem xs="12">
+                    <MudAutocomplete T="Store" AnchorOrigin="Origin.BottomCenter" ReadOnly="IsReadOnly" Value="Store" Label="Store" ShowProgressIndicator="true"
+                                     SearchFunc="@SearchStore" Dense="true" Variant="Variant.Outlined" ValueChanged="StoreChanged" ProgressIndicatorColor="Color.Primary"
+                                     ToStringFunc="@(e => e==null ? null : $"{e.BranchName}")" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @ref="_TxtName" id="prodName" @bind-Value="Item!.ProductName" Label="Item Name" Variant="Variant.Outlined" Margin="Margin.Dense" ></MudTextField>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Item!.Barcode" Label="Barcode" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.QrCodeScanner"
+                        Margin="Margin.Dense"></MudTextField>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Item!.Description" Label="Description" Variant="Variant.Outlined"
+                        Margin="Margin.Dense"></MudTextField>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudAutocomplete T="Category" AnchorOrigin="Origin.BottomCenter" Value="Item!.Category" Label="Category" ShowProgressIndicator="true"
+                                     SearchFunc="@SearchCategory" Dense="true" Variant="Variant.Outlined" ValueChanged="CategoryChanged" ProgressIndicatorColor="Color.Primary"
+                                     ToStringFunc="@(e => e==null ? null : $"{e.CategoryName}")" Margin="Margin.Dense" />
+                        <MudButton Size="Size.Small" Color="Color.Primary" OnClick="() => AddCategory()">Add Category</MudButton>
+                    </MudStack>                
+                </MudItem>
+                <MudItem xs="12">
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudAutocomplete T="Brand" AnchorOrigin="Origin.BottomCenter" Value="Item!.Brand" Label="Brand" ShowProgressIndicator="true"
+                                     SearchFunc="@SearchBrand" Dense="true" Variant="Variant.Outlined" ValueChanged="BrandChanged" ProgressIndicatorColor="Color.Primary"
+                                     ToStringFunc="@(e => e==null ? null : $"{e.BrandName}")" Margin="Margin.Dense" />
+                        <MudButton Size="Size.Small" Color="Color.Primary" OnClick="() => AddBrand()">Add Brand</MudButton>
+                    </MudStack>                
+                </MudItem>
+
+                @if (!IsEdit)
+                {
+                    @* <MudItem xs="12">
+                        <MudCheckBox Size="Size.Small" @bind-Value="AddToStore" UnCheckedColor="Color.Dark" Color="Color.Primary">Add to store</MudCheckBox>
+                    </MudItem> *@
+                    @if (AddToStore)
+                    {                        
+                        <MudItem xs="12">
+                            <MudTextField id="figure-right" @bind-Value="stock!.BuyPrice" Format="N2" Label="Buying Price" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
+                                <MudRadioGroup T="MarkupType" @bind-Value="Product!.MarkupType">
+                                    <MudRadio Dense Value="@MarkupType.Fixed">Fixed Amount</MudRadio>
+                                    <MudRadio Dense Value="@MarkupType.Percentage">Percentage</MudRadio>
+                                </MudRadioGroup>
+                            </MudStack>
+                        </MudItem>
+                        if (Product!.MarkupType == MarkupType.Fixed)
+                        {
+                            <MudItem xs="12" sm="6">
+                                <MudTextField T="decimal" Value="Product!.MarkupAmount" ValueChanged="CalculateSellPrice" Format="N2" Label="Amount" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+                            </MudItem>
+                        }
+                        else
+                        {
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField T="decimal" Value="Product!.MarkupPercentage" ValueChanged="CalculateSellPrice" Label="Percentage" Min="0" Max="100" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
+                            </MudItem>
+                        }
+                        <MudItem xs="12" sm="6">
+                            <MudTextField id="figure-right" ReadOnly @bind-Value="Product!.SellPrice" Format="N2" Label="Selling Price" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudNumericField T="int?" @bind-Value="stock!.Quantity" Label="Quantity" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudDatePicker @bind-Date="stock!.ExpiryDate" DisableToolbar PickerVariant="PickerVariant.Dialog" DateFormat="dd/MM/yyyy" Label="Expiry Date" Variant="Variant.Outlined" For="(() => stock!.ExpiryDate)" Margin="Margin.Dense" />
+                        </MudItem>
+                    }
+                }                 
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Close">Close</MudButton>
+            <MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                       Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+@code {
+    [CascadingParameter]
+    public MudDialogInstance? DialogInstance { get; set; }
+    [Parameter]
+    public Item? Item { get; set; } = new();
+    public Product? Product { get; set; } = new();
+    private Category[]? Categories = [];
+    private Category? Category = new();
+    private Brand? Brand = new();
+    private Brand[]? Brands = [];
+    [Parameter]
+    public bool IsEdit { get; set; }
+    private bool AddToStore { get; set; } = true;
+    private Stock? stock = new();
+    private DateTime? _ExpDate;
+    private HubConnection? hub;
+
+    MudTextField<string?> _TxtName { get; set; } = new();
+
+    private Guid? StoreID = null;
+    private int? Quantity = null;
+    private Store? Store; private Store[]? stores = [];
+    private bool IsReadOnly = false;
+
+    private List<string>? Items = [];
+
+    void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+        builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+        hub = builder.Build();
+        var internetfound = await js.InvokeAsync<bool>("checkinternet");
+        if (internetfound)
+            await hub.StartAsync();                      
+        if (IsEdit)
+        {
+            stores = await StoreService.GetStores();
+            if (stores is not null || stores!.Length > 0)
+            {
+                Store = stores.FirstOrDefault();
+                StoreChanged(Store!);
+            }
+            Item = await ProductService.GetItemById(Item!.Id);
+            Brand = await ProductService.GetBrandById(Item!.BrandID);                        
+        }
+        else
+            Item = new Item();
+        var access = await localStorage.GetItemAsync<string?>("access");
+        if (access == "Admin" || access == "Master")
+        {
+            IsReadOnly = false;
+        }
+        else
+        {            
+            StoreID = await localStorage.GetItemAsync<Guid>("branch");
+            Store = await StoreService.GetStore(StoreID.GetValueOrDefault());
+            IsReadOnly = true;
+        }
+        await js.InvokeVoidAsync("setFocusToTextBox", "prodName");
+        AppState.IsBusy = false;
+    }
+
+    private async Task GetItemNames(CancellationToken token)
+    {
+        Items = await ProductService.GetItemsName(token);        
+    }
+
+    private async Task AddCategory()
+    {
+        var parameters = new DialogParameters
+        {
+            ["Data"] = new Category(),
+            ["IsEdit"] = false
+        };
+        await Dialog.ShowAsync<CategoryEntry>("", parameters);
+    }
+
+    private async Task AddBrand()
+    {
+        var parameters = new DialogParameters
+        {
+            ["IsEdit"] = false,
+            ["Data"] = new Brand()
+        };
+        await Dialog.ShowAsync<BrandEntry>("", parameters);
+    }
+
+    private void ItemChanged(string value)
+    {
+        Item!.ProductName = value;
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<string>> ItemAutocomplete(string value, CancellationToken token)
+    {
+        try
+        {
+            if (!Items!.Any())
+                await GetItemNames(token);
+            if (string.IsNullOrEmpty(value))
+                return Items!.OrderBy(x => x);
+
+            return Items!.Where(x => x!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void BrandChanged(Brand brand)
+    {
+        Item!.Brand = Brands!.FirstOrDefault(x => x.Id == brand.Id);
+        Item!.BrandID = brand.Id;
+        Brand = brand;
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<Brand>?> SearchBrand(string value)
+    {
+        try
+        {
+            Brands = await ProductService.GetBrands();
+            if (string.IsNullOrEmpty(value))
+                return Brands!.OrderByDescending(x => x.CreatedDate);
+
+            return Brands!.Where(x => x.BrandName!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+        return new HashSet<Brand>();
+    }
+
+    private void CategoryChanged(Category category)
+    {
+        Item!.Category = Categories!.FirstOrDefault(x => x.Id == category.Id);
+        Item!.CategoryID = category.Id;
+        Category = category;
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<Category>?> SearchCategory(string value)
+    {
+        try
+        {
+            Categories = await ProductService.GetCategories();
+            if (string.IsNullOrEmpty(value))
+                return Categories!.OrderBy(x => x.CategoryName);
+
+            return Categories!.Where(x => x.CategoryName!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+        return new HashSet<Category>();
+    }
+
+    private async Task<IEnumerable<Store>?> SearchStore(string value)
+    {
+        try
+        {
+            if (stores!.Length == 0)
+                stores = await StoreService.GetStores();
+            if (string.IsNullOrEmpty(value))
+                return stores!.OrderBy(x => x.BranchName);
+
+            return stores!.Where(x => x.BranchName!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+        return new HashSet<Store>();
+    }
+
+    void StoreChanged(Store store)
+    {
+        if (Store is null)
+            Store = store;
+        StoreID = Store!.Id;
+        StateHasChanged();
+    }
+
+    private void CalculateSellPrice(decimal value)
+    {
+        if (Product!.MarkupType == MarkupType.Percentage)
+        {
+            Product!.MarkupAmount = 0;
+            Product!.MarkupPercentage = value;
+            var markupAmount = stock!.BuyPrice * Product!.MarkupPercentage;
+            Product!.SellPrice = stock!.BuyPrice + markupAmount;
+        }
+        else
+        {
+            Product!.MarkupAmount = value;
+            Product!.MarkupPercentage = 0;
+            Product!.SellPrice = stock!.BuyPrice + Product!.MarkupAmount;
+        }
+        StateHasChanged();
+    }
+
+    private async Task Save()
+    {
+        AppState.IsProcessing = true;
+        if (StoreID is null)
+        {
+            SnackBar.Add("Select store to proceed", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+
+        else if (stock!.Quantity is null)
+        {
+            SnackBar.Add("Enter quantity to proceed", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+        else if (stock!.BuyPrice is null || stock!.BuyPrice < 0 )
+        {
+            SnackBar.Add("Buy price is required", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+        else if (Product!.SellPrice is null || Product!.SellPrice < 0)
+        {
+            SnackBar.Add("Sell price is required", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+        @* else if (stock!.ExpiryDate is null)
+        {
+            SnackBar.Add("Enter expiry date to proceed", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+        else if (stock!.ExpiryDate <= DateTime.Now)
+        {
+            SnackBar.Add("Enter expiry date to proceed", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }         *@
+        else if (Item!.BrandID == Guid.Empty)
+        {
+            SnackBar.Add("Brand is required", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+        else if (Item!.CategoryID == Guid.Empty)
+        {
+            SnackBar.Add("Category is required", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+
+        var result = await Dialog.ShowMessageBox("Confirmation",
+        $"Do you wish to {(IsEdit ? "Edit" : "Add")} Item?", yesText: "Yes", cancelText: "No");
+        if (result is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        else if (!result.Value)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        bool response = false;
+        CancellationToken token = new CancellationTokenSource().Token;
+        try
+        {
+            var CurrentDateTime = DateTime.Now;
+            Item!.ProductName = StringConverter.ConvertToTitleCase(Item!.ProductName!);
+            Item!.Description = string.IsNullOrEmpty(Item!.Description) ? "" : StringConverter.ConvertToTitleCase(Item!.Description);
+            Item!.CreatedDate = CurrentDateTime;
+            Item!.ModifiedDate = CurrentDateTime;            
+            if (!IsEdit)
+            {
+                Item!.Id = Guid.NewGuid();
+                Item!.Category = null;
+                Item!.Brand = null;
+                response = await ProductService.AddItem(Item!);
+                if (response)
+                {
+                    stock!.id = Guid.NewGuid();
+                    stock!.Date = Product!.CreatedDate;
+                    if (AddToStore)
+                    {
+                        Product!.ItemId = Item!.Id;
+                        Product!.StoreId = StoreID!.Value;
+                        Product!.Item = null;
+                        Product!.CreatedDate = CurrentDateTime;
+                        Product!.ModifiedDate = CurrentDateTime;
+                        Product!.Stocks.Add(stock);
+                        CheckStockEntries();
+                        response = await ProductService.AddProduct(Product);
+                    }
+                }
+            }
+            else
+            {
+                Item!.Category = null;
+                await ProductService.EditItem(Item!);
+            }
+            ClearControls();
+            SnackBar.Add($"Item successfully saved!", Severity.Success);            
+            await hub!.SendAsync("UpdateItems");
+            _ = GetItemNames(token);
+        }
+        catch (System.Exception ex)
+        {
+            if (!response)
+            {
+                Console.WriteLine($"{ex.Message} {ex.StackTrace} {ex.InnerException} {ex.Source}");
+                SnackBar.Add($"Error occured!", Severity.Error);
+            }            
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+    }
+
+    private void CheckStockEntries()
+    {
+        if (Product!.Stocks.Count > 1)
+        {
+            var count = Product!.Stocks.Count - 1;
+            Product.Stocks.RemoveRange(1, count);            
+        }
+    }
+    async void ClearControls()
+    {
+        Item = new();
+        Item.Id = Guid.NewGuid();   
+        Product!.MarkupAmount =0;
+        Product!.MarkupPercentage =0;
+        CategoryChanged(Category);
+        BrandChanged(Brand);   
+        stock!.ExpiryDate = null;     
+        await js.InvokeVoidAsync("setFocusToTextBox", "prodName");
+    }
+    public async ValueTask DisposeAsync()
+    {
+        await hub!.DisposeAsync();
+    }
+}

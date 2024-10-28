@@ -1,0 +1,212 @@
+﻿@layout AppLayout
+@inject ICustomerService CustomerService
+@implements IAsyncDisposable
+@page "/customers"
+@attribute [Authorize]
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
+			<MudText Typo="Typo.h5">Manage Customers</MudText>
+			<MudTooltip Text="New Customer" Duration="2000" Placement="Placement.Top">
+				<MudFab Label="New Customer" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+						OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+			</MudTooltip>
+		</MudStack>
+	</MudHidden>
+
+	<MudHidden Breakpoint="Breakpoint.MdAndUp">
+		<MudStack AlignItems="AlignItems.Start" Class="pt-4" Spacing="1">
+			<MudTooltip Text="New Customer" Duration="2000" Placement="Placement.Top">
+				<MudFab Label="New Customer" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+						OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+			</MudTooltip>
+			<MudText Typo="Typo.h5">Manage Customers</MudText>
+		</MudStack>
+	</MudHidden>
+
+
+@if (AppState.IsBusy)
+{
+	<DataGridSkeleton/>
+}
+else
+{
+	<MudDataGrid @ref="_gridComponent"
+				 T="CustomerData"
+				 ServerData="GetGridData"
+				 RowClick="@HandleSelectedDataItemChanged"
+				 @bind-SelectedDataItem="customer"
+				 Dense
+			 Outlined>
+		<Columns>
+			<PropertyColumn Title="Name" Property="x => x.CustomerName" />
+			<PropertyColumn Title="Contact No" Property="x => x.PhoneNo" />
+			<PropertyColumn Title="Address" Property="x => x.ContactAddress" />
+			<PropertyColumn Title="Total Sales" Property="x => x.TotalSales" />
+			<PropertyColumn Title="Date Created" Property="x => x.CreatedDate.ToString()" />
+			<TemplateColumn>
+				<CellTemplate>
+					<MudButton StartIcon="@Icons.Material.Filled.PersonSearch" Color="Color.Info" OnClick="() => OnViewClicked(context.Item.Id)" Size="Size.Small">View</MudButton>
+					<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>					
+					<AuthorizeView Roles="Admin, Master" Context="auth">
+						<Authorized>							
+							@if (!context.Item.IsWalkIn)
+							{
+								<MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+							}
+						</Authorized>
+					</AuthorizeView>					
+				</CellTemplate>
+			</TemplateColumn>
+		</Columns>
+		<NoRecordsContent>
+			<MudText Typo="Typo.h6">Empty record</MudText>
+		</NoRecordsContent>
+		<PagerContent>
+			<MudDataGridPager T="CustomerData" />
+		</PagerContent>
+	</MudDataGrid>
+}
+
+
+
+@code {
+	private MudDataGrid<CustomerData>? _gridComponent = null;
+	private CustomerData? customer = new();
+	private EditContext? EditContext;
+	private HubConnection? hub;
+	protected override async Task OnInitializedAsync()
+	{
+		AppState.IsBusy = true;
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		var internetfound = await js.InvokeAsync<bool>("checkinternet");
+		if (internetfound)
+			await hub.StartAsync();
+		hub.On("UpdateCustomers", async () =>
+		{
+			await _gridComponent!.ReloadServerData();
+		});
+		//AppState.OnUpdateLayout += UpdateComponent!;
+		//EditContext = new EditContext(customer!);
+	}
+
+	protected override void OnAfterRender(bool firstRender)
+	{
+		if (firstRender)
+		{			
+			AppState.IsBusy = false;
+		}
+	}
+
+	private async Task<GridData<CustomerData>> GetGridData(GridState<CustomerData> request)
+	{
+		try
+		{
+			var parameter = new PaginationParameter { Page = request.Page, PageSize = request.PageSize };
+			var response = await CustomerService.GetPagedCustomerData(parameter);
+			return new GridData<CustomerData>()
+				{
+					Items = response!.Data!.OrderByDescending(x =>x.TotalSales).ToList()!,
+					TotalItems = response.TotalCount
+				};
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex);
+			return new GridData<CustomerData>();
+		}
+		finally
+		{
+			AppState!.IsBusy = false;
+			StateHasChanged();
+		}
+	}
+
+	async Task HandleSelectedDataItemChanged(DataGridRowClickEventArgs<CustomerData> customer)
+	{
+		await OnEdit(customer.Item);
+	}
+
+	private async Task OnNew()
+	{
+		var parameters = new DialogParameters
+			{
+				["Customer"] = new Customer(),
+				["IsEdit"] = false,
+			};
+		await Dialog.ShowAsync<CustomerEntry>("", parameters);
+	}
+
+	private async Task OnEdit(CustomerData item)
+	{
+		var customer = await CustomerService.GetCustomerById(item.Id);
+		var parameters = new DialogParameters
+		{
+			["Customer"] = customer,
+			["IsEdit"] = true,
+		};
+		await Dialog.ShowAsync<CustomerEntry>("", parameters);
+	}
+
+	void OnViewClicked(Guid id)
+	{
+		nav.NavigateTo($"customer/{id}");
+	}
+
+	private async Task OnDelete(Guid id)
+	{
+		AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to delete", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await CustomerService.DeleteCustomer(id);
+			SnackBar.Add("Customer Successfully Deleted", Severity.Success);
+			await hub!.SendAsync("UpdateCustomers");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+	}
+
+
+	private async Task Save()
+	{
+		// AppState.IsProcessing = true
+		var response = await Dialog.ShowMessageBox("Confirm", "Do you want to save...?");
+		if (response is null)
+		{
+			return;
+		}
+		Console.Write("Confirmation working");
+
+		SnackBar.Add("Saved");
+	}
+
+	private async void UpdateComponent(object sender, EventArgs e)
+	{
+		await _gridComponent!.ReloadServerData();
+		StateHasChanged();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		await hub!.StopAsync();
+		await hub!.DisposeAsync();
+	}
+
+}

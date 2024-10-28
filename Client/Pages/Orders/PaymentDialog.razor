@@ -1,0 +1,179 @@
+﻿@using Client.Services.Welfare
+@using Shared.Enums
+@inject IOrderService OrderService
+@inject ISalaryBonusService BonusService
+<EditForm Model="Payment" OnValidSubmit="Save">
+    <DataAnnotationsValidator />
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">Payment</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudGrid Spacing="1">
+                <MudItem xs="12">
+                    <MudCheckBox T="bool" Value="ChkFullPayment" Size="Size.Small" ValueChanged="PaymentChanged">Full Payment</MudCheckBox>
+                    <MudTextField id="figure-right" Value="AmountDue" Label="Amount Due" Disabled Format="N2" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField T="decimal" id="figure-right" Value="Payment!.Amount" ValueChanged="AmountChanged" ReadOnly="Completed" AutoFocus Label="Amount" For="(() => Payment!.Amount)" Format="N2" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSelect T="PaymentMode" Strict="true" AnchorOrigin="Origin.BottomCenter" 
+                               ReadOnly="Completed" Variant="Variant.Outlined"
+                               Value="Payment!.PaymentMode" Label="Payment Mode" 
+                               Dense ValueChanged="PaymentModeChanged">                        
+                        <MudSelectItem Value="@PaymentMode.Cash">Cash</MudSelectItem>
+                        <MudSelectItem Value="@PaymentMode.POS">POS</MudSelectItem>
+                        @if (!Regular)
+                        {
+                            <MudSelectItem Value="@PaymentMode.Credit">Credit</MudSelectItem>
+                        }
+                        <MudSelectItem Value="@PaymentMode.Transfer">Transfer</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Close</MudButton>
+            <MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                       Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+ @code {
+    [CascadingParameter] public MudDialogInstance? DialogInstance { get; set; }
+    [Parameter] public Order Order { get; set; } = new();
+    [Parameter] public Customer customer { get; set; } = new();
+    [Parameter] public Store Store { get; set; } = new();
+    [Parameter] public Payment? Payment { get; set; } = new();
+    [Parameter] public bool IsEdit { get; set; } = false;
+    [Parameter] public bool Completed { get; set; } = false;
+    [Parameter] public HubConnection? hub { get; set; }
+    [Parameter] public bool Regular { get; set; } = false;
+    [Parameter]
+    public decimal AmountDue { get; set; }
+    public bool ChkFullPayment { get; set; } = false;
+    void Cancel() => DialogInstance!.Close(DialogResult.Ok(true));
+    private bool IsConnected = false;
+    Guid id { get; set; }
+    protected override async Task OnInitializedAsync()
+    {        
+        id = await localStorage.GetItemAsync<Guid>("uid");        
+    }
+
+    void PaymentChanged(bool value)
+    {
+        if (value)
+            Payment!.Amount = AmountDue;
+        else
+            Payment!.Amount = 0m;
+
+        ChkFullPayment = value;
+        StateHasChanged();
+    }
+
+    void AmountChanged(decimal amount)
+    {
+        if (amount > AmountDue)
+        {
+            SnackBar.Add("Amount to Pay cannot be greater than Amount due", Severity.Warning);
+            return;
+        }
+        Payment!.Amount = amount;
+        StateHasChanged();
+    }
+    void PaymentModeChanged(PaymentMode mode)
+    {
+        Payment!.OrderId = Order.Id;
+        Payment!.UserId = id;
+        Payment.Cashier = null;
+        Payment.Order = null;
+        Payment!.PaymentMode = mode;
+        if (Payment!.PaymentMode == PaymentMode.None)
+        {
+            SnackBar.Add("Select payment mode", Severity.Warning);
+            return;
+        }
+        else if (Payment!.PaymentMode == PaymentMode.Credit)
+        {
+            Payment!.Amount = 0;
+        }
+        else
+        {
+            AmountDue -= Payment!.Amount;        
+            Order.Payments.Add(Payment);
+            if (AmountDue > 0)
+                Payment = new();        
+            else if (AmountDue == 0)
+                Completed = true;
+        }
+        StateHasChanged();
+    }
+
+    private async Task Save()
+    {
+        AppState.IsProcessing = true;
+        if (Payment!.PaymentMode == PaymentMode.Credit)
+        {
+            var result = await Dialog.ShowMessageBox("Confirmation",
+            "Do you wish to save this transaction as credit?", yesText: "Yes", cancelText: "No");
+            if (result is null)
+            {
+                AppState.IsProcessing = false;
+                return;
+            }
+        }
+        else 
+        {
+            var paid = Order.Payments.Sum(x => x.Amount);
+            if (paid == 0 || AmountDue > 0)
+            {
+                AppState.IsProcessing = false;
+                SnackBar.Add("Complete the payment to proceed", Severity.Warning);
+                return;
+            }
+        }
+        
+        bool success = false;
+        try
+        {
+            success = await OrderService.AddProductOrder(Order);    
+            if (!success)
+            {
+                SnackBar.Add("Operation failed!", Severity.Error);
+            }
+            else
+            {
+                AppState!.ReportDataModel = new ReportData { Branch = Store, ReportType = "Store", Customer = customer };
+                AppState!.ReportDataModel.Order = Order;
+                var items = Order!.ProductOrders.ToArray();
+                var internetfound = await js.InvokeAsync<bool>("checkinternet");
+                if (internetfound && hub!.State == HubConnectionState.Disconnected)
+                    await hub.StartAsync();                
+                await hub!.SendAsync("UpdateStock", Store!.Id, "Dispensary"!, items);
+                await hub!.SendAsync("UpdatePharmarcyOrders");
+            }
+        }   
+        catch (System.Exception ex)
+        {
+            Console.WriteLine(ex);
+            if (!success)
+                SnackBar.Add("Operation failed!", Severity.Error);
+        }
+        finally
+        {            
+            bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
+            if (success)
+            {
+                if (connected)
+                    await OrderService.PrintReceipt("Store", AppState!.ReportDataModel!);
+                SnackBar.Add("Transaction Successfull", Severity.Success);
+                AppState.ClearOrderItems();
+                Cancel();                
+            }
+        }
+        AppState.IsProcessing = false;
+    }
+
+}

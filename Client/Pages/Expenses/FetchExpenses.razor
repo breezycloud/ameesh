@@ -1,0 +1,239 @@
+﻿@layout AppLayout
+@inject IExpenseService Service
+@inject IStoreService StoreService
+@implements IAsyncDisposable
+@page "/expenses"
+@using Shared.Enums
+@attribute [Authorize(Roles = "Admin, Master, Manager")]
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
+		<MudText Typo="Typo.h5">Manage Expenses</MudText>
+		<MudTooltip Text="New Expense" Duration="2000" Placement="Placement.Top">
+			<MudFab Label="New Expense" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+					OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+		</MudTooltip>
+	</MudStack>
+</MudHidden>
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp">
+	<MudStack AlignItems="AlignItems.Start" Class="pt-4" Spacing="1">
+		<MudTooltip Text="New Expense" Duration="2000" Placement="Placement.Top">
+			<MudFab Label="New Expense" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+					OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+		</MudTooltip>
+		<MudText Typo="Typo.h5">Manage Expenses</MudText>
+	</MudStack>
+</MudHidden>
+
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexStart" Class="pt-1">
+	<div style="width:250px;">
+		<AuthorizeView Roles="Admin, Master, Manager" Context="auth">
+			<Authorized>
+				<MudSelect T="Guid" Dense="true" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" Strict="true" Label="Search By Store" Value="@AppState!.StoreID" ValueChanged="StoreChanged" Variant="Variant.Outlined">
+					@foreach (var branch in stores!)
+					{
+						<MudSelectItem Value="@branch.Id">@branch.BranchName</MudSelectItem>
+					}
+				</MudSelect>
+			</Authorized>
+		</AuthorizeView>		
+	</div>
+</MudStack>
+
+<MudDataGrid @ref="_gridComponent"
+			 T="Expense"
+			 ServerData="GetGridData"
+			 RowClick="@HandleSelectedDataItemChanged"
+			 @bind-SelectedDataItem="category"
+			 Outlined>
+	<Columns>
+		<PropertyColumn Title="Date" Property="x => x.Date.GetValueOrDefault()" Format="dd/MM/yyyy" />
+		<PropertyColumn Title="Type" Property="x => x.ExpenseType!.Expense" />
+		<PropertyColumn Title="Description" Property="x => x.Description" />
+		<PropertyColumn Title="Amount" Property="x => x.Amount" Format="N2" />		
+		<PropertyColumn Title="Date Created" Property="x => x.CreatedDate" Format="dd/MM/yyyy" />		
+		<TemplateColumn>
+			<CellTemplate>				
+				<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
+				<AuthorizeView Roles="Admin, Master" Context="auth">
+					<Authorized>							
+						<MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Secondary" 
+							OnClick="() => OnDelete(context.Item)" Size="Size.Small">Delete</MudButton>
+					</Authorized>
+				</AuthorizeView>									
+			</CellTemplate>
+		</TemplateColumn>
+	</Columns>
+	<NoRecordsContent>
+		<MudText Typo="Typo.h6">Empty record</MudText>
+	</NoRecordsContent>
+	<PagerContent>
+		<MudDataGridPager T="Expense" />
+	</PagerContent>
+</MudDataGrid>
+
+
+
+
+@code {
+	private MudDataGrid<Expense>? _gridComponent;
+	private Expense? category = new();
+
+	private Guid UserID;
+	private Store? Store; private Store[]? stores = [];
+
+	private HubConnection? hub;
+	protected override async Task OnInitializedAsync()
+	{
+		AppState.IsBusy = true;
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		var internetfound = await js.InvokeAsync<bool>("checkinternet");
+		if (internetfound)
+			await hub.StartAsync();
+		hub.On("UpdateExpenses", async () =>
+		{
+			await _gridComponent!.ReloadServerData();
+		});
+		var access = await localStorage.GetItemAsync<string?>("access");
+		if (access == "Admin" || access == "Master")
+		{
+			stores = await StoreService.GetStores();
+			Store = stores!.LastOrDefault();			
+			StoreChanged(Store!.Id);
+		}
+		else
+		{
+			AppState!.StoreID = await localStorage.GetItemAsync<Guid>("branch");
+			Store = await StoreService.GetStore(AppState!.StoreID);
+		}
+		//AppState.OnUpdateLayout += UpdateComponent!;
+	}
+
+	protected override void OnAfterRender(bool firstRender)
+	{
+		if (firstRender)
+		{
+			AppState.IsBusy = false;
+		}
+	}
+
+	void StoreChanged(Guid id)
+	{
+		Store = stores!.FirstOrDefault(x => x.Id == id);
+		AppState!.StoreID = Store!.Id;
+		StateHasChanged();
+	}
+
+	private async Task<GridData<Expense>> GetGridData(GridState<Expense> request)
+	{
+		try
+		{
+			var parameter = new PaginationParameter { Page = request.Page, PageSize = request.PageSize };
+			var response = await Service.GetPagedExpenses(parameter);
+			return new GridData<Expense>()
+			{
+				Items = response!.Data!,
+				TotalItems = response.TotalCount
+			};
+		}
+		catch (Exception)
+		{
+			return new GridData<Expense>();
+		}
+		finally
+		{
+			AppState.IsBusy = false;
+		}
+	}
+
+	async Task HandleSelectedDataItemChanged(DataGridRowClickEventArgs<Expense> row)
+	{
+		await OnEdit(row.Item);
+	}
+
+	private async Task OnNew()
+	{
+		var parameters = new DialogParameters
+			{
+				["Data"] = new Expense(),
+				["IsEdit"] = false
+			};
+		await Dialog.ShowAsync<ExpenseEntry>("", parameters);
+	}
+
+	private async Task OnEdit(Expense expense)
+	{
+		var parameters = new DialogParameters
+		{
+			["Data"] = expense,
+			["IsEdit"] = true,
+		};
+		await Dialog.ShowAsync<ExpenseEntry>("", parameters);
+	}
+
+	private async Task OnDelete(Expense expense)
+	{
+		AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to delete", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			bool result = false;
+			result = await Service.DeleteExpense(expense.Id);
+			if (result)
+			{
+				SnackBar.Add("Expense Successfully Deleted", Severity.Success);
+				await hub!.SendAsync("UpdateExpenses");
+			}
+			else
+			{
+				SnackBar.Add("Error occurred", Severity.Success);
+			}			
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+	}
+
+
+	private async Task Save()
+	{
+		// AppState.IsProcessing = true
+		var response = await Dialog.ShowMessageBox("Confirm", "Do you want to save...?");
+		if (response is null)
+		{
+			return;
+		}
+		Console.Write("Confirmation working");
+
+		SnackBar.Add("Saved");
+	}
+
+	private async void UpdateComponent(object sender, EventArgs e)
+	{
+		await _gridComponent!.ReloadServerData();
+		StateHasChanged();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		AppState.OnUpdateLayout -= UpdateComponent!;
+		await hub!.DisposeAsync();
+	}
+
+}

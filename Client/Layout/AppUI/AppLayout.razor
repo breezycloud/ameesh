@@ -1,0 +1,73 @@
+﻿@using Client.Pages.Reports
+@using Client.Pages.Orders
+@using Client.Pages.Welfares
+@using Client.Pages.Products
+@using Toolbelt.Blazor.PWA.Updater
+@inherits LayoutComponentBase
+@layout MainLayout
+
+<MudLayout Class="mudblazor-landingpage">
+    <MudAppBar Class="landing-appbar" Elevation="0">
+        <AppBar DrawerToggleCallback="ToggleDrawer" />
+    </MudAppBar>
+    <MudDrawer Open="@_drawerOpen" OpenChanged="OnDrawerOpenChanged" ClipMode="DrawerClipMode.Docked" Elevation="0" Breakpoint="Breakpoint.Lg">
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <MudToolBar Dense="true" DisableGutters="true" Class="docs-gray-bg">
+                @* @if (_topMenuOpen == false)
+                {
+                    <MudIconButton Icon="@Icons.Rounded.ArrowBack" Color="Color.Inherit" OnClick="@((e) => OpenTopMenu())"/>
+                }
+                else
+                {
+                    <MudIconButton Icon="@Icons.Rounded.Close" Color="Color.Inherit" OnClick="ToggleDrawer"/>
+                } *@
+                <MudSpacer/>
+                <AppBarButtons/>
+            </MudToolBar>
+    
+            @if (_topMenuOpen == false)
+            {
+                <AuthorizeView Roles="Admin, Master">
+                    <MudNavMenu Color="Color.Primary" Margin="Margin.Dense" Rounded="true" Class="pa-2">
+                        <MudNavLink Href="/dashboard">Dashboard</MudNavLink>
+                        <MudNavLink Href="/customers">Customers</MudNavLink>
+                        <MudNavGroup Title="Items" ExpandIcon="@Icons.Material.Filled.ExpandMore">
+                            <MudNavLink Href="/categories">Categories</MudNavLink>
+                            <MudNavLink Href="/items">Products</MudNavLink>
+                            <MudNavLink Href="/products">Stocks</MudNavLink>
+                        </MudNavGroup>
+                        <MudNavGroup Title="Billings" ExpandIcon="@Icons.Material.Filled.ExpandMore">
+                            <MudNavLink Href="/orders">Sales</MudNavLink>
+                            <MudNavLink OnClick="@(() => Dialog.Show<SalesReport>(""))">Reports</MudNavLink>
+                        </MudNavGroup>
+                        <MudNavGroup Title="Salary & Expenses" ExpandIcon="@Icons.Material.Filled.ExpandMore">
+                            <MudNavLink Href="/expensestypes">Expense Type</MudNavLink>
+                            <MudNavLink Href="/expenses">Expenses</MudNavLink>
+                            <MudNavLink Href="/salary-welfare">Salary & Welfare</MudNavLink>
+                            <MudNavLink OnClick="@(() => Dialog.Show<SalaryReportDialog>(""))">Salary Report</MudNavLink>
+                        </MudNavGroup>
+                        <MudNavLink Href="/stores">Stores</MudNavLink>
+                        <MudNavLink Href="/users">Users</MudNavLink>
+                        <MudNavLink OnClick="@(() => Dialog.Show<SyncDialog>(""))">Sync</MudNavLink>
+                    </MudNavMenu>                
+                </AuthorizeView>
+                <AuthorizeView Roles="Cashier">
+                    <MudNavLink Href="/orders">Billings</MudNavLink>
+                    <MudNavLink OnClick="@(() => Dialog.Show<SalesReport>(""))">Sales Report</MudNavLink>
+                    <MudNavLink OnClick="@(() => Dialog.Show<StockReport>(""))">Stock Report</MudNavLink>                    
+                </AuthorizeView>
+                <AuthorizeView Roles="Store">
+                    <MudNavLink Href="/categories">Categories</MudNavLink>
+                    <MudNavLink Href="/items">Products</MudNavLink>
+                    <MudNavLink Href="/products">Stocks</MudNavLink>
+                </AuthorizeView>
+            }
+        </MudHidden>
+    </MudDrawer>
+    <MudMainContent Class="pa-0">
+        <LandingSection SectionClass="top-section" BackgroundClass="sweet">
+            <PWAUpdater Align="PWAUpdater.Aligns.Buttom" @bind-State="_InitialState" />
+            @Body             
+        </LandingSection>        
+    </MudMainContent>   
+</MudLayout>

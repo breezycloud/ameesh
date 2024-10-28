@@ -1,0 +1,101 @@
+@using Client.Handlers
+@using Client.Services.Welfare
+@using Shared.Enums
+@using Shared.Models.Welfare
+@attribute [Authorize]
+@inject ISalaryService SalaryService
+
+@implements IAsyncDisposable
+
+<EditForm Model="@Data" OnValidSubmit="Get">
+	<DataAnnotationsValidator/>
+	<MudDialog>
+		<TitleContent>
+			<MudText Typo="Typo.h6">Salary Report</MudText>
+		</TitleContent>
+		<DialogContent>
+            @if (AppState.IsBusy)
+            {
+                <MudProgressLinear Class="rounded-lg" Indeterminate Color="Color.Primary" Size="Size.Small"/>
+            }
+            else
+            {
+                <MudGrid Spacing="1">
+                    <MudItem xs="12" sm="6">
+                        <MudSelect Strict Margin="Margin.Dense" Dense AnchorOrigin="Origin.BottomCenter" @bind-Value="Data!.Month" Label="Month" Variant="Variant.Outlined" For="(() => Data!.Month)">
+                            @foreach(var item in MonthYear!.OrderByDescending(x => x.Month))
+                            {
+                                <MudSelectItem Value="@item.Month">@item.Month</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudSelect Strict Margin="Margin.Dense" Dense AnchorOrigin="Origin.BottomCenter" @bind-Value="Data!.Year" Label="Year" Variant="Variant.Outlined" For="(() => Data!.Year)">
+                            @foreach(var item in MonthYear!.OrderByDescending(x => x.Year))
+                            {
+                                <MudSelectItem Value="@item.Year">@item.Year</MudSelectItem>
+                            }
+                        </MudSelect>                    
+                    </MudItem>
+                </MudGrid>
+            }                
+		</DialogContent>
+		<DialogActions>
+			<MudButton OnClick="Close">Close</MudButton>
+			<MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+					   Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Get Report")</MudButton>
+		</DialogActions>
+	</MudDialog>	
+</EditForm>
+
+@code {
+	[CascadingParameter]
+	public MudDialogInstance? DialogInstance { get; set; }
+    private List<ReportCriteria>? MonthYear = [];
+    private ReportCriteria? Data = new();    
+    void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        MonthYear = await SalaryService.GetSalMonthYear();
+        AppState.IsBusy = false;
+    }
+    private async Task<IEnumerable<int>?> SearchMonth(string month)
+    {
+        if (MonthYear!.Count == 0)
+        {
+            MonthYear = await SalaryService.GetSalMonthYear();
+        }
+
+        if (string.IsNullOrEmpty(month))
+            return MonthYear!.Select(x => x.Month.GetValueOrDefault());        
+
+        return MonthYear!.Where(x => x!.Month!.ToString()!.Contains(month, StringComparison.OrdinalIgnoreCase)).Select(x => x.Month.GetValueOrDefault());
+    }
+
+    private async Task<IEnumerable<int>?> SearchYear(string year)
+    {
+        if (MonthYear!.Count == 0)
+        {
+            MonthYear = await SalaryService.GetSalMonthYear();
+        }
+
+        if (string.IsNullOrEmpty(year))
+            return MonthYear!.Select(x => x.Year.GetValueOrDefault());        
+
+        return MonthYear!.Where(x => x!.Month!.ToString()!.Contains(year, StringComparison.OrdinalIgnoreCase)).Select(x => x.Year.GetValueOrDefault());
+    }
+
+    private async Task Get()
+    {
+        AppState.IsProcessing = true;
+        await SalaryService.GetReport(Data!);
+        AppState.IsProcessing = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+
+    }
+}

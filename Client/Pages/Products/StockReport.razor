@@ -1,0 +1,55 @@
+@inject IProductService ProductService
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Stock report</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2" Wrap="Wrap.Wrap">
+        
+            @if (AppState.IsBusy)
+            {
+                <MudText Align="Align.Center" Typo="Typo.body2">
+                    <strong>Please wait while preparing your report...</strong>
+                </MudText>
+                <MudProgressLinear Class="rounded-lg" Indeterminate Color="Color.Primary" Size="Size.Small"/>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large"/>
+                <MudText Align="Align.Center" Typo="Typo.body2">
+                    <strong>Export exported</strong>
+                </MudText>                        
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Close</MudButton>                
+    </DialogActions>
+</MudDialog>
+
+
+@code {
+    string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+    InputType PasswordInput = InputType.Password;
+
+    string OldPasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+    InputType OldPasswordInput = InputType.Password;
+
+    string ConfirmPasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+    InputType ConfirmPasswordInput = InputType.Password;
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    private NewPasswordModel? passwordModel = new();
+    private EditContext? context = new(new NewPasswordModel());    
+    private bool isReadOnly { get; set; } = true;    
+    private bool IsValid, ShowNew, ShowOld, ShowConfirm, SetFocus;
+    Guid UserID;
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        UserID = await localStorage.GetItemAsync<Guid>("uid");
+        await ProductService.StockAudit(UserID);
+        AppState.IsBusy = false;
+    }
+
+    void Cancel() => MudDialog?.Cancel();
+}

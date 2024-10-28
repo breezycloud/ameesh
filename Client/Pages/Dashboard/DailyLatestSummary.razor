@@ -1,0 +1,164 @@
+@using ApexCharts
+@attribute [Authorize]
+
+@if (IsLoading)
+{
+    <MudSkeleton Class="rounded-lg" Animation="Animation.Wave" SkeletonType="SkeletonType.Rectangle" Height="500px" />
+}
+else
+{
+    <MudPaper Class="d-flex align-center justify-center" Style="height:500px;" Outlined="true">
+        <div style="overflow-x:scroll;overflow-y:hidden">
+                <ApexChart TItem="Earnings" Title="@($"{Data!.FirstOrDefault()!.Date:dd/MM/yyyy} Report Summary")" Options="@options" Width="500" Height="450" @ref="chart">
+                    <ApexPointSeries TItem="Earnings"
+                                     Items="Data"
+                                     Name="Total Amount"
+                                     XValue="@(e => e.Date)"
+                                     YAggregate="@(e => e.Sum(e => e.TotalAmount))"
+                                     SeriesType="SeriesType.Bar"
+                                     ShowDataLabels />                    
+                    <ApexPointSeries TItem="Earnings"
+                                     Items="Data"
+                                     Name="Total Discount"
+                                     XValue="@(e => e.Date)"
+                                     YAggregate="@(e => e.Sum(e => e.Discount))"
+                                     SeriesType="SeriesType.Bar"
+                                     ShowDataLabels />
+
+                    <ApexPointSeries TItem="Earnings"
+                                     Items="Data"
+                                     Name="Net Amount"
+                                     XValue="@(e => e.Date)"
+                                     YAggregate="@(e => e.Sum(e => e.NetAmount))"
+                                     SeriesType="SeriesType.Bar"
+                                     ShowDataLabels />
+
+                    <ApexPointSeries TItem="Earnings"
+                                     Items="Data"
+                                     Name="Refunds"
+                                     XValue="@(e => e.Date)"
+                                     YAggregate="@(e => e.Sum(e => e.Refunds))"
+                                     SeriesType="SeriesType.Bar"
+                                     ShowDataLabels />
+
+                    <ApexPointSeries TItem="Earnings"
+                                     Items="Data"
+                                     Name="Profits"
+                                     XValue="@(e => e.Date)"
+                                     YAggregate="@(e => e.Sum(e => e.ActualProfit))"
+                                     SeriesType="SeriesType.Bar"
+                                     ShowDataLabels />
+                </ApexChart>
+            </div>        
+    </MudPaper>
+}
+
+@code {    
+    [Parameter, EditorRequired] public bool IsLoading { get; set; } = false;
+    [Parameter] public Earnings[]? Data { get; set; } = [];
+    private ApexChart<Earnings>? chart = default!;
+    private List<Earnings> Items = new();
+    private ApexChartOptions<Earnings> options = new();
+    protected override void OnInitialized()
+    {
+        options = new ApexChartOptions<Earnings>
+        {
+            Chart = new Chart
+            {
+                Animations = new()
+                {
+                    Enabled = true,
+                    Easing = Easing.Linear,
+                    DynamicAnimation = new()
+                    {
+                        Speed = 1000
+                    }
+                },
+                Toolbar = new()
+                {
+                    Show = false
+                },
+                Zoom = new()
+                {
+                    Enabled = false
+                }
+            },
+            Theme = new Theme
+            {
+                Mode = Mode.Light,
+                Palette = PaletteType.Palette5
+            },
+            Xaxis = new XAxis { DecimalsInFloat = 5 },        
+            Legend = new Legend { Position = LegendPosition.Bottom }
+        };   
+        options.Yaxis = new List<YAxis>();
+        options.Yaxis.Add(new YAxis
+            {
+                Labels = new YAxisLabels
+                {
+                    Formatter = @"function (value) {
+                    return Number(value).toLocaleString();}"
+                }
+            }
+        );
+
+        options.Xaxis = new XAxis
+        {
+            Labels = new XAxisLabels
+            {
+                Formatter = @"function (value) {
+                if (value === undefined) {return '';}
+                return value.toUpperCase();}"
+            }
+        };
+
+        options.DataLabels = new DataLabels
+        {
+            Formatter = @"function(value, opts) {
+        return  Number(value).toLocaleString();}"
+        };
+
+        options.Tooltip = new ApexCharts.Tooltip
+        {
+            X = new TooltipX
+            {
+                Formatter = @"function(value, opts) {
+                if (value === undefined) {return '';}
+                return  opts.w.globals.categoryLabels[value-1] + ':' + value}"
+            }
+        };
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (chart is not null && Data is not null)
+        {
+            options.DataLabels = new DataLabels { DropShadow = new DropShadow { Enabled = false } };
+            await chart.ResetSeriesAsync(true, true);
+            chart!.Options.Theme = new Theme
+                {
+                    Palette = PaletteType.Palette4
+                };
+            await InvokeAsync(() => chart!.UpdateSeriesAsync());
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    async Task ApplyTheme()
+    {
+        options = new ApexChartOptions<Earnings>
+            {
+                Theme = new Theme
+                {
+                    Mode = Mode.Light,
+                    Palette = PaletteType.Palette4
+                },
+                Xaxis = new XAxis { DecimalsInFloat = 5 },
+            };
+        await Task.Yield();
+    }
+
+    @* private string GetColor(Earnings col)
+    {
+        return col.Color!;
+    } *@
+}

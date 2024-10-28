@@ -1,0 +1,35 @@
+﻿* {
+    margin: 0;
+    padding: 0;
+    /*box-sizing: border-box*/
+}
+
+body, html {
+    height: 100%;
+    font-family: 'Poppins', sans-serif;    
+}
+
+.container-login {
+    width: 100%;
+    min-height: 100vh;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    padding: 15px;
+    background-repeat: no-repeat;
+    background-position: right;
+    background-size: cover;
+    /*background-image: url('images/background-img.svg');*/
+}
+
+.wrap-login {
+    width: 350px;
+    overflow: hidden;   
+    /*backdrop-filter: blur(15px);
+    box-shadow: 0 10px 20px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.06);*/
+}

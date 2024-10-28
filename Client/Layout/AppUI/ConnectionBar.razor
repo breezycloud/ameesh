@@ -1,0 +1,24 @@
+﻿@using MudBlazor;
+
+<ConnectionStatus>
+    <Online>
+        <MudTooltip Duration="1000" Text="Online">
+            <MudIconButton Icon="@Icons.Material.Rounded.OnlinePrediction" Color="Color.Success" />
+        </MudTooltip>
+    </Online>
+    <Offline>
+        <MudTooltip Duration="1000" Text="Offline">
+            <MudIconButton Icon="@Icons.Material.Rounded.SignalWifiConnectedNoInternet4" Color="Color.Error" />
+        </MudTooltip>
+    </Offline>
+</ConnectionStatus>
+
+
+@code {
+    Color progressBarColor = Color.Primary;
+    protected override void OnInitialized()
+    {
+    // _BackgroundTask.DownloadTaskExecuted += SynchronizeInBackground;
+        @* _BackgroundTask.UploadTaskExecuted += UploadInBackground; *@
+    }
+}

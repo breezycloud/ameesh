@@ -1,0 +1,87 @@
+@using Client.Handlers
+@inject IProductService ProductService
+@implements IAsyncDisposable
+
+<EditForm Model="@Data" OnValidSubmit="Save">
+	<DataAnnotationsValidator/>
+	<MudDialog>
+		<TitleContent>
+			<MudText Typo="Typo.h6">@(IsEdit ? "Update" : "Add") Brand</MudText>
+		</TitleContent>
+		<DialogContent>
+			<MudTextField @ref="_TxtName" @bind-Value="Data.BrandName" Label="Name" Variant="Variant.Outlined" For="@(() => Data.BrandName)" />			
+		</DialogContent>
+		<DialogActions>
+			<MudButton OnClick="Close">Close</MudButton>
+			<MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+					   Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+		</DialogActions>
+	</MudDialog>	
+</EditForm>
+
+@code {
+	[CascadingParameter]
+	public MudDialogInstance? DialogInstance { get; set; }	
+	[Parameter]
+	public Brand Data { get; set; } = new();
+	[Parameter]
+	public bool IsEdit { get; set; } = false;
+
+	MudTextField<string?>? _TxtName { get; set; }
+
+	private HubConnection? hub;
+	protected override async Task OnInitializedAsync()
+	{
+		hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs"), option =>
+		{
+			option.AccessTokenProvider = () => Task.FromResult(AppState.Token)!;
+		}).WithStatefulReconnect().Build();
+		await hub.StartAsync();
+		await _TxtName.FocusAsync();
+	}
+
+	void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+	private async Task Save()
+	{
+		AppState.IsProcessing = true;
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to save", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			Data!.BrandName = StringConverter.ConvertToTitleCase(Data!.BrandName!);
+			if (!IsEdit)
+				await ProductService.AddBrand(Data!);
+			else
+				await ProductService.EditBrand(Data!);
+			SnackBar.Add("Brand Successfully Updated", Severity.Success);
+			AppState.UpdateLayout();
+			await hub!.SendAsync("UpdateCategories");
+            Close();
+		}
+		catch (Exception)
+		{
+			SnackBar.Add("Failed to save", Severity.Error);
+			throw;
+		}
+		AppState.IsProcessing = false;
+	}	
+
+	async Task ClearControls()
+	{
+		if (!IsEdit)
+			Data.Id = Guid.NewGuid();
+		Data.BrandName = "";
+		await _TxtName!.FocusAsync();
+	}
+	public async ValueTask DisposeAsync()
+	{		
+		await hub!.DisposeAsync();
+	}
+
+}

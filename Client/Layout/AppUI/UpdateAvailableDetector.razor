@@ -1,0 +1,40 @@
+@layout MainLayout
+@inject IJSRuntime js
+@implements IAsyncDisposable
+
+@if (_newVersionAvailable)
+{
+    <div class="update-button">
+        <MudPaper Width="350px" Class="d-flex align-center justify-center pa-2 mud-theme-primary">
+            Updated to a new version <MudIcon Size="Size.Medium" Icon="@Icons.Material.Filled.Update" />
+        </MudPaper>
+    </div>
+}
+
+@code {
+
+    private bool _newVersionAvailable = false;
+
+    [JSInvokable("Updater.NotifyUpdateAvailable")]
+    public void OnUpdateAvailable(bool isAvailable)
+    {
+        _newVersionAvailable = isAvailable;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        await js.InvokeVoidAsync("Updater.Initialize", DotNetObjectReference.Create(this));
+    }
+
+    private async Task UpdateApp() =>
+        await js.InvokeVoidAsync("restartApp");
+
+    public async ValueTask DisposeAsync()
+    {
+        await js.InvokeVoidAsync("Updater.Dispose");
+    }
+}
+

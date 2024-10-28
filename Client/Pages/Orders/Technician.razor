@@ -1,0 +1,24 @@
+﻿@layout AppLayout
+@page "/technician"
+@attribute [Authorize(Roles = "Lab")]
+
+@if (AppState.IsBusy)
+{
+    <DataGridSkeleton />
+}
+else
+{
+    <br />
+    <br />
+    <LabOrders />
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        AppState.SelectedOption = "Lab";
+        await Task.Delay(500);
+        AppState.IsBusy = false;
+    }
+}

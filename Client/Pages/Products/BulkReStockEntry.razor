@@ -1,0 +1,231 @@
+﻿@using Shared.Enums
+@inject IProductService ItemService
+@inject IStoreService StoreService
+@implements IAsyncDisposable
+
+<EditForm Model="Stock" OnValidSubmit="Save">
+    <ValidationSummary />
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">Bulk Restock</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudGrid Spacing="1">      
+@*                 <MudItem xs="12" Class="d-flex align-center justify-center">
+                    <MudToggleGroup T="string" Style="width: 300px;" @bind-Value="SelectedOption" Outline Delimiters Dense Rounded CheckMark FixedContent>
+                        <MudToggleItem Value="@("Store")" />                        
+                    </MudToggleGroup>
+                </MudItem> *@
+                <MudItem xs="12">
+                    <MudAutocomplete T="Store" Margin="Margin.Dense" AnchorOrigin="Origin.BottomCenter" ReadOnly="AppState.IsReadOnly" Value="Store" Label="Store" ShowProgressIndicator="true"
+                                     SearchFunc="@SearchStore" Dense="true" Variant="Variant.Outlined" ValueChanged="StoreChanged" ProgressIndicatorColor="Color.Primary"
+                                     ToStringFunc="@(e => e==null ? null : $"{e.BranchName}")" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudAutocomplete T="Category" Margin="Margin.Dense" AnchorOrigin="Origin.BottomCenter" Value="Category" Label="Category" ShowProgressIndicator="true"
+                                     SearchFunc="@SearchCategory" Dense="true" Variant="Variant.Outlined" ValueChanged="CategoryChanged" ProgressIndicatorColor="Color.Primary"
+                                     ToStringFunc="@(e => e==null ? null : $"{e.CategoryName}")" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSelect Variant="Variant.Outlined" 
+                               MultiSelection AnchorOrigin="Origin.BottomCenter" 
+                               Dense Label="Products" Margin="Margin.Dense"
+                               HelperText="@(RestockModel!.Products!.Any() ? $"{RestockModel!.Products!.Count()} product(s) selected" : "")"
+                               @bind-SelectedValues="RestockModel!.Products"
+                               MultiSelectionTextFunc="@(new Func<List<string>, string>(GetMultiSelectionText))">
+                        @foreach (var item in Products!)
+                        {
+                            <MudSelectItem Value="@item">@item!.Item!.ProductName </MudSelectItem>
+                        }
+                    </MudSelect>                    
+                </MudItem>
+                <MudItem xs="12">
+                    <MudNumericField id="figure-right" T="int?" @bind-Value="RestockModel!.NewQuantity" For="@(() => RestockModel!.NewQuantity)"
+                                     Label="Quantity" Min="1" Margin="Margin.Dense" Variant="Variant.Outlined"></MudNumericField>
+                </MudItem>
+             </MudGrid>
+         </DialogContent>
+         <DialogActions>
+             <MudButton OnClick="Close">Close</MudButton>
+             <MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                        Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+         </DialogActions>
+     </MudDialog>
+ </EditForm>
+
+@code {
+    [CascadingParameter]
+    public MudDialogInstance? DialogInstance { get; set; }
+
+    public BulkRestockModel? RestockModel { get; set; } = new();
+
+    public Stock? Stock { get; set; } = new();
+
+    public Product? Product { get; set; } = new();
+
+    private Product[]? Products = [];
+
+    private Item[]? Items = [];
+
+    private Category[]? Categories = [];
+
+    private Category? Category = new();
+
+    MudAutocomplete<Item> _Items = new();
+
+    private Store? Store; private Store[]? stores = [];
+
+    private Guid StoreID, UserID;
+
+    private string? SelectedOption = "Store";
+    private int? QtyOnHand { get; set; }
+
+    private HubConnection? hub;
+    protected override async Task OnInitializedAsync()
+    {
+        hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs"), option =>
+        {
+            option.AccessTokenProvider = () => Task.FromResult(AppState.Token)!;
+        }).WithAutomaticReconnect().WithStatefulReconnect().Build();
+        var mode = await localStorage.GetItemAsync<bool?>("mode");
+        if (mode is not null || mode!.Value)
+            await hub.StartAsync();
+        UserID = await localStorage.GetItemAsync<Guid>("uid");
+        var access = await localStorage.GetItemAsync<string?>("access");
+        var StoreId = await localStorage.GetItemAsync<Guid?>("branch");
+        if (StoreId is not null)
+            StoreID = StoreId!.Value;
+        if (access != UserRole.Admin.ToString() || access != UserRole.Master.ToString())
+        {
+            if (StoreID != Guid.Empty)
+            {
+                Store = await StoreService.GetStore(StoreID);
+                StoreChanged(Store!);
+                AppState.IsReadOnly = true;
+            }            
+        }
+        else
+            AppState.IsReadOnly = false;
+    }
+
+
+    void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+    private string GetMultiSelectionText(List<string> selectedValues)
+    {
+        return $"{selectedValues.Count} product{(selectedValues.Count > 1 ? "s have" : " has")} been selected";
+    }
+
+    private async Task<IEnumerable<Store>?> SearchStore(string value)
+    {
+        try
+        {
+            if (stores!.Length == 0)
+                stores = await StoreService.GetStores();
+            if (string.IsNullOrEmpty(value))
+                return stores!.OrderBy(x => x.BranchName);
+
+            return stores!.Where(x => x.BranchName!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+        return new HashSet<Store>();
+    }
+
+    void StoreChanged(Store store)
+    {
+        Store = stores!.FirstOrDefault(x => x.Id == store!.Id);
+        StoreID = Store!.Id;
+        StateHasChanged();
+    }
+
+    private void CategoryChanged(Category category)
+    {        
+        Category = category;
+        _ = GetProducts();
+        StateHasChanged();
+    }
+
+    async Task GetProducts()
+    {
+        Products = await ItemService.GetStoreProductsByCategory(StoreID, Category!.Id);
+    }
+
+    private async Task<IEnumerable<Category>?> SearchCategory(string value)
+    {
+        try
+        {
+            if (Categories!.Length == 0)
+                Categories = await ItemService.GetCategories();
+            if (string.IsNullOrEmpty(value))
+                return Categories!.OrderBy(x => x.CategoryName);
+
+            return Categories!.Where(x => x.CategoryName!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+        return new HashSet<Category>();
+    }
+
+    private async Task Save()
+    {
+        AppState.IsProcessing = true;
+        if (!RestockModel!.Products!.Any())
+        {
+            SnackBar.Add("Select product(s) to restock", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+
+        var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to save", yesText: "Yes", cancelText: "No");
+        if (prompt is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        try
+        {
+            bool result = false;            
+            Stock!.Date = AppState.CurrentDateTime;
+            Stock!.Quantity = RestockModel!.NewQuantity;
+            foreach (var product in RestockModel.Products!)
+            {
+                product!.CreatedDate = AppState.CurrentDateTime;
+                product!.ModifiedDate = AppState.CurrentDateTime;                
+                if (SelectedOption == "Store")                
+                    product!.Stocks.Add(Stock);
+                else
+                    product.StockOnHand += Stock!.Quantity!.GetValueOrDefault();
+            }            
+            result = await ItemService.EditProduct(RestockModel.Products);
+
+            if (!result)
+            {
+                SnackBar.Add("Operation failed", Severity.Warning);
+            }
+            else
+            {
+                await hub!.SendAsync("UpdateProducts");
+                SnackBar.Add("Stock Successfully Updated", Severity.Success);
+                Close();
+            }
+        }
+        catch (Exception ex)
+        {
+            SnackBar.Add("Operation failed", Severity.Warning);
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+    }
+    public async ValueTask DisposeAsync()
+    {        
+        await hub!.DisposeAsync();
+    }
+}

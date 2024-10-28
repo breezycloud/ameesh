@@ -1,0 +1,100 @@
+﻿@inject IReturnService Service
+<EditForm Model="@Product" OnValidSubmit="Save">
+    <DataAnnotationsValidator />
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">Return</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudGrid Spacing="1">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Product!.Product" Label="Product" ReadOnly Variant="Variant.Outlined" />
+                 </MudItem>
+                 <MudItem xs="12" sm="6">
+                     <MudNumericField @bind-Value="Data!.Quantity" Immediate="true" Min="1" Max="Product!.Quantity" Label="Quantity" Variant="Variant.Outlined"></MudNumericField>
+                 </MudItem>
+                 <MudItem xs="12">
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.Center">
+                        <MudRadioGroup T="string" Value="Data!.RefundType" ValueChanged="ValueChanged">
+                            <MudRadio Color="Color.Primary" Value="@("Cash")">Cash</MudRadio>
+                            @if (!CType)
+                            {
+                                <MudRadio Color="Color.Secondary" Value="@("Credit")">Store Credit</MudRadio>
+                            }
+                        </MudRadioGroup>
+                    </MudStack>
+                 </MudItem>
+             </MudGrid>
+         </DialogContent>
+         <DialogActions>
+             <MudButton OnClick="Close">Close</MudButton>
+             <MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                        Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+         </DialogActions>
+     </MudDialog>
+
+ </EditForm>
+
+ @code {
+    [CascadingParameter]
+    public MudDialogInstance? DialogInstance { get; set; }
+    [Parameter]
+    public ReturnedProduct Data { get; set; }
+    [Parameter]
+    public ProductOrderItem Product { get; set; }
+    [Parameter]
+    public Guid CId { get; set; }
+    [Parameter]
+    public bool CType { get; set; }
+
+    private string RefundType = "Cash";
+
+    void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+    public void ValueChanged(string type)
+    {
+        Data.RefundType = type;
+    }
+
+    private async Task Save()
+    {
+        AppState.IsProcessing = true;
+        var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to save", yesText: "Yes", cancelText: "No");
+        if (prompt is null)
+        {
+            AppState.IsProcessing = false;
+            return;
+        }
+        try
+        {
+            Data!.Date = DateTime.Now;
+            Data!.OrderId = Product!.OrderId;
+            Data.ProductId = Product!.ProductId;
+            Data!.Cost = Product!.Cost;
+
+            var payload = new RefundPayload { CustomerId = CId, CType = CType, Product = Data };
+
+            bool result = await Service.Put(payload);
+
+            if (!result)
+            {
+                SnackBar.Add("Operation failed", Severity.Warning);
+            }
+            else
+            {
+                AppState.UpdateLayout();
+                SnackBar.Add("Return Successfully Updated", Severity.Success);
+                Close();
+            }
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+    }
+}

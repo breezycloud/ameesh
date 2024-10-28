@@ -1,0 +1,221 @@
+﻿@inject IProductService ProductService
+@inject IStoreService StoreService
+@inject IJSRuntime js
+@implements IAsyncDisposable
+
+@attribute [Authorize(Roles="Admin, Master, Manager, Store, PharmacyStore, PharmacyManager")]
+
+@if (AppState.IsBusy)
+{
+	<DataGridSkeleton />
+}
+else
+{
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-5">
+			<div style="width:250px;">
+				<AuthorizeView Roles="Admin, Master, Manager" Context="auth">
+					<Authorized>
+						<MudSelect T="Guid" Dense="true" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" Strict="true" Label="Search By Store" Value="@AppState!.StoreID" ValueChanged="StoreChanged" Variant="Variant.Outlined">
+							@foreach (var branch in stores!)
+						{
+							<MudSelectItem Value="@branch.Id">@branch.BranchName</MudSelectItem>
+						}
+					</MudSelect>
+				</Authorized>
+			</AuthorizeView>
+			<AuthorizeView Roles="Store, PharmacyManager" >
+				<Authorized>
+					<MudItem xs="12">
+						<MudTextField Label="Store" ReadOnly="true" @bind-Value="Store!.BranchName" Variant="Variant.Outlined" Margin="Margin.Dense" />
+					</MudItem>
+				</Authorized>
+			</AuthorizeView>
+		</div>
+	</MudStack>
+	<MudDataGrid @ref="_gridComponent"
+				 T="ProductByStore"
+				 ServerData="GetGridData"
+				 Dense
+				 ReadOnly
+			 Outlined>
+		<ToolBarContent>
+			<MudSpacer/>
+			<MudTextField T="string" Value="AppState._searchString" ValueChanged="@(s => OnSearch(s))" Placeholder="Search" Immediate="false"
+						  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+		</ToolBarContent>
+		<Columns>
+			<HierarchyColumn ButtonDisabledFunc="t=> !t.Dispensary!.Any()" IconSize="Size.Small" />
+			<PropertyColumn Title="Name" Property="x => x!.ProductName" IsEditable="false" />
+			<PropertyColumn Property="x=>x.Price" Title="Price" Format="N2" />
+			<PropertyColumn Title="Store" Property="x => x!.StoreQuantity" IsEditable="false" />
+			<PropertyColumn Title="Dispensary" Property="x => x!.DispensaryQuantity" IsEditable="false" />			
+			<TemplateColumn>
+				<CellTemplate>
+					<MudButton Size="Size.Small" Color="Color.Primary" OnClick="() => Restock(context.Item)">New Stock</MudButton>					
+				</CellTemplate>
+			</TemplateColumn>
+		</Columns>
+		<ChildRowContent>
+			<MudDataGrid Items="@context.Item.Dispensary.ToList()" Context="store" Dense Outlined>
+				<ToolBarContent>
+					<MudText Typo="Typo.h6">Store</MudText>
+					<MudSpacer />
+				</ToolBarContent>
+				<Columns>
+					<PropertyColumn Property="x => x.Date" Title="Date" />
+					<PropertyColumn Property="x => x.Quantity" Title="Quantity" />
+					<PropertyColumn Property="x=>x.BuyPrice" Title="Buy Price" Format="N2" />					
+					<PropertyColumn Property="x => x.ExpiryDate" Format="dd/MM/yyyy" Title="Expiry Date" />
+					<TemplateColumn Context="ctx">
+						<CellTemplate>
+							<MudText Typo="Typo.body2">@(ctx.Item.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).TotalDays) days to expire</MudText>
+							@* 							else
+							{
+								<MudButton Size="Size.Small" OnClick="() => AddDispensary(context.Item, ctx.Item)">Restock Dispensary</MudButton>
+							} *@
+						</CellTemplate>
+					</TemplateColumn>
+				</Columns>
+			</MudDataGrid>
+		</ChildRowContent>
+		<NoRecordsContent>
+			<MudText Typo="Typo.h6">Empty record</MudText>
+		</NoRecordsContent>
+		<PagerContent>
+			<MudDataGridPager T="ProductByStore" />
+		</PagerContent>
+	</MudDataGrid>
+}
+
+
+
+@code {
+	private MudDataGrid<ProductByStore>? _gridComponent;
+	private ProductByStore? product = new();
+	private EditContext? EditContext;
+	private Store? Store; private Store[]? stores = [];
+
+	List<BulkRestockDispensary> RestockedItem = new();
+	private HubConnection? hub;
+
+
+	protected override async Task OnInitializedAsync()
+	{
+		AppState.IsBusy = true;
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs"), option =>
+		{
+			option.AccessTokenProvider = () => Task.FromResult(AppState.Token)!;
+		}).WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		var mode = await localStorage.GetItemAsync<bool?>("mode");
+		if (mode is not null || mode!.Value)
+			await hub.StartAsync();
+		hub.On("UpdateProducts", async () =>
+		{
+			await _gridComponent!.ReloadServerData();
+		});
+		var access = await localStorage.GetItemAsync<string?>("access");
+		if (access == "Admin" || access == "Master")
+		{
+			stores = await StoreService.GetStores();
+			Store = stores!.LastOrDefault();
+			AppState!.StoreID = Store!.Id;
+		}
+		else
+		{
+			AppState!.StoreID = await localStorage.GetItemAsync<Guid>("branch");
+			Store = await StoreService.GetStore(AppState!.StoreID);
+		}
+
+		//AppState.OnUpdateLayout += UpdateComponent!;
+	}
+
+	protected override void OnAfterRender(bool firstRender)
+	{
+		if (firstRender)
+		{
+			AppState.IsBusy = false;
+		}
+	}
+
+	void StoreChanged(Guid id)
+	{
+		Store = stores!.FirstOrDefault(x => x.Id == id);
+		AppState!.StoreID = Store!.Id;
+	}
+
+	async Task AddDispensary(ProductByStore product, Stock stock)
+	{
+		var parameters = new DialogParameters
+		{
+			["Option"] = "Dispensary",
+			["ProductId"] = product.Id,
+			["ProductName"] = product.ProductName,
+			["StoreID"] = AppState.StoreID,
+			["Stock"] = stock,			
+			["CurrentQty"] = stock.Quantity,
+			["DispensaryQty"] = product.DispensaryQuantity,
+		};
+		await Dialog.ShowAsync<StockEntry>("", parameters);
+	}
+
+	private async Task<GridData<ProductByStore>> GetGridData(GridState<ProductByStore> request)
+	{
+		try
+		{
+			var parameter = new PaginationParameter { Page = request.Page * request.PageSize, PageSize = request.PageSize, SearchTerm = AppState._searchString };
+			var response = await ProductService.GetPagedProducts(parameter);
+			return new GridData<ProductByStore>()
+			{
+				Items = response!.Data!,
+				TotalItems = response.TotalCount
+			};
+		}
+		catch (Exception)
+		{
+			return new GridData<ProductByStore>();
+		}
+		finally
+		{
+			AppState.IsBusy = false;
+			StateHasChanged();
+		}
+	}	
+
+	private async Task Restock(ProductByStore restock)
+	{
+		var stocks = restock.Stocks.AsParallel().Where(x => x.Quantity > 0).OrderByDescending(x => x.Date).ToList();
+		var parameters = new DialogParameters
+		{
+			["ProductId"] = restock.Id,
+			["ProductName"] = restock.ProductName,
+			["StoreID"] = AppState.StoreID,
+			["Option"] = "Dispensary",
+			["SellPrice"] = restock.Price,
+			["Stocks"] = stocks
+		};
+		await Dialog.ShowAsync<ReStockEntry>("", parameters);
+	}
+
+	private async Task MoveToStore(ProductByStore stock)
+	{
+		
+	}
+
+	async void OnSearch(string text)
+	{
+		if (string.IsNullOrEmpty(text))
+			AppState._searchString = string.Empty;
+		else
+			AppState._searchString = text;
+
+		await _gridComponent!.ReloadServerData();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		await hub!.StopAsync();
+		await hub!.DisposeAsync();
+	}
+}

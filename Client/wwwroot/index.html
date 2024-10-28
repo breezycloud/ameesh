@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ameesh Luxury</title>
+    <base href="/" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="Client.styles.css" rel="stylesheet" />
+    <link href="manifest.webmanifest" rel="manifest" />
+     <link rel="icon" type="image/png" href="favicon.png" /> 
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+</head>
+
+<body>
+    <div id="app">
+        <div class="image-container">
+            <div class="loader"></div>
+        </div>
+    </div>
+
+    <script>
+        window.onload = () => {
+            checkinternet();
+        };
+
+        function checkinternet() {
+            var status = navigator.onLine
+            localStorage.setItem("mode", status);
+            return status;
+        }
+        function setFocusToTextBox(box){
+            var textbox = document.getElementById(box);
+            textbox.focus();
+            textbox.scrollIntoView();
+        }
+    </script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="js/dexie.min.js"></script>
+    <script src="js/ReportUtil.js"></script>
+    <script src="js/networkchecker.js"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="_content/Toolbelt.Blazor.PWA.Updater.Service/script.min.js"></script>
+    <script src='js/webusb-receipt-printer.umd.js'></script>
+    <script src='js/thermal-printer-encoder.umd.js'></script>
+    <script src="js/escpos.js"></script>
+    <script src="js/autoLogout.js"></script>
+</body>
+
+</html>

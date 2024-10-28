@@ -1,0 +1,19 @@
+﻿
+@inject CustomAuthenticationStateProvider CustomAuthenticationProvider
+
+<MudTooltip Duration="1000" Text="@(LayoutService.IsDarkMode ? "Switch to Light Theme" : "Switch to Dark Theme")">
+    <MudIconButton Icon="@(LayoutService.IsDarkMode ? @Icons.Material.Rounded.LightMode : @Icons.Material.Outlined.DarkMode)" Color="Color.Inherit" OnClick="@LayoutService.ToggleDarkMode" />
+</MudTooltip>
+<AuthorizeView>
+    <Authorized>
+        <MudMenu Dense="true" Color="Color.Inherit" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex flex-column" LockScroll="true" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopLeft">
+            <ActivatorContent>
+                <MudAvatar>@context.User!.Identity!.Name!.ToString().Substring(0, 1)</MudAvatar>
+                </ActivatorContent>
+                <ChildContent>                    
+                    <MudMenuItem OnTouch="ChangePasswordDialog" OnClick="ChangePasswordDialog">Change Password</MudMenuItem>
+                    <MudMenuItem OnTouch="LogOut" OnClick="LogOut">Log Out</MudMenuItem>
+                </ChildContent>
+            </MudMenu>
+    </Authorized>
+</AuthorizeView>

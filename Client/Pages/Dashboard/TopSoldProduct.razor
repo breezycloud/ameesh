@@ -1,0 +1,61 @@
+@using ApexCharts
+@attribute [Authorize]
+
+@if (IsLoading)
+{
+    <MudSkeleton Class="rounded-lg" Animation="Animation.Wave" SkeletonType="SkeletonType.Circle" Height="500px" />
+}
+else
+{
+    <MudPaper Class="d-flex align-center justify-center" Style="height:500px;" Outlined="true">
+        <ApexChart TItem="OrderChartModel" Options="@options"
+               Title="@($"{Data.FirstOrDefault()!.Date} Top Sold Products")" Width="500" Height="500">
+                <ApexPointSeries TItem="OrderChartModel"
+                            Items="Data"
+                            SeriesType="SeriesType.Donut"
+                            Name="Products"
+                            XValue="@(e => e.Item)"
+                            YAggregate="@(e => e.Sum(e => e.SalesCount))"
+                            OrderByDescending="e=>e.Y"
+                            ShowDataLabels />
+            </ApexChart>            
+    </MudPaper>
+}   
+
+@code {    
+    public List<ChartSeries> Series = new List<ChartSeries>();
+    private double[] data = { 19, 20, 60 };
+    public string[] XAxisLabels = { "Jan", "Feb", "Mar"};
+    [Parameter, EditorRequired] public bool IsLoading { get; set; } = false;
+    [Parameter, EditorRequired] public OrderChartModel[] Data { get; set; } = [];
+
+    private ApexChartOptions<OrderChartModel> options = new ApexChartOptions<OrderChartModel>
+    {
+        Theme = new Theme
+        {
+            Mode = Mode.Light,
+            Palette = PaletteType.Palette2
+        },
+        Xaxis = new XAxis { DecimalsInFloat = 5 },
+        Legend = new Legend { Position = LegendPosition.Bottom }
+    };
+    @* protected override async Task OnParametersSetAsync()
+    {
+        await AppendChartData(Data);
+    }
+
+    private async ValueTask AppendChartData(OrderChartModel[] serviceCharts)
+    {
+        var distinctServices = serviceCharts.Select(x => x.Item).Distinct().ToList();
+        XAxisLabels = distinctServices.ToArray()!;
+        data = new double[distinctServices.Count];
+        for (int d= 0; d < distinctServices.Count; d++)
+        {
+            var serviceSale = serviceCharts.Where(i => i.Item == distinctServices[d]).FirstOrDefault();
+            data[d] = serviceSale!.SalesCount;
+
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }     *@
+}

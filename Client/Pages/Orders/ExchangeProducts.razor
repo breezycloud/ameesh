@@ -1,0 +1,207 @@
+﻿@layout AppLayout
+@inject IProductService ProductService
+@implements IAsyncDisposable
+@page "/exchangeproducts"
+@attribute [Authorize]
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
+		<MudText Typo="Typo.h5">Bulk Product Exchange</MudText>
+		@* <MudTooltip Text="New Stocks" Duration="2000" Placement="Placement.Top">
+			<MudFab Label="New Stock" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+					OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+		</MudTooltip> *@
+	</MudStack>
+</MudHidden>
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp">
+	<MudText Typo="Typo.h5">Bulk Product Exchange</MudText>
+	@* <MudStack AlignItems="AlignItems.Start" Class="pb-4" Spacing="1">
+		<MudTooltip Text="New Stock" Duration="2000" Placement="Placement.Top">
+			<MudFab Label="New Stock" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+					OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+		</MudTooltip>
+	</MudStack> *@
+</MudHidden>
+
+@if (AppState.IsBusy)
+{
+	<DataGridSkeleton />
+}
+else
+{
+	<MudDataGrid @ref="_gridComponent"
+				 T="ProductByStore"
+				 ServerData="GetGridData"
+				 RowClick="@HandleSelectedDataItemChanged"
+				 @bind-SelectedDataItem="category"
+				 Outlined>
+		<Columns>
+			<PropertyColumn Title="Store" Property="x => x!.StoreName" />
+			<PropertyColumn Title="Name" Property="x => x!.ProductName" />			
+			<PropertyColumn Title="Date Created" Property="x => x.CreatedDate.ToString()" />
+			<TemplateColumn>
+				<CellTemplate>
+					<MudButton StartIcon="@Icons.Material.Filled.Search" Color="Color.Primary" OnClick="() => OnView(context.Item.Id)" Size="Size.Small">View</MudButton>
+					<MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+				</CellTemplate>
+			</TemplateColumn>
+		</Columns>
+		<NoRecordsContent>
+			<MudText Typo="Typo.h6">Empty record</MudText>
+		</NoRecordsContent>
+		<PagerContent>
+			<MudDataGridPager T="ProductByStore" />
+		</PagerContent>
+	</MudDataGrid>
+
+}
+
+
+
+@code {
+	private MudDataGrid<ProductByStore>? _gridComponent;
+	private ProductByStore? category = new();
+	private EditContext? EditContext;
+
+	private HubConnection? hub;
+	protected override async Task OnInitializedAsync()
+	{
+		AppState.IsBusy = true;
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs"), option =>
+		{
+			option.AccessTokenProvider = () => Task.FromResult(AppState.Token)!;
+		}).WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		await hub.StartAsync();
+		hub.On("UpdateProducts", async () =>
+		{
+			await _gridComponent!.ReloadServerData();
+		});
+
+		//AppState.OnUpdateLayout += UpdateComponent!;
+		EditContext = new EditContext(category!);
+	}
+
+	protected override void OnAfterRender(bool firstRender)
+	{
+		if (firstRender)
+		{
+			AppState.IsBusy = false;
+		}
+	}
+
+	private async Task<GridData<ProductByStore>> GetGridData(GridState<ProductByStore> request)
+	{
+		try
+		{
+			var parameter = new PaginationParameter { Page = request.Page * request.PageSize, PageSize = request.PageSize };
+			var response = await ProductService.GetPagedProducts(parameter);
+			return new GridData<ProductByStore>()
+				{
+					Items = response!.Data!,
+					TotalItems = response.TotalCount
+				};
+		}
+		catch (Exception)
+		{
+			return new GridData<ProductByStore>();
+		}
+		finally
+		{
+			AppState.IsBusy = false;
+			StateHasChanged();
+		}
+	}
+
+	void HandleSelectedDataItemChanged(DataGridRowClickEventArgs<ProductByStore> item)
+	{
+		OnView(item.Item.Id);
+	}
+
+	private async Task OnNew()
+	{
+		var parameters = new DialogParameters
+			{
+				["Product"] = new Product(),
+				["IsEdit"] = false
+			};
+		await Task.Delay(100);
+	}
+
+	void OnBulkRestock(string page)
+	{
+		nav.NavigateTo(page);
+	}
+
+	private void OnView(Guid id)
+	{
+		nav.NavigateTo($"viewstock/{id}");
+	}
+
+	// private async Task OnRestock(Product Product)
+	// {
+	// 	var parameters = new DialogParameters
+	// 	{
+	// 		["Product"] = Product,
+	// 		["IsEdit"] = true
+	// 	};
+	// 	await Dialog.ShowAsync<StockEntry>("", parameters);
+	// }
+
+	private async Task OnDelete(Guid id)
+	{
+		AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to delete", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await ProductService.DeleteProduct(id);
+			SnackBar.Add("Product Successfully Deleted", Severity.Success);
+			AppState.UpdateLayout();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+	}
+
+
+	private async Task Save()
+	{
+		// AppState.IsProcessing = true
+		var response = await Dialog.ShowMessageBox("Confirm", "Do you want to save...?");
+		if (response is null)
+		{
+			return;
+		}
+		Console.Write("Confirmation working");
+
+		SnackBar.Add("Saved");
+	}
+
+	private async void UpdateComponent(object sender, EventArgs e)
+	{
+		await _gridComponent!.ReloadServerData();
+		StateHasChanged();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		//AppState.OnUpdateLayout -= UpdateComponent!;
+		await hub!.DisposeAsync();
+	}
+
+}

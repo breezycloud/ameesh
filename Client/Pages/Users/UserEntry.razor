@@ -1,0 +1,233 @@
+﻿@using Client.Handlers
+@using Shared.Enums
+@inject IUserService Service
+@attribute [Authorize(Roles = "Admin, Master, PharmacyManager")]
+
+<EditForm Model="@Data" OnValidSubmit="Save">
+	<DataAnnotationsValidator/>
+	<MudDialog>
+		<TitleContent>
+			<MudText Typo="Typo.h6">@(IsEdit ? "Update" : "Add") User</MudText>
+		</TitleContent>
+		<DialogContent>
+			<MudGrid Spacing="1">
+				<MudItem xs="12" sm="6">
+					<MudTextField @ref="_TxtName" @bind-Value="Data.FirstName" Label="First Name" Variant="Variant.Outlined" For="@(() => Data.FirstName)" />
+				</MudItem>
+				<MudItem xs="12" sm="6">
+					<MudTextField @bind-Value="Data.LastName" Label="Last Name" Variant="Variant.Outlined" For="@(() => Data.LastName)" />
+				</MudItem>				
+				<MudItem xs="12">
+					<MudSelect T="UserRole" Dense="true" AnchorOrigin="Origin.BottomCenter" Strict="true" Label="Access Level" @bind-Value="Data.Role" Variant="Variant.Outlined">
+						@if (AppState.Role == UserRole.Master.ToString() || AppState.Role == UserRole.Admin.ToString())
+						{
+							@foreach (UserRole role in Roles!)
+							{
+								<MudSelectItem Value="@role">@role</MudSelectItem>
+							}
+						}	
+						else
+						{
+							@foreach (UserRole role in PharmacyRoles!)
+							{
+								<MudSelectItem Value="@role">@role</MudSelectItem>
+							}
+						}
+					</MudSelect>
+				</MudItem>
+				@if (Data!.Role != UserRole.Admin || Data!.Role != UserRole.Master)
+				{
+					<MudItem xs="12">
+						<MudSelect T="Guid" Dense="true" AnchorOrigin="Origin.BottomCenter" Strict="true" Label="Stores" @bind-Value="StoreID" Variant="Variant.Outlined">
+							@foreach (var store in stores!)
+							{
+								<MudSelectItem Value="@store.Id">@store.BranchName</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+				}	
+				<MudItem xs="12">
+					<MudCheckBox T="bool" Size="Size.Small" Value="AccessEnabled" ValueChanged="AccessChanged">Allow User to Login</MudCheckBox>
+				</MudItem>
+				@if (AccessEnabled)
+				{
+					<MudItem xs="12">
+						<MudTextField Disabled="@IsEdit" @bind-Value="Data!.UserCredential!.Username" Label="Useranme" Variant="Variant.Outlined" For="@(() => Data!.UserCredential!.Username)" />
+					</MudItem>
+					<MudItem xs="12">
+						<MudRadioGroup T="bool" Value="@Data!.UserCredential!.IsActive" Class="d-flex flex-row gap-2 align-center justify-center">
+							<MudRadio Size="Size.Small" Color="Color.Tertiary" Value="@true">Active</MudRadio>
+							<MudRadio Size="Size.Small" Color="Color.Error" Value="@false">In Active</MudRadio>
+						</MudRadioGroup>
+					</MudItem>		
+				}						
+			</MudGrid>						
+		</DialogContent>
+		<DialogActions>
+			<MudButton OnClick="Close">Close</MudButton>
+			<MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+					   Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
+		</DialogActions>
+	</MudDialog>	
+</EditForm>
+
+@code {
+	[CascadingParameter]
+	public MudDialogInstance? DialogInstance { get; set; }	
+	[Parameter]
+	public User Data { get; set; } = new();
+	[Parameter]
+	public bool IsEdit { get; set; } = false;
+	[Parameter]
+	public Store[]? stores { get; set; } = [];
+	MudTextField<string?>? _TxtName { get; set; } = new();
+	private Guid StoreID { get; set; }
+	IEnumerable<UserRole>? Roles = Enum.GetValues(typeof(UserRole)).Cast<UserRole>().Where(x => x.ToString() != "Master");
+	IEnumerable<UserRole>? PharmacyRoles = Enum.GetValues(typeof(UserRole)).Cast<UserRole>().Where(x => x.ToString().Contains("Store", StringComparison.OrdinalIgnoreCase) || x.ToString().Contains("Dispenser", StringComparison.OrdinalIgnoreCase));
+	private HubConnection? hub;
+	private bool AccessEnabled { get; set; } = false;
+	protected override async Task OnInitializedAsync()
+	{
+		AppState.Role = await localStorage.GetItemAsync<string?>("access");
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs"), option =>
+		{
+			option.AccessTokenProvider = () => Task.FromResult(AppState.Token)!;
+		}).WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		if (!IsEdit)
+		{
+			AccessChanged(Data!.UserCredential is not null ? true : false);
+		}
+		await hub.StartAsync();
+		await _TxtName!.FocusAsync();
+	}
+
+	void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+	string DefaultPassword { get; set; } = string.Empty;
+
+	private void AccessChanged(bool value)
+	{
+		AccessEnabled = value;
+		if (AccessEnabled)
+		{
+			if (!IsEdit && Data.UserCredential is null)
+			{
+				Data!.UserCredential = new UserCredential();
+			}
+		}
+		else
+			Data!.UserCredential = null;
+		StateHasChanged();
+	}
+
+	private async Task<bool> ValidateAccountEntry()
+	{
+		if (AccessEnabled && Data!.UserCredential is not null)
+		{
+			if (string.IsNullOrEmpty(Data!.UserCredential.Username))
+			{
+				SnackBar.Add("Username field is required", Severity.Error);
+				return false;
+			}
+			if (!IsEdit && Data!.UserCredential is not null)
+			{			
+				var UsernameExist = await Service.GetUser(Data!.UserCredential.Username!);
+				if (UsernameExist is not null)
+				{
+					await Dialog.ShowMessageBox("Information", "Username is already taken, Please change!");
+					return false;
+				}			
+			}		
+			Data!.UserCredential!.UserId = Data!.Id;			
+		}
+		return true;
+	}
+
+	private async Task Save()
+	{				
+		AppState.IsProcessing = true;
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to save", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;			
+		}
+
+		bool result = await ValidateAccountEntry();
+		if (!result)
+		{						
+			AppState.IsProcessing = false;
+			return;
+		}
+		
+		bool response = false;
+		try
+		{
+			if (Data!.Role == UserRole.Admin || Data!.Role == UserRole.Master)
+				Data!.StoreId = null;
+
+
+			Data!.StoreId = StoreID;
+
+			Data!.FirstName = StringConverter.ConvertToTitleCase(Data!.FirstName!);			
+			Data!.LastName = StringConverter.ConvertToTitleCase(Data!.LastName!);
+			Data!.Store = null;			
+			if (!IsEdit)
+			{
+				if (Data!.UserCredential is not null && Data!.UserCredential!.IsNew)
+				{
+					DefaultPassword = Security.GenerateRandomPassword();
+					Data!.UserCredential!.HashedPassword = Security.Encrypt(DefaultPassword);
+				}								
+				else
+					Data.UserCredential = null;
+				response = await Service.AddUser(Data!);
+			}				
+			else
+				response = await Service.EditUser(Data!);
+
+			if (response)
+			{
+				SnackBar.Add("User Successfully Updated", Severity.Success);
+				if (hub!.State == HubConnectionState.Disconnected)
+					await hub.StartAsync();
+				await hub.SendAsync("UpdateUsers");
+				Close();
+				_ = DisplayPassword();
+				
+			}
+			else
+			{
+				SnackBar.Add("Failed to save", Severity.Error);
+			}
+		}
+		catch (Exception ex)
+		{
+			if (!response)
+			{
+				SnackBar.Add("Failed to save", Severity.Error);
+			}
+			throw;
+		}
+		AppState.IsProcessing = false;
+	}	
+
+	async Task ClearControls()
+	{
+		if (!IsEdit)
+			Data.Id = Guid.NewGuid();
+		Data.FirstName = "";
+		Data.LastName = "";
+		AccessChanged(false);
+		await _TxtName!.FocusAsync();
+	}
+
+	async Task DisplayPassword()
+	{
+		if (!string.IsNullOrEmpty(DefaultPassword))
+			await Dialog.ShowMessageBox("Notification", $"Please note this your default password {DefaultPassword}");
+	}
+
+}

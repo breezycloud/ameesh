@@ -1,0 +1,826 @@
+﻿@layout AppLayout
+@page "/order"
+@inject ICustomerService CustomerService
+@inject IOrderService OrderService
+@inject IProductService ItemService
+@inject IStoreService StoreService
+@inject IUserService UserService
+@implements IAsyncDisposable
+
+@using Client.Pages.Customers
+@using Microsoft.AspNetCore.SignalR.Client
+@using Shared.Enums
+@using Shared.Models.Welfare
+@attribute [Authorize (Roles = "Admin, Master, Cashier")]
+
+
+@if (AppState.IsBusy)
+{
+    <DataGridSkeleton />
+}
+else
+{
+    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pa-2">
+         <MudText Typo="Typo.h5">New Sale</MudText>         
+        @if (SelectedOption == "Store" && TotalSuspendedBills > 0)
+        {
+            <MudStack Row AlignItems="AlignItems.End" Justify="Justify.FlexEnd" Wrap="Wrap.Wrap">                                                        
+
+                    <MudBadge Content="TotalSuspendedBills" Color="Color.Error" Overlap="true" Bordered="true" Class="mx-6 my-4">
+                        <MudFab Label="Retrieve Bills On Hold" DisableElevation="true" StartIcon="@Icons.Material.Filled.Schedule"
+                                OnClick="@(() => GetSuspendedBill())" Color="Color.Secondary" Size="Size.Small" />
+                    </MudBadge>                                
+                
+            </MudStack>
+        }
+     </MudStack>
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="5">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField T="string" Margin="Margin.Dense" ReadOnly Variant="Variant.Outlined" Label="Date" Value="@(DateTime.Now.ToString("dd/MM/yyyy"))" Format="dd/MM/yyyy" />
+                </MudItem>
+                 <AuthorizeView Roles="Admin, Master, Manager">
+                     <Authorized>
+                         <MudItem xs="12" sm="6">
+                             <MudSelect T="Guid" Dense="true" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" Strict="true" Label="Store" Value="@StoreID" ValueChanged="StoreChanged" Variant="Variant.Outlined">
+                                 @foreach (var branch in branches!)
+                                {
+                                    <MudSelectItem Value="@branch.Id">@branch.BranchName</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    </Authorized>
+                </AuthorizeView>
+                <AuthorizeView Roles="Cashier" Context="ctx">
+                    <Authorized>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="Store" ReadOnly="true" @bind-Value="Store!.BranchName" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                    </Authorized>
+                </AuthorizeView>
+                @if (!string.IsNullOrEmpty(SelectedOption))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudAutocomplete AnchorOrigin="Origin.BottomCenter" Dense="true" Label="Customer" T="Customer"
+                                     Value="customer" SearchFunc="@Search" ValueChanged="CustomerChanged" ShowProgressIndicator="true" Margin="Margin.Dense"
+                                     Variant="Variant.Outlined" Immediate="true" ResetValueOnEmptyText
+                                     ToStringFunc="@(e => e == null ? null : $"{e.CustomerName}")" />
+                     </MudItem>
+                    if (!customer!.Regular)
+                    {
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="Phone No" ReadOnly="true" @bind-Value="customer!.PhoneNo" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                    }                    
+                }                                                                                             
+                @if (SelectedOption == "Store")
+                {
+                    <MudItem xs="12">
+                        <MudAutocomplete @ref="_Products" T="ProductsAvailable" AnchorOrigin="Origin.BottomCenter" Value="Row.Product" Label="Search for Products" ValueChanged="ProductChanged"
+                                         SearchFuncWithCancel="@SearchProducts" Dense="true" Variant="Variant.Outlined" ShowProgressIndicator="true" HelperText="Search by name or scan barcode"
+                                         ToStringFunc="@(e => e==null ? null : $"{e!.ProductName}")" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <ProductList/>
+                    </MudItem>                    
+                }
+            </MudGrid>
+        </MudItem>
+        <MudItem xs="12" sm="7">
+            <MudGrid Spacing="2">
+                <MudItem xs="12">                    
+                    <MudDataGrid T="OrderCartRow" 
+                                 Items="@Rows" 
+                                 @bind-SelectedItem="Row"
+                                 RowClick="HandleSelectedDataItemChanged"
+                                 Outlined 
+                                 Dense>
+                     <ToolBarContent>
+                        <MudText Typo="Typo.h6">Cart</MudText>                            
+                        <MudSpacer/>
+                        <MudStack Row AlignItems="AlignItems.End" Justify="Justify.FlexEnd" Wrap="Wrap.Wrap">
+                            @if (Rows!.Any())
+                            {
+                                <MudButton OnClick="() => SuspendBill()" Size="Size.Small" Color="Color.Warning">Hold Bill</MudButton>
+                                <MudButton OnClick="() => ClearCart()" Size="Size.Small" Color="Color.Error">Clear Bill</MudButton>                                
+                            }
+                        </MudStack>                                                  
+                     </ToolBarContent>
+                     <Columns>
+                         <PropertyColumn Property="x => x.ItemName" Title="Item" />
+                         <PropertyColumn Property="x => x.Cost" Title="Cost" Format="N2" />
+                         <PropertyColumn Property="x => x.Quantity" Title="Qty"/>
+                         <PropertyColumn Property="x => (x.Cost * x.Quantity)" Title="Total" Format="N2" />
+                         <TemplateColumn CellClass="d-flex align-end">
+                             <CellTemplate>
+                                <MudIconButton Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="() => DeleteItem(context.Item)"/>
+                             </CellTemplate>
+                         </TemplateColumn>
+                     </Columns>
+                     <NoRecordsContent>
+                         <MudText Typo="Typo.h6">Cart Empty</MudText>
+                     </NoRecordsContent>
+                 </MudDataGrid>
+             </MudItem>
+             <MudItem xs="12" sm="6">
+             </MudItem>
+             <MudItem xs="12" sm="6" Class="d-flex flex-column justify-end gap-2">
+                 <MudCheckBox T="bool" Margin="@Margin.Dense" Value="RequireDelivery" Size="Size.Small" ValueChanged="DeliveryChanged">Require Delivery</MudCheckBox>
+                @if (RequireDelivery)
+                {
+                    <MudGrid Spacing="1">
+                        <MudItem xs="12">
+                                <MudAutocomplete T="string" Margin="@Margin.Dense" ResetValueOnEmptyText="true" Dense="true" AnchorOrigin="Origin.BottomCenter" Strict="true" Label="State"
+                                    ShowProgressIndicator="true" ProgressIndicatorColor="MudBlazor.Color.Primary" For="(() => Address!.State)"
+                                    Value="Address!.State" ValueChanged="@OnStateChanged" Variant="Variant.Outlined" Immediate="true" CoerceValue="true"
+                                    SearchFunc="@SearchState" ToStringFunc="@(e => e == null ? string.Empty : $"{e}")"  />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudAutocomplete T="string" Margin="@Margin.Dense" ResetValueOnEmptyText="true" Dense="true" AnchorOrigin="Origin.BottomCenter" Strict="true" Label="LGA"
+                                    ShowProgressIndicator="true" ProgressIndicatorColor="MudBlazor.Color.Primary" For="(() => Address!.Lga)"
+                                    Value="Address!.Lga" ValueChanged="@OnLgaChanged" Variant="Variant.Outlined" Immediate="true" CoerceValue="true"
+                                    SearchFunc="@SearchLga" ToStringFunc="@(e => e == null ? string.Empty : $"{e}")"  />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudAutocomplete T="string" Margin="@Margin.Dense" ResetValueOnEmptyText="true" Dense="true" AnchorOrigin="Origin.BottomCenter" Strict="true" Label="Wards"
+                                    ShowProgressIndicator="true" ProgressIndicatorColor="MudBlazor.Color.Primary" For="(() => Address!.Ward)"
+                                    Value="Address!.Ward" ValueChanged="@OnWardChanged" Variant="Variant.Outlined" Immediate="true"
+                                    SearchFunc="@SearchWard" ToStringFunc="@(e => e == null ? string.Empty : $"{e}")"  />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField T="decimal" id="figure-right" Format="N2" Label="Delivery Amount" Value="cart.DeliveryAmt" 
+                                ValueChanged="DeliveryAmtChanged" Margin="Margin.Dense" Variant="Variant.Outlined" />
+                        </MudItem>
+                    </MudGrid>
+                }
+                <MudTextField id="figure-right" Label="Sub Total" @bind-Value="cart.SubTotal" Margin="Margin.Dense"
+                                Variant="Variant.Outlined" Disabled="true" Format="N2"
+                                ReadOnly="true" />
+                @if (cart!.OtherService > 0)
+                {
+                    <MudTextField id="figure-right" Label="Other Service" @bind-Value="cart.OtherService" Margin="Margin.Dense"
+                                Variant="Variant.Outlined" Disabled="true" Format="N2"
+                                ReadOnly="true" />
+                }
+
+                @if (!string.IsNullOrEmpty(customer!.CustomerName))
+                {
+                    <MudTextField T="decimal" id="figure-right" Label="Discount" Disabled="DisableDiscount" Value="cart.Discount" Format="N2" Margin="Margin.Dense"
+                                    Variant="Variant.Outlined" Immediate="false" ValueChanged="DiscountChanged" />
+                }            
+
+                @* <MudTextField id="figure-right" Style="color:red;" Label="Amount Due" Disabled="true" Variant="Variant.Outlined" ReadOnly="true" Margin="Margin.Dense"
+                        Value="@(Rows!.Count > 0 && cart.Discount > 0 ? cart.AmountDue = (cart.GrandTotal - cart.Discount) : cart.AmountDue = cart.GrandTotal)" Format="N2" />                 *@
+                @if (ClearLabSales)
+                {
+                    <MudTextField id="figure-right" Format="N2" Label="Amount Paid" @bind-Value="cart.AmountPaid" Margin="Margin.Dense"
+                                    Variant="Variant.Outlined" />
+
+                    <MudTextField id="figure-right" Format="N2" Disabled="true" ReadOnly="true" Margin="Margin.Dense" Label="Balance" Value="@(cart.AmountDue - cart.AmountPaid)"
+                                    Variant="Variant.Outlined" />
+
+                    <MudSelect Strict="true" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense"
+                                @bind-Value="cart.PaymentMode" Label="Payment Mode">
+                        <MudSelectItem Value="PaymentMode.Cash">Cash</MudSelectItem>
+                        <MudSelectItem Value="PaymentMode.POS">POS</MudSelectItem>
+                        <MudSelectItem Value="PaymentMode.Transfer">Transfer</MudSelectItem>
+                    </MudSelect>
+                }                
+             </MudItem>
+             <MudItem xs="12" sm="6" Class="d-flex align-center justify-center">
+                 <MudTooltip Text="Back" Duration="1000" Placement="Placement.Top">
+                     <MudFab Size="Size.Medium" Style="width:200px;" Label="Back" OnClick="() => Warn()" Variant="Variant.Outlined" Color="Color.Dark" />
+                 </MudTooltip>
+             </MudItem>
+             <MudItem xs="12" sm="6" Class="d-flex align-center justify-center">
+                 <MudTooltip Text="Click to pay now" Duration="1000" Placement="Placement.Top">
+                     <MudFab Size="Size.Medium" Disabled="AppState.IsProcessing" Label="@(AppState.IsProcessing ? "Processing" : "Pay now")" Style="width:200px;" OnClick="() => CheckOut()" Color="Color.Success" />
+                 </MudTooltip>
+             </MudItem>
+         </MudGrid>
+     </MudItem>
+ </MudGrid>
+}
+
+@code {
+    MudAutocomplete<ProductsAvailable> _Products = new();
+    MudAutocomplete<Stock> _Stocks = new();
+    private Customer? customer = new();
+    private Customer[]? Customers = [];
+    private Customer[]? CustomerReferers = [];
+    private CartValidation cart = new();
+    private ProductsAvailable[]? Products = [];
+    private Product[]? ProductsByCategory = [];
+    private Category[]? Categories = [];
+    private User[]? Users = [];
+    private User? Consultant = new();
+    private string? SelectedOption, ConsultationNote;
+    private bool IsReferedByDoctor { get; set; }
+    private bool IsReferedByEscort { get; set; }
+    private bool IsReferedCustomer { get; set; }
+    private bool RequireConsultation { get; set; }
+    private bool RequireDelivery { get; set; }
+    private OrderCartRow Row { get; set; } = new() { SelectedOption = "Store" };
+    private List<OrderCartRow>? Rows { get; set; } = new();
+    private Guid StoreID, UserID, OrderID;
+    private string? LastReceiptNo;
+    private Store? Store; private Store[]? branches = [];
+    private decimal discountLimit = 0.1M;
+    private decimal TenPercentDiscountLimit = 0.1M;
+    private HubConnection? hub;
+    public string? BtnCSS;
+    private bool ClearLabSales, ExchangeProduct = false;
+    private string? StoreOption = string.Empty;
+    private int TotalSuspendedBills {get; set; } = 0;
+    private decimal DeliveryAmt = 0M;
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        SelectedOption = "Store";
+        AppState.OnUnhold += UpdateCart!;     
+        AppState.OnSuccess += JustClear!;
+        await GetCustomers();
+        ClearOrderItem();
+        var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+        builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+        hub = builder.Build();
+        var internetfound = await js.InvokeAsync<bool>("checkinternet");
+        if (internetfound)
+            await hub.StartAsync();
+        //charges = await ChargeService.GetCharges();
+        UserID = await localStorage.GetItemAsync<Guid>("uid");
+        var access = await localStorage.GetItemAsync<string?>("access");
+        BtnCSS = "d-flex align-center justify-start";
+        if (access == "Admin" || access == "Master")
+        {
+            branches = await StoreService.GetStores();
+            Store = branches!.FirstOrDefault();
+            StoreID = Store!.Id;
+            //BtnCSS = "d-flex align-end justify-end";
+        }
+        else
+        {
+            //BtnCSS = "d-flex align-center justify-start";
+            StoreID = await localStorage.GetItemAsync<Guid>("branch");
+            Store = await StoreService.GetStore(StoreID);
+            if (SelectedOption == "Lab")
+                SelectedOption = "Lab";
+            else
+                SelectedOption = "Store";
+            OptionChanged(SelectedOption!);
+        }
+        hub.On("UpdateCustomers", async () => {
+            await GetCustomers();
+        });
+
+        hub.On("UpdateProducts", async () => {
+            await GetProducts();
+        });
+        AppState.OnRowUpdate += UpdateItemQuantity!;
+        AppState.IsBusy = false;
+    }
+
+    void OptionChanged(string option)
+    {
+        SelectedOption = option;        
+        if (SelectedOption == "Store")
+        {
+            if (Rows!.Any(x => x.SelectedOption == "Lab"))
+            {
+                SnackBar.Add("Please clear lab cart to proceed!", Severity.Warning);
+            }   
+            else
+            {
+                ClearLabSales = false;
+            }
+        }
+        DefaultCustomer();
+        StateHasChanged();
+    }
+
+    void StoreChanged(Guid id)
+    {
+        Store = branches!.FirstOrDefault(x => x.Id == id);
+        StoreID = Store!.Id;
+        StateHasChanged();
+    }
+
+    void ExchangeChanged(bool value)
+    {
+        ExchangeProduct = value;
+        Products = [];
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<Customer>?> Search(string value)
+    {
+        try
+        {
+            Customers = await CustomerService.GetCustomers();
+            if (string.IsNullOrEmpty(value))
+            {
+                return SelectedOption == "Lab" ? Customers!.Where(x => !x.Regular) : Customers;
+            }
+            return Customers!.AsParallel().Where(x => x.CustomerName!.Contains(value, StringComparison.InvariantCultureIgnoreCase) || x.PhoneNo!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        return new HashSet<Customer>();
+    }
+
+    private bool DisableDiscount { get; set; } = false;
+    private void CustomerChanged(Customer customer)
+    {
+        this.customer = customer;
+        if (customer.HasDiscount)
+        {
+            //DiscountChanged((decimal)customer.TotalDiscount);
+            DisableDiscount = true;
+        }   
+        else
+            DisableDiscount = false;         
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<Customer>?> SearchCustomers(string value)
+    {
+        try
+        {
+            CustomerReferers = await CustomerService.GetCustomers();
+            if (string.IsNullOrEmpty(value))
+            {
+                return CustomerReferers!.Where(x => x.PhoneNo != customer!.PhoneNo && !x.Regular);
+            }            
+            if (customer!.Regular)
+                return CustomerReferers!.AsParallel().Where(x => !x.Regular && x.CustomerName!.Contains(value, StringComparison.InvariantCultureIgnoreCase) || x.PhoneNo!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+            else
+                return CustomerReferers!.AsParallel().Where(x => x.PhoneNo != customer!.PhoneNo && !x.Regular && x.CustomerName!.Contains(value, StringComparison.InvariantCultureIgnoreCase) || x.PhoneNo!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        return new HashSet<Customer>();
+    }
+
+    private async Task<IEnumerable<ProductsAvailable>?> SearchProducts(string value, CancellationToken token)
+    {
+        try
+        {
+            Products = await ItemService.AvailableInDispensary(StoreID, token);
+
+            if (string.IsNullOrEmpty(value))
+                return Products!.AsParallel();
+
+            return Products!.AsParallel().Where(x => x.ProductName!.Contains(value, StringComparison.InvariantCultureIgnoreCase)
+                || x.Barcode!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        return new HashSet<ProductsAvailable>();
+    }
+
+    void ProductChanged(ProductsAvailable product)
+    {
+        Row.Product = product;
+        Row.Quantity = 1;        
+        ProductQuantityChanged(Row.Quantity);        
+        Row = new();
+        StateHasChanged();
+    }
+
+    void StockChanged(Stock stock)
+    {        
+       
+    }
+
+
+
+    private async void ProductQuantityChanged(int e)
+    {
+        OrderCartRow? row = null;
+
+        if (Row.Quantity <= 0)
+        {
+            SnackBar.Add("Enter quantity to proceed!", Severity.Warning);           
+            return;
+        }
+        if (Row.Quantity > Row.Product!.StockOnHand)        
+        {
+            SnackBar.Add("Enter available quantity to proceed!", Severity.Warning);
+            return;
+        }
+
+        Row.Quantity = e;
+        //Rows!.Any(x => x.SelectedOption == "Store");
+        row = Rows!.AsParallel().Where(i => i.Product!.Id == Row!.Product!.Id).FirstOrDefault();
+        if (row is null)
+        {
+            Rows!.Add(new()
+            {
+                Quantity = Row.Quantity,
+                Product = Row.Product,
+                SelectedOption = "Store",
+            });
+        }
+        else
+        { 
+            Rows!.AsParallel().Where(i => i!.Product!.Id == Row!.Product!.Id).FirstOrDefault()!.Quantity += Row.Quantity;
+            var CurrentQty = Rows!.AsParallel().Where(i => i!.Product!.Id == Row!.Product!.Id).FirstOrDefault()!.Quantity;
+            //Console.WriteLine("Cart Qty {0} Stock On Hand {1}", CurrentQty, Row!.Product!.StockOnHand);
+            if (CurrentQty > Row!.Product!.StockOnHand)
+            {
+                SnackBar.Add("You entered maximum available quantity!", Severity.Warning);
+                Rows!.AsParallel().Where(i => i!.Product!.Id == Row!.Product!.Id).FirstOrDefault()!.Quantity -= Row.Quantity;
+                _Products!.Text = string.Empty;
+                await _Products.FocusAsync();
+                return;
+            }
+        }                        
+        SumRows();
+        _Products!.Text = string.Empty;
+        await _Products.FocusAsync();
+
+    }
+
+    void NewCustomer()
+    {
+        var parameters = new DialogParameters
+        {
+            ["Customer"] = new Customer(),
+            ["IsEdit"] = false,
+            ["RedirectRoute"] = "order"
+        };
+        Dialog.Show<CustomerEntry>("", parameters);
+    }
+
+    async Task Warn()
+    {
+        if (cart.RowsCount is null || cart.RowsCount <= 0)
+        {
+            nav.NavigateTo("/orders");
+        }
+        else
+        {
+            var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really want exit", yesText: "Yes", cancelText: "No");
+            if (prompt is null)
+                return;
+
+            nav.NavigateTo("/orders");
+        }
+    }
+
+
+    void DeleteItem(OrderCartRow row)
+    {
+        if (!Rows!.Any())
+            SnackBar.Add("Nothing to delete in cart", Severity.Warning);
+        else
+        {
+            Rows!.Remove(row);            
+            ResetAutocomplete();
+            SumRows();
+        }        
+    }
+
+    async void ResetAutocomplete()
+    {
+        this.Row = new(); 
+        if (SelectedOption == "Store")
+        {
+            _Products.Clear();
+            await _Products.FocusAsync();
+        }        
+    }
+
+    async Task HandleSelectedDataItemChanged(DataGridRowClickEventArgs<OrderCartRow> row)
+    {
+        if (row.Item.SelectedOption == "Lab")
+        {
+            return;
+        }
+        this.Row = row.Item;
+        var item = new CartRowUpdate { id = row.Item!.Product!.Id, TotalQuantity = row.Item!.Stock!.Quantity!.Value, OldQuantity = row!.Item.Quantity };
+        var parameter = new DialogParameters
+        {
+            ["Row"] = item
+        };
+        await Dialog.ShowAsync<UpdateRowQuantity>("", parameter);
+    }
+
+    void UpdateItemQuantity(object sender, CartRowUpdate row)
+    {
+        Row.Quantity = row.NewQuantity.GetValueOrDefault();
+        ProductQuantityChanged(Row.Quantity);
+        ResetAutocomplete();
+        StateHasChanged();
+    }
+    bool success = false;
+
+    async Task CheckOut()
+    {
+        if (string.IsNullOrEmpty(customer!.CustomerName))
+        {
+            AppState.IsProcessing = false;
+            SnackBar.Add("Select Customer to proceed", Severity.Warning);
+            return;
+        }
+
+
+        if (cart.RowsCount <= 0 || cart.RowsCount is null)        
+        {
+            AppState.IsProcessing = false;
+            SnackBar.Add("Cart is empty", Severity.Warning);
+            return;
+        }
+
+        // cart!.AmountPaid = cart!.AmountDue;
+        if (ClearLabSales || ExchangeProduct)
+        {
+            if (cart.AmountPaid > cart.AmountDue)
+            {
+                AppState.IsProcessing = false;
+                SnackBar.Add("Amount to Pay cannot be greater than Amount due", Severity.Warning);
+                return;
+            }
+            if (cart!.AmountPaid <= 0)
+            {
+                AppState.IsProcessing = false;
+                SnackBar.Add("Amount to Pay is required", Severity.Warning);
+                return;
+            }
+        }        
+        var receiptNoExist = await OrderService.ValidateReceiptNo(AppState.SelectedOption!, LastReceiptNo!);
+        if (receiptNoExist)
+        {
+            LastReceiptNo = OrderService.GenerateReceiptNo();
+        }
+
+        var validateOrderId = await OrderService.ValidateOrderID(AppState!.SelectedOption!, OrderID);
+        if (validateOrderId)
+        {
+            AppState.IsProcessing = false;
+            SnackBar.Add("Order has been created", Severity.Success);
+            ClearOrderItem();
+            return;
+        }
+
+        Order? order = null;
+        try
+        {            
+            var currentDateTime = DateTime.Now;  
+            order = new Order()
+            {
+                Id = OrderID,
+                ReceiptNo = LastReceiptNo,
+                UserId = UserID,
+                CustomerId = string.IsNullOrEmpty(customer!.CustomerName) ? null : customer!.Id,
+                Discount = cart!.Discount,
+                OrderDate = DateOnly.FromDateTime(currentDateTime),
+                StoreId = StoreID,
+                DeliveryAmt = cart.DeliveryAmt,
+                Address = this.Address,
+                ProductOrders = OrderService.OrderItems(OrderID, Rows!)!,
+                Payments = new List<Payment>() { new Payment { OrderId = OrderID, UserId = UserID, Cashier = null, PaymentDate = currentDateTime, PaymentMode = cart.PaymentMode, Amount = cart.AmountPaid, CreatedDate = currentDateTime}},
+                User = null,
+                CreatedDate = currentDateTime,
+                ModifiedDate = currentDateTime
+            };
+        
+
+            var parameters = new DialogParameters 
+            { 
+                ["hub"] = hub,
+                ["Order"] = order,
+                ["customer"] = customer,
+                ["Store"] = Store,
+                ["IsEdit"] = false,
+                ["Regular"] = customer!.Regular,
+                ["AmountDue"] = order.Balance,
+                ["Completed"] = false
+            };
+            await Dialog.ShowAsync<PaymentDialog>("", parameters);
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine(ex);
+            SnackBar.Add("Operation failed!", Severity.Error);
+        }        
+        AppState.IsProcessing = false;
+    }
+
+    private void JustClear(object sender, EventArgs e)
+    {
+        ClearOrderItem();
+    }
+
+    async void ClearOrderItem()
+    {        
+        Products = [];
+        OrderID = Guid.NewGuid();
+        LastReceiptNo = OrderService.GenerateReceiptNo();
+        if (!customer!.Regular)
+            customer = new();
+        Row = new();
+        Rows!.Clear();
+        cart = new();
+        RequireConsultation = false;
+        DefaultCustomer();
+        DeliveryChanged(false);
+        await GetTotalSuspendedBills();
+        StateHasChanged();
+    }
+
+    void DefaultCustomer()
+    {
+        if (SelectedOption == "Store" && Customers!.Any())
+        {
+            if (Customers!.Any())
+                customer = Customers!.AsParallel().FirstOrDefault(x => x.Regular);
+        }               
+        else if (SelectedOption == "Lab" && Customers!.Any())
+        {
+            customer = new();
+        }               
+    }
+
+    async Task GetCustomers()
+    {
+        Customers = await CustomerService.GetCustomers();
+    }
+
+    async Task GetProducts()
+    {
+        var cts = new CancellationTokenSource().Token;
+        Products = await ItemService.AvailableInDispensary(StoreID, cts);
+    }
+
+    void ClearCart() 
+    {
+        Rows!.Clear();
+        DefaultCustomer();
+        SumRows();       
+    }
+
+    private async Task SuspendBill()
+    {
+        var bills = await localStorage.GetItemAsync<List<SuspendBills>?>("cart");
+        if (bills is null)        
+        {
+            bills = new List<SuspendBills>();
+        }
+        var bill = new SuspendBills(Rows, DateTime.Now);
+        bills!.Add(bill);
+        await localStorage.SetItemAsync<List<SuspendBills>?>("cart", bills);
+        await hub!.SendAsync("RemoveProductQuantity", Store!.Id, Rows);
+        await GetTotalSuspendedBills();   
+        ClearCart();         
+    }
+
+    private async Task GetSuspendedBill()
+    {        
+        var parameter = new DialogParameters
+        {
+            ["id"] = Store!.Id
+        };
+        await Dialog.ShowAsync<SuspendBillsDialog>("", parameter);
+    }
+
+    private async Task GetTotalSuspendedBills()
+    {        
+       var bills = await localStorage.GetItemAsync<List<SuspendBills>?>("cart");
+        if (bills is not null)
+            TotalSuspendedBills = bills!.Count;
+        else
+            TotalSuspendedBills  = 0;
+    }
+
+    private async void UpdateCart(object sender, OrderCartUpdateEventArgs e)
+    {
+        if (Rows!.Any())
+        {
+            var prompt = await Dialog.ShowMessageBox("Confirmation", "Your cart is not empty, do you wish to erase", yesText:"Yes", cancelText:"No");
+            if (prompt is null)
+            {
+                return;
+            }
+            ClearCart();
+        }
+        Rows = e.Bill;
+        TotalSuspendedBills = e.Count;
+        await hub!.SendAsync("AddProductQuantity", Store!.Id, Rows);
+        SumRows();
+    }
+
+
+    void SumRows()
+    {
+        if (!customer!.HasDiscount && cart!.Discount > 0)
+            cart!.Discount = 0;
+        if (customer!.HasDiscount)
+            cart!.Discount = Rows!.AsParallel().Sum(x => x.Total) * (decimal)customer!.TotalDiscount;
+        cart.RowsCount = Rows!.Count;
+        cart.SubTotal = Rows!.AsParallel().Sum(x => x.Total) + cart!.DeliveryAmt;        
+        cart.GrandTotal = Rows!.AsParallel().Sum(x => x.Total);
+        StateHasChanged();
+    }
+
+    void DiscountChanged(decimal value)
+    {
+        if (!customer!.HasDiscount)
+        {
+            var MaxDiscount = cart!.GrandTotal * discountLimit;
+            if (value > MaxDiscount && !ExchangeProduct)
+            {
+                Dialog.ShowMessageBox("Notification", $"10% discount is allowed, {Math.Round(MaxDiscount, 2)}");
+                return;
+            }
+        }    
+        else 
+        {
+            value = Rows!.Sum(x => x.Total) * value;            
+            js.InvokeVoidAsync("console.log", value);
+        }
+        cart.Discount = value;        
+        if (Rows!.Count > 0)
+            cart.AmountDue = cart.GrandTotal - cart.Discount;
+        StateHasChanged();
+    }
+    DeliveryAddress? Address = null;
+    void DeliveryChanged(bool value)
+    {
+        RequireDelivery = value;
+        if (value)
+            Address = new();
+        else
+            Address = null;
+        StateHasChanged();
+    }
+
+    void DeliveryAmtChanged(decimal value)
+    {
+        if (this.Address is null || string.IsNullOrEmpty(this.Address.State) || string.IsNullOrEmpty(this.Address.Lga) || string.IsNullOrEmpty(this.Address.Ward))
+        {
+            SnackBar.Add("Select delivery location", Severity.Warning);
+            cart!.DeliveryAmt = 0;
+            return;
+        }
+        cart.DeliveryAmt = value;
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<string>> SearchState(string value)
+    {
+        if (!AppState.States.Any())
+            AppState.States = await CustomerService.GetLocations();
+
+        return AppState.SearchState(value);
+    }
+
+    private void OnStateChanged(string value)
+    {
+        Address.State = value;
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<string>> SearchLga(string value)
+    {
+        await Task.Delay(100);   
+
+        return AppState.SearchLga(Address.State, value);
+    }
+
+    private void OnLgaChanged(string value)
+    {
+        Address.Lga = value;
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<string>> SearchWard(string value)
+    {
+        await Task.Delay(100);   
+
+        return AppState.SearchWard(Address.State, Address.Lga, value);
+    }
+
+    private void OnWardChanged(string value)
+    {
+        Address.Ward = value;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        AppState.OnRowUpdate -= UpdateItemQuantity!;
+        AppState.OnUnhold -= UpdateCart!;
+        AppState.OnSuccess -= JustClear!;
+        await hub!.StopAsync();
+        await hub!.DisposeAsync();
+    }
+}

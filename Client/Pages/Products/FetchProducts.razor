@@ -1,0 +1,283 @@
+﻿@layout AppLayout
+@inject IProductService ProductService
+@inject IStoreService StoreService
+@implements IAsyncDisposable
+@page "/products"
+@attribute [Authorize (Roles = "Admin, Master, Manager, Store, PharmacyStore, PharmacyManager")]
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
+		<MudText Typo="Typo.h5">Manage Stocks</MudText>
+		<MudTooltip Text="Restock" Duration="2000" Placement="Placement.Top">
+			<MudFab Label="Restock" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+					OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+		</MudTooltip>
+	</MudStack>
+</MudHidden>
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp">		
+	<MudText Typo="Typo.h5">Manage Stocks</MudText>
+	<MudStack AlignItems="AlignItems.Start" Class="pb-4" Spacing="1">
+		<MudTooltip Text="Restock" Duration="2000" Placement="Placement.Top">
+			<MudFab Label="Restock" DisableElevation="true" StartIcon="@Icons.Material.Filled.DataExploration"
+					OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+		</MudTooltip>
+	</MudStack>
+</MudHidden>
+
+@if (AppState.IsBusy)
+{
+	<DataGridSkeleton/>
+}
+else
+{
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pa-1" Wrap="Wrap.Wrap">
+	<div style="width:250px;">		
+		<MudSelect T="Guid" Dense="true" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" Strict="true" Label="Search By Store" Value="@AppState!.StoreID" ValueChanged="StoreChanged" Variant="Variant.Outlined">
+			@foreach (var branch in stores!)
+			{
+				<MudSelectItem Value="@branch.Id">@branch.BranchName</MudSelectItem>
+			}
+		</MudSelect>
+	</div>
+	<MudBadge Content="TotalExpiryProducts" Color="Color.Error" Overlap="true" Bordered="true" Class="mx-6 my-4">
+		<MudFab Label="Expiry Products" DisableElevation="true" StartIcon="@Icons.Material.Filled.ImportExport"
+				OnClick="@(() => OnExpiry())" Color="Color.Secondary" Size="Size.Small" />
+	</MudBadge>
+</MudStack>
+
+	<MudDataGrid @ref="_gridComponent"
+				 T="ProductByStore"
+				 ServerData="GetGridData"
+				 RowClick="@HandleSelectedDataItemChanged"
+				 @bind-SelectedDataItem="category"
+				 SortMode="SortMode.Multiple"
+			 Outlined>
+		<ToolBarContent>
+			<MudButton Color="Color.Primary" Size="Size.Small" Disabled="AppState.IsProcessing" OnClick="Print">Print Stocks</MudButton>
+			<MudSpacer />
+			<MudTextField T="string" Value="AppState._searchString" ValueChanged="@(s => OnSearch(s))" Placeholder="Search" Immediate="false"
+						  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+		</ToolBarContent>
+		<Columns>
+			<PropertyColumn Title="Name" Property="x => x.ProductName" Sortable="true" />
+			<PropertyColumn Title="Cost" Property="x => x.Stocks!.FirstOrDefault()!.BuyPrice" Format="N2" Sortable="true" />
+			<PropertyColumn Title="Price" Property="x => x.Price" Format="N2" Sortable="true" />
+			<PropertyColumn Title="Dispensary" Property="x => x.DispensaryQuantity" Sortable="true" />
+			<PropertyColumn Title="Store" Property="x => x.StoreQuantity" Sortable="true" />
+			<PropertyColumn Title="Date Created" Property="x => x.CreatedDate.ToString()" Sortable="true" />
+			<TemplateColumn>
+				<CellTemplate>
+					<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Info" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
+					<MudButton StartIcon="@Icons.Material.Filled.Search" Color="Color.Primary" OnClick="() => OnView(context.Item.Id)" Size="Size.Small">View</MudButton>					
+					<AuthorizeView Roles="Admin, Master" Context="auth">
+						<Authorized>							
+							<MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+						</Authorized>
+					</AuthorizeView>
+				</CellTemplate>
+			</TemplateColumn>
+		</Columns>
+		<NoRecordsContent>
+			<MudText Typo="Typo.h6">Empty record</MudText>
+		</NoRecordsContent>
+		<PagerContent>
+			<MudDataGridPager T="ProductByStore" />
+		</PagerContent>
+	</MudDataGrid>
+
+}
+
+
+
+@code {
+	private MudDataGrid<ProductByStore>? _gridComponent;
+	private ProductByStore? category = new();
+	private EditContext? EditContext;
+	int TotalExpiryProducts = 0;
+	private HubConnection? hub;
+	private Store? Store; private Store[]? stores = [];
+	protected override async Task OnInitializedAsync()
+	{
+		AppState.IsBusy = true;
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		var mode = await localStorage.GetItemAsync<bool?>("mode");
+		if (mode is not null || mode!.Value)
+			await hub.StartAsync();
+		hub.On("UpdateProducts", async () =>
+		{
+			await _gridComponent!.ReloadServerData();
+			await GetTotalExpiryProducts();
+			StateHasChanged();
+		});
+		stores = await StoreService.GetStores();
+		Store = stores!.LastOrDefault();
+		AppState!.StoreID = Store!.Id;
+		await GetTotalExpiryProducts();
+		//AppState.OnUpdateLayout += UpdateComponent!;
+		EditContext = new EditContext(category!);
+	}
+
+	protected override void OnAfterRender(bool firstRender)
+	{
+		if (firstRender)
+		{
+			AppState.IsBusy = false;
+		}
+	}
+
+	private async Task GetTotalExpiryProducts()
+	{
+		TotalExpiryProducts = await ProductService.GetTotalExpiryProducts(AppState.StoreID);
+	}
+
+	async Task StoreChanged(Guid id)
+	{
+		Store = stores!.FirstOrDefault(x => x.Id == id);
+		AppState!.StoreID = Store!.Id;
+		await _gridComponent!.ReloadServerData();
+	}
+	private async Task<GridData<ProductByStore>> GetGridData(GridState<ProductByStore> request)
+	{
+		try
+		{			
+			var parameter = new PaginationParameter { Page = request.Page * request.PageSize, PageSize = request.PageSize };
+			if (!string.IsNullOrEmpty(AppState._searchString))
+				parameter.SearchTerm = AppState._searchString;
+			var response = await ProductService.GetPagedProducts(parameter);			
+			return new GridData<ProductByStore>()
+			{
+				Items = response!.Data!.OrderByDescending(x => x.CreatedDate).ThenByDescending(x => x.ModifiedDate),
+				TotalItems = response.TotalCount
+			};
+		}
+		catch (Exception)
+		{
+			return new GridData<ProductByStore>();
+		}
+		finally
+		{
+			AppState.IsBusy = false;
+			StateHasChanged();
+		}
+	}
+
+	void HandleSelectedDataItemChanged(DataGridRowClickEventArgs<ProductByStore> item)
+	{
+		OnView(item.Item.Id);
+	}
+
+	private void OnNew()
+	{
+		nav.NavigateTo($"restocking");		
+	}	
+
+	private void OnExpiry()
+	{
+		nav.NavigateTo($"expiryproducts");		
+	}	
+
+	void OnBulkRestock(string page)
+	{
+		nav.NavigateTo(page);
+	}	
+
+	private void OnView(Guid id)
+	{
+		nav.NavigateTo($"viewstock/{id}");
+	}
+
+	private async Task OnEdit(ProductByStore product)
+	{
+		var parameters = new DialogParameters
+		{
+			["Product"] = product,
+		};
+		await Dialog.ShowAsync<UpdateStock>("", parameters);
+	}
+
+
+	private async Task OnDelete(Guid id)
+	{
+		AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to delete", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await ProductService.DeleteProduct(id);
+			SnackBar.Add("Product Successfully Deleted", Severity.Success);
+			await hub!.SendAsync("UpdateProducts");
+			AppState.UpdateLayout();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+	}
+
+
+	private async Task Save()
+	{
+		// AppState.IsProcessing = true
+		var response = await Dialog.ShowMessageBox("Confirm", "Do you want to save...?");
+		if (response is null)
+		{
+			return;
+		}
+		Console.Write("Confirmation working");
+
+		SnackBar.Add("Saved");
+	}
+
+	private async void UpdateComponent(object sender, EventArgs e)
+	{
+		await _gridComponent!.ReloadServerData();
+		StateHasChanged();
+	}
+
+	async void OnSearch(string text)
+	{
+		if (string.IsNullOrEmpty(text))
+			AppState._searchString = string.Empty;
+		else
+			AppState._searchString = text;
+
+		await _gridComponent!.ReloadServerData();
+	}
+
+
+	private async Task Print()
+	{
+		AppState.IsProcessing = true;
+		try
+		{
+			await ProductService.GetProductsList();
+		}
+		catch (Exception ex)
+		{
+			SnackBar.Add("Operation failed", Severity.Error);
+			Console.WriteLine(ex.Message);
+		}
+		AppState.IsProcessing = false;
+
+	}
+	public async ValueTask DisposeAsync()
+	{
+		//AppState.OnUpdateLayout -= UpdateComponent!;
+		await hub!.DisposeAsync();
+	}
+
+}

@@ -1,0 +1,139 @@
+@layout AppLayout
+@page "/salary-welfare"
+@using Shared.Enums
+@using Shared.Models.Welfare
+@attribute [Authorize(Roles = "Master, Admin, Manager")]
+@inject IStoreService StoreService
+
+@if (AppState.IsBusy)
+{
+    <DataGridSkeleton/>
+}
+else
+{
+    <MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
+             <MudText Typo="Typo.h5">Manage Welfare</MudText>
+             <AuthorizeView Roles="Admin, Master, Manager">
+                 <MudToggleGroup T="WelfareType" Style="width: 500px;" Value="AppState.WelfareType" ValueChanged="OptionChanged" Outline Delimiters Dense Rounded CheckMark FixedContent>
+                    <MudToggleItem Value="@WelfareType.Salary" />
+                    <MudToggleItem Value="@WelfareType.Bonus" />
+                    <MudToggleItem Value="@WelfareType.Advance" />
+                    <MudToggleItem Value="@WelfareType.Penalty" />
+                 </MudToggleGroup>
+            </AuthorizeView>
+         </MudStack>
+     </MudHidden>
+
+    <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudStack AlignItems="AlignItems.Start" Class="pt-4" Spacing="1">
+            <MudText Typo="Typo.h5">Manage Welfare</MudText>
+            <AuthorizeView Roles="Admin, Master, Manager">
+                <div style="max-width: 300px; overflow: auto; padding-bottom: 1px;">
+                    <MudToggleGroup T="WelfareType" Style="width: 500px;" Value="AppState.WelfareType" ValueChanged="OptionChanged" Outline Delimiters Dense Rounded CheckMark FixedContent>
+                        <MudToggleItem Value="@WelfareType.Salary" />
+                        <MudToggleItem Value="@WelfareType.Bonus" />
+                        <MudToggleItem Value="@WelfareType.Advance" />
+                        <MudToggleItem Value="@WelfareType.Penalty" />
+                    </MudToggleGroup>
+                </div>
+            </AuthorizeView>
+        </MudStack>
+    </MudHidden>    
+     <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-2 pb-2">
+         <div style="width:250px;">
+             <AuthorizeView Roles="Admin, Master, Manager" Context="auth">
+                 <Authorized>
+                     <MudSelect T="Guid" Dense="true" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" Strict="true" Label="Search By Store" Value="@AppState!.StoreID" ValueChanged="StoreChanged" Variant="Variant.Outlined">
+                         @foreach (var branch in stores!)
+                        {
+                            <MudSelectItem Value="@branch.Id">@branch.BranchName</MudSelectItem>
+                        }
+                    </MudSelect>
+                </Authorized>
+            </AuthorizeView>
+            <AuthorizeView Roles="Lab, Cashier">
+                <Authorized>
+                    <MudItem xs="12">
+                        <MudTextField Label="Store" ReadOnly="true" @bind-Value="Store!.BranchName" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                </Authorized>
+            </AuthorizeView>
+         </div>         
+        <AuthorizeView Context="auth">
+            <Authorized>
+                <MudTooltip Text="@($"New {AppState.WelfareType.ToString()}")" Duration="2000" Placement="Placement.Top">
+                    <MudFab Label="New" DisableElevation="true"
+                            OnClick="() => NavigateToSales()" Color="Color.Primary" Size="Size.Small" />
+                </MudTooltip>
+            </Authorized>
+        </AuthorizeView>        
+    </MudStack> 
+    
+    @if (AppState.WelfareType == WelfareType.Salary)
+    {
+        <SalaryData/>
+    }
+    @if (AppState.WelfareType == WelfareType.Advance)
+    {
+        <AdvanceData/>
+    }
+    @if (AppState.WelfareType == WelfareType.Bonus)
+    {
+        <BonusData/>
+    }
+    @if (AppState.WelfareType == WelfareType.Penalty)
+    {
+        <PenaltyData/>
+    }
+}
+
+@code {
+    private EventHandler? OnChange;
+    private Guid UserID;
+    private Store? Store; private Store[]? stores = [];
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        var welfare = await localStorage.GetItemAsync<WelfareType?>("WelfareOption");
+        if (welfare is not null)
+            AppState.WelfareType = welfare.GetValueOrDefault();
+        UserID = await localStorage.GetItemAsync<Guid>("uid");
+        var access = await localStorage.GetItemAsync<string?>("access");
+        if (access == "Admin" || access == "Master")
+        {
+            stores = await StoreService.GetStores();
+            Store = stores!.LastOrDefault();
+            AppState!.StoreID = Store!.Id;
+        }        
+        AppState.IsBusy = false;
+    }
+    async Task NavigateToSales()
+    {
+        var parameters = new DialogParameters
+        {
+            ["Type"] = AppState.WelfareType,
+            ["Data"] = new WelfareData(),
+            ["IsEdit"] = false
+        };
+        await Dialog.ShowAsync<WelfareEntry>("", parameters);
+    }
+
+    void StoreChanged(Guid id)
+    {
+        Store = stores!.FirstOrDefault(x => x.Id == id);
+        AppState!.StoreID = Store!.Id;  
+    }
+
+    async void OptionChanged(WelfareType option)
+    {
+        AppState.WelfareType = option;
+        await localStorage.SetItemAsync<WelfareType?>("WelfareOption", option);
+        StateHasChanged();
+    }    
+
+    void FireChange(object sender, EventArgs e)
+    {
+
+    }
+}

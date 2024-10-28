@@ -1,0 +1,43 @@
+﻿<EditForm Model="@Row" OnValidSubmit="Update">
+    <DataAnnotationsValidator/>
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">Update Quantity</MudText>
+        </TitleContent>
+        <DialogContent>            
+             <MudNumericField T="int?" @bind-Value="Row!.NewQuantity" Label="New Quantity" Immediate AutoFocus Min="1" Max="@Row!.TotalQuantity"
+                              Variant="Variant.Outlined" />
+            <MudTextField T="string" @bind-Value="Row!.Prescription" Label="Prescription" Variant="Variant.Outlined" />
+        </DialogContent>
+        <DialogActions>
+             <MudButton OnClick="Close">Close</MudButton>
+             <MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                        Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Update")</MudButton>
+         </DialogActions>
+     </MudDialog>
+
+ </EditForm>
+
+ @code {
+    [CascadingParameter]
+    public MudDialogInstance? DialogInstance { get; set; }
+    [Parameter]
+    public CartRowUpdate? Row { get; set; }     
+
+    void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+    private void Update()
+    {
+        AppState.IsProcessing = true;
+        if (Row!.NewQuantity!.Value < 0 || Row!.NewQuantity.Value > Row!.TotalQuantity)
+        {
+            SnackBar.Add("Enter valid quantity to proceed", Severity.Error);
+            AppState.IsProcessing = false;
+            return;
+        }
+        AppState.UpdateItemQuantity(Row!.NewQuantity!.Value);
+        AppState.UpdateItemQuantity(Row);
+        AppState.IsProcessing = false;
+        Close();
+    }
+}

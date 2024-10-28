@@ -1,0 +1,99 @@
+﻿@using Client.Pages.Returns
+@using Shared.Enums
+@inject IOrderService Service
+
+<MudDataGrid Items="Data" Dense Outlined>    
+    <ToolBarContent>
+        @if (!HideReturnsButton)
+        {
+            <MudText Typo="Typo.h6">Order Items</MudText>
+        }        
+        <MudSpacer/>
+        @if (PaymentStatus)
+        {
+            if (OrderStatus == OrderStatus.Completed && !DispenseStatus && Data.Count > 0)
+            {
+                <AuthorizeView Roles="Admin, Master, PharmacyManager, PharmacyDispenser, PharmacyCashier">
+                    <Authorized>
+                        <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
+                            Label="@(AppState.IsBusy ? "Processing" : "Dispense")" Style="width:150px;"
+                            OnClick="() => GotoCheckOut()" Color="Color.Primary"
+                            StartIcon="@Icons.Material.Filled.Verified"
+                            DisableElevation="true" />
+                    </Authorized>
+                </AuthorizeView>                
+            }            
+        }        
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Product" Title="Product" />
+        <PropertyColumn Property="x => x.Quantity" Title="Qty" />
+        <PropertyColumn Property="x => x.Cost" Title="Cost" Format="N2" />
+        <PropertyColumn Property="x => x.Quantity * x.Cost" Title="Total" Format="N2" />
+        <AuthorizeView Roles="Admin, Master, Manager, PharmacyManager" Context="auth">
+            <Authorized>
+                <TemplateColumn>
+                <CellTemplate>
+                    @if (context.Item.Status != OrderStatus.Canceled && AvailableQuantity(context.Item.ProductId, context.Item.Quantity))
+                    {
+                        <MudButton StartIcon="@Icons.Material.Filled.Recycling" Color="Color.Error" OnClick="() => OnReturn(context.Item)" Size="Size.Small">Return</MudButton>
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+            </Authorized>
+        </AuthorizeView>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.h6">Empty record</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="ProductOrderItem" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    [Parameter]
+    public List<ProductOrderItem> Data { get; set; } = new();
+    [Parameter]
+    public ReturnedProduct[] Returns { get; set; } = [];    
+    [Parameter]
+    public bool HideReturnsButton { get; set; } = false;
+    [Parameter]
+    public bool PaymentStatus { get; set; } = false;
+    [Parameter]
+    public bool DispenseStatus { get; set; } = false;
+    [Parameter]
+    public OrderStatus OrderStatus { get; set; }
+    [Parameter]
+    public bool CType { get; set; }
+    [Parameter]
+    public Guid CId { get; set; }
+    
+    private async Task OnReturn(ProductOrderItem item)
+    {
+
+        var parameters = new DialogParameters
+        {
+            ["Data"] = new ReturnedProduct(),
+            ["Product"] = item,
+            ["CType"] = CType,
+            ["CId"] = CId
+        };
+        await Dialog.ShowAsync<ReturnEntry>("", parameters);
+    }
+
+    bool AvailableQuantity(Guid id, int qty)
+    {
+        var TotalReturnsQty = Returns!.Where(x => x.ProductId == id).Sum(x => x.Quantity.GetValueOrDefault());
+        if (TotalReturnsQty >= qty)
+            return false;
+            
+        return true;
+    }
+
+    private void GotoCheckOut()
+    {
+        AppState.CheckOut();
+    }
+}
+

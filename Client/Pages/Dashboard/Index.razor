@@ -1,0 +1,86 @@
+﻿@layout AppLayout
+@page "/dashboard"
+@inject IDashboardService DashboardService
+@attribute [Authorize]
+
+<MudText Typo="Typo.h5">Dashboard</MudText>
+<MudStack Row  Justify="Justify.FlexEnd" AlignItems="AlignItems.End">    
+    <div style="width:200px;">
+        <MudDatePicker PickerVariant="PickerVariant.Dialog" Margin="Margin.Dense" Label="Filter by date" DateFormat="dd/MM/yyyy" @bind-Date="model!.Date"/>
+    </div>
+    <MudIconButton OnClick="() => DateChanged()" Size="Size.Small" Color="Color.Primary" Icon="@Icons.Material.Filled.Search"/>
+</MudStack>
+<AuthorizeView>
+    <Authorized>
+    <MudGrid Spacing="1">
+        <MudItem xs="12">
+            <TopChartsView IsLoading="@model!.IsBusy" Revenue="@model.TotalRevenue" 
+                           Expense="@model!.TotalExpense" 
+                           ProductsSold="@model!.TotalProductsSold"
+                           PharmacySales="@model.TotalPharmacySales" />
+        </MudItem>        
+        <MudItem xs="12" sm="6">
+            <DailyLatestSummary IsLoading="@model!.IsBusy" Data="@model.Earnings!.Where(x => x.Date == filter!.Date).ToArray()" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <TopSoldProduct IsLoading="@model!.IsBusy" Data="@model.ProductPieChart"/>
+        </MudItem>        
+        <MudItem xs="12">
+            <OverallLatestSummary IsLoading="@model!.IsBusy" Data="model!.Earnings"/>            
+        </MudItem>        
+        <MudItem xs="12">
+            <SalesLineChartView IsBusy="@model!.IsBusy" Series="@model.PharmacySeries" />
+        </MudItem>
+        <MudItem xs="12">
+            <PharmacySummary IsLoading=@model!.IsBusy Data=@model!.PharmacyRecentSales/>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            @* <ProductTopSold IsLoading="@model.IsBusy" Data="@model.ProductPieChart"/> *@
+        </MudItem>          
+        <MudItem xs="12" sm="6" md="4">
+            @* <ProductTopCustomer IsLoading="@model.IsBusy" customer="@model.ProductTopCustomer"/> *@
+        </MudItem>
+
+    </MudGrid>
+    </Authorized>
+</AuthorizeView>
+@code {
+    DashboardFilter filter = new();
+    DashboardModel? model = new();
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        model!.IsBusy = true;
+        var authState = await authenticationStateTask!;
+        var user = authState.User;
+        if (!user.Identity!.IsAuthenticated)
+        {
+            nav.NavigateTo("login");
+        }
+        model = await DashboardService.GetDashboardDataAsync(filter);
+        model!.IsBusy = false;
+    }
+
+    private async Task Test()
+    {
+        AppState.IsProcessing = true;
+        bool printerConnection = await js.InvokeAsync<bool>("XPrinter.Initialize");
+        if (printerConnection)
+            await js.InvokeVoidAsync("XPrinter.PrintTest");
+        else
+            SnackBar.Add("failed to print", Severity.Warning);
+        
+        AppState.IsProcessing = false;
+    }
+
+    private async Task DateChanged()
+    {
+        model!.IsBusy = true;        
+        filter.Date = DateOnly.FromDateTime(model!.Date!.GetValueOrDefault());
+        await Task.Yield();
+        model = await DashboardService.GetDashboardDataAsync(filter);
+        StateHasChanged();
+        model!.IsBusy = false;
+    }
+}

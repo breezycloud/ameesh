@@ -1,0 +1,67 @@
+﻿@layout AppLayout
+@page "/customer/{id:guid}"
+@using Client.Pages.Orders
+@inject ICustomerService Service
+@attribute [Authorize]
+
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexStart" Class="pa-2">
+     <MudTooltip Text="Back" Duration="2000" Placement="Placement.Top">
+         <MudFab Label="Back" DisableElevation="true" StartIcon="@Icons.Material.Filled.ArrowBack"
+                 OnClick="@(() => nav.NavigateTo("customers"))" Color="Color.Dark" Size="Size.Small" />
+     </MudTooltip>
+     <MudText Typo="Typo.h5">Customer Details</MudText>
+ </MudStack>
+@if (AppState.IsBusy)
+{
+    <DataGridSkeleton/>
+}
+else
+{
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="Customer!.CustomerName" ReadOnly Label="Customer Name" Margin="Margin.Dense" Variant="Variant.Outlined" For="@(() => Customer.CustomerName)"></MudTextField>
+         </MudItem>
+         <MudItem xs="12" sm="6">
+             <MudTextField @bind-Value="Customer!.PhoneNo" ReadOnly Label="Phone Number" Margin="Margin.Dense" Variant="Variant.Outlined" For="@(() => Customer.PhoneNo)"></MudTextField>
+         </MudItem>
+         <MudItem xs="12">
+             <MudTextField @bind-Value="Customer!.ContactAddress" ReadOnly Lines="3" Label="Home Address" Variant="Variant.Outlined"></MudTextField>
+         </MudItem>
+         <MudItem xs="12" sm="6">
+             <MudTextField T="decimal" Label="Total" Format="N2" 
+                           Variant="Variant.Outlined" ReadOnly
+                           Value="Total" ValueChanged="TotalChanged"/>
+         </MudItem>         
+         <MudItem xs="12" sm="6">
+             <MudTextField Label="Discount" Format="N2" Variant="Variant.Outlined" ReadOnly="false" Value="@(Customer!.Orders.Sum(t => t.Discount))" />
+         </MudItem>
+         <MudItem xs="12" sm="6">
+             <MudTextField Label="Amount Paid" Format="N2" ReadOnly Variant="Variant.Outlined" Value="Customer!.Orders.SelectMany(x => x.Payments).Sum(t => t.Amount)" />
+         </MudItem>
+         <MudItem xs="12" sm="6">
+             <MudTextField Label="Balance" Format="N2" Variant="Variant.Outlined" ReadOnly Value="Customer!.Orders.Sum(t => t.Balance)" />
+         </MudItem>
+         <MudItem xs="12">
+             <CustomerOrderDetails Data="Customer!.Orders.OrderByDescending(d => d.ModifiedDate).ToArray()"/>
+         </MudItem>     
+     </MudGrid>
+}
+
+@code {
+    [Parameter] public Guid id { get; set; }
+    public Customer? Customer { get; set; } = new();
+    public decimal Total { get;set; }
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        Customer = await Service.GetCustomerById(id);
+        TotalChanged(Customer!.Orders.Sum(t => t.TotalAmount));
+        AppState.IsBusy = false;
+    }
+
+    void TotalChanged(decimal value)
+    {
+        Total = Customer!.Orders.Sum(t => t.TotalAmount);
+        StateHasChanged();
+    }
+}

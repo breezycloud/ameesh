@@ -1,0 +1,105 @@
+﻿@using ApexCharts
+@using System.Globalization;
+
+@if (IsBusy)
+{
+    <MudSkeleton Class="rounded-lg" Animation="Animation.Wave" SkeletonType="SkeletonType.Rectangle" Height="500px" />
+}
+else
+{
+    <MudPaper Class="d-flex align-center justify-center" Style="height:500px;" Outlined="true">
+        @if (Series.Any())
+        {
+            <div style="overflow-x:scroll;overflow-y:hidden">
+                <ApexChart TItem="OrderSalesLine" Title="Yearly Transaction Summary" Options="@options" Width="750" Height="450" @ref="chart">
+                    @foreach (var row in Series)
+                    {
+                        <ApexPointSeries TItem="OrderSalesLine"
+                                     Items="@(row.Data)"
+                                     Name="@(row.Year.ToString())"
+                                     XValue="@(e => GetMonthName(e.Month))"
+                                     YAggregate="@(e => e.Sum(e => e.Sales))"
+                                     SeriesType="SeriesType.Line" />                    
+                    }
+                </ApexChart>
+            </div>
+        }
+    </MudPaper>
+}
+
+@code {
+    [EditorRequired]
+    [Parameter] public List<MySeries> Series { get; set; } = [];
+    [Parameter] public bool IsBusy { get; set; } = false;
+    private ApexChart<OrderSalesLine>? chart = default!;
+    private ApexChartOptions<OrderSalesLine> options = new ApexChartOptions<OrderSalesLine>
+        {
+            Chart = new Chart
+            {
+                Animations = new()
+                {
+                    Enabled = true,
+                    Easing = Easing.Linear,
+                    DynamicAnimation = new()
+                    {
+                        Speed = 1000
+                    }
+                },
+                Toolbar = new()
+                {
+                    Show = false
+                },
+                Zoom = new()
+                {
+                    Enabled = false
+                }
+            },
+            Theme = new Theme
+            {
+                Mode = Mode.Light,
+                Palette = PaletteType.Palette10
+            },
+            Xaxis = new XAxis { DecimalsInFloat = 5 },
+            Legend = new Legend { Position = LegendPosition.Bottom }
+        };
+    protected override async Task OnParametersSetAsync()
+    {
+        var akwai = Series.Any();
+        if (chart is not null && akwai)
+        {            
+            options.DataLabels = new DataLabels { DropShadow = new DropShadow { Enabled = false } };
+            await chart.ResetSeriesAsync(true, true);
+            chart!.Options.Theme = new Theme
+                {
+                    Palette = PaletteType.Palette10
+                };
+            await InvokeAsync(() => chart!.UpdateSeriesAsync());
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    async Task ApplyTheme()
+    {
+        options = new ApexChartOptions<OrderSalesLine>
+            {
+                Theme = new Theme
+                {
+                    Mode = Mode.Light,
+                    Palette = PaletteType.Palette2
+                },
+                Xaxis = new XAxis { DecimalsInFloat = 5 },
+            };
+        await Task.Yield();
+    }
+
+    @* private string GetColor(OrderSalesLine col)
+    {
+        return col.Color!;
+    } *@
+
+    private string GetMonthName(int month)
+    {
+        return CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(month);
+    }
+
+}

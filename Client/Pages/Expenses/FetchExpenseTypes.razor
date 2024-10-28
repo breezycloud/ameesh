@@ -1,0 +1,179 @@
+﻿@layout AppLayout
+@inject IExpenseService Service
+@implements IAsyncDisposable
+@page "/expensetypes"
+@using Shared.Enums
+@attribute [Authorize]
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
+		<MudText Typo="Typo.h5">Manage Expense Types</MudText>
+		<MudFab Label="New" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+				OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+	</MudStack>
+</MudHidden>
+
+<MudHidden Breakpoint="Breakpoint.MdAndUp">
+	<MudStack AlignItems="AlignItems.Start" Class="pt-4" Spacing="1">
+		<MudFab Label="New" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+				OnClick="@(() => OnNew())" Color="Color.Primary" Size="Size.Small" />
+		<MudText Typo="Typo.h5">Manage Expense Types</MudText>
+	</MudStack>
+</MudHidden>
+
+<MudDataGrid @ref="_gridComponent"
+			 T="ExpenseType"
+			 ServerData="GetGridData"
+			 RowClick="@HandleSelectedDataItemChanged"
+			 @bind-SelectedDataItem="category"
+			 Outlined>
+	<Columns>		
+		<PropertyColumn Title="Type" Property="x => x.Expense"/>
+		<PropertyColumn Title="Total Expenses" Property="x => x.Expenses.Count" />
+		<PropertyColumn Title="Date Created" Property="x => x.CreatedDate" />				
+		<TemplateColumn>
+			<CellTemplate>				
+				@if (!context.Item.Expense!.Contains("Referral"))
+				{
+					<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Info" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
+					<AuthorizeView Roles="Admin, Master" Context="auth">
+						<Authorized>							
+							<MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+						</Authorized>
+					</AuthorizeView>
+				}				
+			</CellTemplate>
+		</TemplateColumn>
+	</Columns>
+	<NoRecordsContent>
+		<MudText Typo="Typo.h6">Empty record</MudText>
+	</NoRecordsContent>
+	<PagerContent>
+		<MudDataGridPager T="ExpenseType" />
+	</PagerContent>
+</MudDataGrid>
+
+
+
+
+@code {
+	private MudDataGrid<ExpenseType>? _gridComponent;
+	private ExpenseType? category = new();
+
+	private HubConnection? hub;
+	protected override async Task OnInitializedAsync()
+	{
+		AppState.IsBusy = true;
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+		hub = builder.Build();
+		var internetfound = await js.InvokeAsync<bool>("checkinternet");
+		if (internetfound)
+			await hub.StartAsync();
+		hub.On("UpdateExpenses", async () =>
+		{
+			await _gridComponent!.ReloadServerData();
+		});
+		//AppState.OnUpdateLayout += UpdateComponent!;
+	}
+
+	protected override void OnAfterRender(bool firstRender)
+	{
+		if (firstRender)
+		{
+			AppState.IsBusy = false;
+		}
+	}
+
+	private async Task<GridData<ExpenseType>> GetGridData(GridState<ExpenseType> request)
+	{
+		try
+		{
+			var parameter = new PaginationParameter { Page = request.Page, PageSize = request.PageSize };
+			var response = await Service.GetPagedExpenseTypes(parameter);
+			return new GridData<ExpenseType>()
+				{
+					Items = response!.Data!.OrderByDescending(x => x.CreatedDate)!,
+					TotalItems = response.TotalCount
+				};
+		}
+		catch (Exception)
+		{
+			return new GridData<ExpenseType>();
+		}
+		finally
+		{
+			AppState.IsBusy = false;
+		}
+	}
+
+	async Task HandleSelectedDataItemChanged(DataGridRowClickEventArgs<ExpenseType> category)
+	{
+		await OnEdit(category.Item);
+	}
+
+	private async Task OnNew()
+	{
+		var parameters = new DialogParameters
+			{
+				["Data"] = new ExpenseType(),
+				["IsEdit"] = false
+			};
+		await Dialog.ShowAsync<ExpenseTypeEntry>("", parameters);
+	}
+
+	private async Task AddFindings(ExpenseType test)
+	{
+		var parameters = new DialogParameters
+			{
+				["Data"] = test,
+				["IsEdit"] = true
+			};
+		await Dialog.ShowAsync<ExpenseTypeEntry>("", parameters);
+	}
+
+	private async Task OnEdit(ExpenseType ExpenseType)
+	{
+		var parameters = new DialogParameters
+			{
+				["Data"] = ExpenseType,
+				["IsEdit"] = true,
+			};
+		await Dialog.ShowAsync<ExpenseTypeEntry>("", parameters);
+	}
+
+	private async Task OnDelete(Guid id)
+	{
+		AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to delete", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await Service.DeleteExpenseType(id);
+			SnackBar.Add("Expense Type Successfully Deleted", Severity.Success);
+			await hub!.SendAsync("UpdateExpenses");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+	}
+
+	public async ValueTask DisposeAsync()
+	{		
+		await hub!.StopAsync();
+		await hub!.DisposeAsync();
+	}
+
+}

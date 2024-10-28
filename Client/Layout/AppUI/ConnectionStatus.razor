@@ -1,0 +1,72 @@
+﻿@using Client.Services.AppService
+
+@inject IJSRuntime _jsRuntime
+@inject ILocalStorageService localStorage
+@inject IDialogService Dialog
+@inject LayoutService LayoutService
+@implements IAsyncDisposable
+
+@if (IsOnline)
+{
+    @Online
+}
+else
+{
+    @Offline
+}
+
+@code {
+    string Icon => IsOnline ? Icons.Material.Filled.Wifi : Icons.Material.Filled.WifiOff;
+    string CloseIcon { get; set; } = Icons.Material.Filled.Close;
+    string isOfflineMode => LocalChanges >= 1 ? "visibility:visible;" : "visibility:collapse";
+
+    [Parameter]
+    public RenderFragment Online { get; set; } = default!;
+
+    [Parameter]
+    public RenderFragment Offline { get; set; } = default!;
+    public bool IsOnline { get; set; }
+    private int LocalChanges { get; set; }
+
+
+    [JSInvokable("Connection.StatusChanged")]
+    public void OnConnectionStatusChanged(bool isOnline)
+    {
+        if (IsOnline != isOnline)
+        {
+            IsOnline = isOnline;
+        }
+        LayoutService.OnMajorUpdateOccured();
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        await _jsRuntime.InvokeVoidAsync("Connection.Initialize", DotNetObjectReference.Create(this));
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _jsRuntime.InvokeVoidAsync("Connection.Dispose");
+    }
+
+    @* public async void OnConnectionStatusChanged(object source, JobExecutedEventArgs e)
+    {
+        IsOnline = await localStorage.GetItemAsync<bool>("mode");
+        await _localFactory.SetLocalImage(IsOnline);
+        LayoutService.OnMajorUpdateOccured();
+        StateHasChanged();
+    }
+
+    protected override void OnInitialized()
+    {
+        _BackgroundTask.JobExecuted += OnConnectionStatusChanged;
+    }
+
+    public void Dispose() {
+        _BackgroundTask.JobExecuted -= OnConnectionStatusChanged;
+    }     *@
+}
+
