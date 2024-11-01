@@ -61,6 +61,41 @@ public class PaymentsController(AppDbContext _context) : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("order")]
+    public async Task<IActionResult> PutPayments(Payment[] pays)
+    {
+        Guid OrderId = Guid.Empty;
+        foreach (var payment in pays)
+        {
+            OrderId = payment.OrderId;
+            payment.Cashier = null;
+            _context.Entry(payment).State = PaymentExists(payment.Id) ? EntityState.Modified : EntityState.Added;
+        }
+        
+        var payments = _context.Payments.AsParallel().Where(x => x.OrderId == OrderId && x.Amount < 0).ToList();
+        foreach (var item in payments)
+        {
+            _context.Payments.Remove(item);            
+        }
+        
+        try
+        {
+            await _context.SaveChangesAsync();
+            var order = await _context.Orders.Include(x => x.Payments).FirstOrDefaultAsync(x => x.Id == OrderId);
+            if (order!.Balance < 0)
+            {
+                order!.Status = Shared.Enums.OrderStatus.Completed;
+            }        
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw;
+        }
+
+        return NoContent();
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {

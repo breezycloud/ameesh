@@ -24,15 +24,18 @@ public class Product
 
     [Required(ErrorMessage = "Sell Price is required")]
     public decimal? SellPrice { get; set; }
-    public int StockOnHand { get; set; }
+
+    public int DispensaryQuantity => Dispensary.Where(x => x.Quantity > 0).Sum(x => x.Quantity).GetValueOrDefault();
     public int QuantitySold => OrderItems.Where(x => x.Status == OrderStatus.Completed).Sum(x => x.Quantity);    
     public int QuantityPending => OrderItems.Where(x => x.Status == OrderStatus.Pending).Sum(x => x.Quantity);    
     public int QuantityCancelled => OrderItems.Where(x => x.Status == OrderStatus.Canceled).Sum(x => x.Quantity);    
     public int StoreQuantity => Stocks.Where(x => x.Quantity > 0).Sum(x => x.Quantity).GetValueOrDefault();
     public int ReorderLevel { get; set; }
+
     public DateTime CreatedDate { get; set; } = DateTime.Now;
     public DateTime ModifiedDate { get; set; }
-
+    [Column(TypeName = "jsonb")]
+    public virtual List<Stock> Dispensary { get; set; } = new();
     [Column(TypeName = "jsonb")]
     public virtual List<Stock> Stocks { get; set; } = new();
     public virtual List<ReturnedProduct> ReturnedProducts { get; set; } = new();

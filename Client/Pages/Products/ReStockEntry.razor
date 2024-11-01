@@ -21,7 +21,7 @@
                                    Dense Variant="Variant.Outlined">
                             @foreach (var e in Stocks!)
                             {
-                                <MudSelectItem T="Stock" Value="@e">@($"Qty left {e.Quantity} Exp on {e.ExpiryDate!.Value:dd/MM/yyyy}")</MudSelectItem>
+                                <MudSelectItem T="Stock" Value="@e">@($"Qty left {e.Quantity}")</MudSelectItem>
                             }
                         </MudSelect>
                     </MudItem>
@@ -118,12 +118,6 @@
             AppState.IsProcessing = false;
             return;
         }
-        @* if (Stock!.ExpiryDate is null)
-        {
-            SnackBar.Add("Enter expiry date", Severity.Warning);
-            AppState.IsProcessing = false;
-            return;
-        } *@
         var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to save", yesText: "Yes", cancelText: "No");
         if (prompt is null)
         {

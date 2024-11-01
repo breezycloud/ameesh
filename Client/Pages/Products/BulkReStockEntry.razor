@@ -199,7 +199,7 @@
                 if (SelectedOption == "Store")                
                     product!.Stocks.Add(Stock);
                 else
-                    product.StockOnHand += Stock!.Quantity!.GetValueOrDefault();
+                    product!.Dispensary.Add(Stock);
             }            
             result = await ItemService.EditProduct(RestockModel.Products);
 

@@ -197,6 +197,7 @@ public class OrdersController : ControllerBase
             var user = _context.Users.AsParallel().FirstOrDefault(x => x.Id == bill.UserId);
             var x = _context.Orders.Include(x => x.ProductOrders).AsParallel().Where(x => x.Id == bill.OrderId).FirstOrDefault();
             x!.Status = OrderStatus.Completed;
+            
             _context.Entry(x).State = EntityState.Modified;                        
             var item = new
             {
@@ -211,7 +212,9 @@ public class OrdersController : ControllerBase
                 if (product is null)
                     continue;
 
-            
+                if (!product!.Dispensary.Any(x => x.id == row.stockId))
+                    continue;
+                product!.Dispensary.FirstOrDefault(x => x.id == row.stockId)!.Quantity -= row.qty;
                 _context.Entry(product).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
                 await _context.OrderItems.Where(x => x.OrderId == item.id && x.ProductId == row.productId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, Shared.Enums.OrderStatus.Completed));
@@ -245,7 +248,9 @@ public class OrdersController : ControllerBase
                 if (product is null)
                     continue;
 
-                
+                if (!product!.Dispensary.Any(x => x.id == row.stockId))
+                    continue;
+                product!.Dispensary.FirstOrDefault(x => x.id == row.stockId)!.Quantity -= row.qty;
                 _context.Entry(product).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
                 await _context.OrderItems.Where(x => x.OrderId == item.id && x.ProductId == row.productId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, Shared.Enums.OrderStatus.Completed));
@@ -298,6 +303,7 @@ public class OrdersController : ControllerBase
                                                 HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
                                                 HasOrderItems = x.ProductOrders.Any(),
                                                 Discount = x.Discount,
+
                                                 Sale = x.User!.ToString(),
                                                 
                                                 Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString(),
@@ -339,6 +345,7 @@ public class OrdersController : ControllerBase
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 Discount = x.Discount,
+
                                                 Sale = x.User!.ToString(),
                                                 
                                                 Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString(),
@@ -365,7 +372,9 @@ public class OrdersController : ControllerBase
                 if (product is null)
                     continue;
 
-                
+                if (!product!.Dispensary.Any(x => x.id == item.StockId))
+                    continue;
+                product!.Dispensary.FirstOrDefault(x => x.id == item.StockId)!.Quantity += item.Quantity;
                 _context.Entry(product).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
                 await _context.OrderItems.Where(x => x.OrderId == order.Id && x.ProductId == product.Id).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, Shared.Enums.OrderStatus.Canceled));
@@ -418,6 +427,7 @@ public class OrdersController : ControllerBase
                                                 Balance = x.Balance,
                                                 SubTotal = x.SubTotal,
                                                 Discount = x.Discount,
+
                                                 Sale = x.User!.ToString(),
                                                 
                                                 Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString(),
@@ -458,6 +468,7 @@ public class OrdersController : ControllerBase
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 Discount = x.Discount,
+
                                                 Sale = x.User!.ToString(),
                                                 Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString(),
                                                 CreatedDate = x.CreatedDate,
@@ -665,6 +676,7 @@ public class OrdersController : ControllerBase
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 Discount = x.Discount,
+
                                                 Sale = x.User!.ToString(),
                                                 Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString(),
                                                 CreatedDate = x.CreatedDate,

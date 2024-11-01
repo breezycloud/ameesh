@@ -37,6 +37,27 @@ else
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="5">
             <MudGrid Spacing="2">
+                @* <AuthorizeView Roles="Admin, Master, Manager">
+                    <MudItem xs="12" sm="6">
+                        <MudToggleGroup T="string" Style="width: 300px;" Value="SelectedOption" ValueChanged="OptionChanged" Outline Delimiters Dense Rounded CheckMark FixedContent>
+                            <MudToggleItem Value="@("Lab")" />
+                            <MudToggleItem Value="@("Store")" />
+                        </MudToggleGroup>
+                    </MudItem>
+                </AuthorizeView>                 
+                <AuthorizeView Roles="Admin, Master, Manager, Cashier">
+               <MudItem xs="12">
+                        <MudChip Icon="@Icons.Material.Rounded.MedicalServices" Color="Color.Primary">@SelectedOption</MudChip>
+                    </MudItem>
+                </AuthorizeView>                
+                 <MudItem xs="12" sm="6" Class="@BtnCSS">
+                     @if (!string.IsNullOrEmpty(SelectedOption))
+                     {                     
+                        <MudTooltip Text="Add Customer" Duration="2000" Placement="Placement.Top">
+                            <MudFab Label="New Customer" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add" OnClick="() => NewCustomer()" Color="Color.Primary" Size="Size.Small" />
+                        </MudTooltip>
+                     }
+                 </MudItem>                      *@
                 <MudItem xs="12" sm="6">
                     <MudTextField T="string" Margin="Margin.Dense" ReadOnly Variant="Variant.Outlined" Label="Date" Value="@(DateTime.Now.ToString("dd/MM/yyyy"))" Format="dd/MM/yyyy" />
                 </MudItem>
@@ -82,7 +103,9 @@ else
                                          ToStringFunc="@(e => e==null ? null : $"{e!.ProductName}")" Margin="Margin.Dense" />
                     </MudItem>
                     <MudItem xs="12">
-                        <ProductList/>
+                        <MudAutocomplete @ref="_Stocks" T="Stock" AnchorOrigin="Origin.BottomCenter" Value="Row.Stock" Label="Select stock" ValueChanged="StockChanged"
+                                         SearchFunc="@SearchStocks" Dense="true" Variant="Variant.Outlined" ShowProgressIndicator="true"
+                                         ToStringFunc="@(e => e==null ? null : $"{(e.Quantity > 0 ? $"Available Qty: {e.Quantity}" : "")}")" Margin="Margin.Dense" />
                     </MudItem>                    
                 }
             </MudGrid>
@@ -123,7 +146,7 @@ else
                      </NoRecordsContent>
                  </MudDataGrid>
              </MudItem>
-             <MudItem xs="12" sm="6">
+             <MudItem xs="12" sm="6" Class="d-flex flex-column align-end justify-end">
              </MudItem>
              <MudItem xs="12" sm="6" Class="d-flex flex-column justify-end gap-2">
                  <MudCheckBox T="bool" Margin="@Margin.Dense" Value="RequireDelivery" Size="Size.Small" ValueChanged="DeliveryChanged">Require Delivery</MudCheckBox>
@@ -233,7 +256,6 @@ else
     private bool ClearLabSales, ExchangeProduct = false;
     private string? StoreOption = string.Empty;
     private int TotalSuspendedBills {get; set; } = 0;
-    private decimal DeliveryAmt = 0M;
     protected override async Task OnInitializedAsync()
     {
         AppState.IsBusy = true;
@@ -254,7 +276,7 @@ else
         BtnCSS = "d-flex align-center justify-start";
         if (access == "Admin" || access == "Master")
         {
-            branches = await StoreService.GetStores();
+            branches = await StoreService.GetStores();  
             Store = branches!.FirstOrDefault();
             StoreID = Store!.Id;
             //BtnCSS = "d-flex align-end justify-end";
@@ -389,15 +411,34 @@ else
     void ProductChanged(ProductsAvailable product)
     {
         Row.Product = product;
-        Row.Quantity = 1;        
-        ProductQuantityChanged(Row.Quantity);        
-        Row = new();
         StateHasChanged();
+    }
+    private async Task<IEnumerable<Stock>?> SearchStocks(string value)
+    {
+        Stock[] stocks = [];
+        try
+        {
+            await Task.Delay(100);
+            if (string.IsNullOrEmpty(Row!.ItemName))
+                return stocks;
+
+            stocks = Row!.Product!.Dispensary.AsParallel().Where(x => x.Quantity > 0).ToArray();
+            return stocks;            
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        return new HashSet<Stock>();
     }
 
     void StockChanged(Stock stock)
     {        
-       
+        Row.Stock = stock;
+        Row.Quantity = 1;        
+        ProductQuantityChanged(Row.Quantity);        
+        StateHasChanged();
+        Row = new();
     }
 
 
@@ -405,13 +446,17 @@ else
     private async void ProductQuantityChanged(int e)
     {
         OrderCartRow? row = null;
-
+        if (Rows!.Any(x => x.SelectedOption == "Lab"))
+        {
+            SnackBar.Add("Please clear lab cart to proceed!", Severity.Warning);
+            return;
+        }
         if (Row.Quantity <= 0)
         {
             SnackBar.Add("Enter quantity to proceed!", Severity.Warning);           
             return;
         }
-        if (Row.Quantity > Row.Product!.StockOnHand)        
+        if (Row.Quantity > Row.Stock!.Quantity)        
         {
             SnackBar.Add("Enter available quantity to proceed!", Severity.Warning);
             return;
@@ -424,24 +469,15 @@ else
         {
             Rows!.Add(new()
             {
+                Stock = Row!.Stock,
                 Quantity = Row.Quantity,
                 Product = Row.Product,
                 SelectedOption = "Store",
             });
         }
         else
-        { 
-            Rows!.AsParallel().Where(i => i!.Product!.Id == Row!.Product!.Id).FirstOrDefault()!.Quantity += Row.Quantity;
-            var CurrentQty = Rows!.AsParallel().Where(i => i!.Product!.Id == Row!.Product!.Id).FirstOrDefault()!.Quantity;
-            //Console.WriteLine("Cart Qty {0} Stock On Hand {1}", CurrentQty, Row!.Product!.StockOnHand);
-            if (CurrentQty > Row!.Product!.StockOnHand)
-            {
-                SnackBar.Add("You entered maximum available quantity!", Severity.Warning);
-                Rows!.AsParallel().Where(i => i!.Product!.Id == Row!.Product!.Id).FirstOrDefault()!.Quantity -= Row.Quantity;
-                _Products!.Text = string.Empty;
-                await _Products.FocusAsync();
-                return;
-            }
+        {
+            Rows!.AsParallel().Where(i => i!.Product!.Id == Row!.Product!.Id).FirstOrDefault()!.Quantity = Row.Quantity;
         }                        
         SumRows();
         _Products!.Text = string.Empty;
@@ -592,8 +628,8 @@ else
                 CreatedDate = currentDateTime,
                 ModifiedDate = currentDateTime
             };
-        
 
+            
             var parameters = new DialogParameters 
             { 
                 ["hub"] = hub,
@@ -610,7 +646,8 @@ else
         catch (System.Exception ex)
         {
             Console.WriteLine(ex);
-            SnackBar.Add("Operation failed!", Severity.Error);
+            if (!success)
+                SnackBar.Add("Operation failed!", Severity.Error);
         }        
         AppState.IsProcessing = false;
     }
@@ -726,8 +763,8 @@ else
         if (customer!.HasDiscount)
             cart!.Discount = Rows!.AsParallel().Sum(x => x.Total) * (decimal)customer!.TotalDiscount;
         cart.RowsCount = Rows!.Count;
-        cart.SubTotal = Rows!.AsParallel().Sum(x => x.Total) + cart!.DeliveryAmt;        
-        cart.GrandTotal = Rows!.AsParallel().Sum(x => x.Total);
+        cart.SubTotal = Rows!.AsParallel().Sum(x => x.Total);        
+        cart.GrandTotal = Rows!.AsParallel().Sum(x => x.Total) + cart!.DeliveryAmt;
         StateHasChanged();
     }
 
@@ -752,12 +789,16 @@ else
             cart.AmountDue = cart.GrandTotal - cart.Discount;
         StateHasChanged();
     }
+
     DeliveryAddress? Address = null;
     void DeliveryChanged(bool value)
     {
         RequireDelivery = value;
         if (value)
+        {
             Address = new();
+            cart!.DeliveryAmt = 0;
+        }
         else
             Address = null;
         StateHasChanged();

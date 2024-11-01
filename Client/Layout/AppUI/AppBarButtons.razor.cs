@@ -48,6 +48,7 @@ public partial class AppBarButtons
         await localStorage.RemoveItemAsync("uid");
         await localStorage.RemoveItemAsync("branch");
         await localStorage.RemoveItemAsync("access");
+        await localStorage.RemoveItemAsync("uname");
         var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
         builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
         var hub = builder.Build();

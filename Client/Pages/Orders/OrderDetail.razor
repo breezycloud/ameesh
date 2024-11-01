@@ -151,11 +151,7 @@ else
 
     async Task GetData()
     {
-        if (AppState.Pharmacy is not null)
-            Data = AppState.Pharmacy;
-        else
-            Data = await OrderService.GetOrder(id);
-
+        Data = await OrderService.GetOrder(id);
         Deduction += Data!.Discount;        
     }   
 
@@ -166,7 +162,7 @@ else
 
     private void HandleCheckOut(object sender, EventArgs e)
     {
-        InvokeAsync(() => CheckOut());
+        InvokeAsync(() => Save());
     }
 
     void Navigate()
@@ -192,32 +188,12 @@ else
             payment.Id = Guid.NewGuid();
             Data.Payments.Add(payment);
         }
-        if (Data!.Balance == 0)
-        {
-            var items = Data!.ProductOrders.ToList();
-            items.ForEach(item => item.Status = OrderStatus.Completed);            
-            await InvokeAsync(() => OrderService.UpdateOrderItems(items));
-        }        
-        await InvokeAsync(() => OrderService.PutPayment(payment));
-        AppState!.ReportDataModel = new ReportData 
-        { 
-            ReportType = "Store",
-            Branch = Data.Store,
-            Customer = Data!.Customer,
-            Order = Data!
-        };                       
         AppState.UpdateLayout();
-        if (Data!.Balance == 0)
-        {
-            bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
-            if (connected)
-                await InvokeAsync(() => OrderService.PrintReceipt("Store", AppState!.ReportDataModel));
-        }        
     }
 
     private async Task Save()
     {
-        var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to update order", yesText: "Yes", cancelText: "No");
+        var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to update payment", yesText: "Yes", cancelText: "No");
         if (prompt is null)
         {
             AppState.IsProcessing = false;
@@ -225,16 +201,27 @@ else
         }
         try
         {
-
-            bool result = await OrderService.UpdateOrder(Data);
-            if (result)
+            if (Data!.Balance == 0)
             {
-                SnackBar.Add("Order Successfully Updated", Severity.Success);                
-            }
-            else
+                var items = Data!.ProductOrders.ToList();
+                items.ForEach(item => item.Status = OrderStatus.Completed);            
+                await InvokeAsync(() => OrderService.UpdateOrderItems(items));
+            }        
+            await InvokeAsync(() => OrderService.PutPayments(Data!.Payments.ToArray()));
+            AppState!.ReportDataModel = new ReportData 
+            { 
+                ReportType = "Store",
+                Branch = Data.Store,
+                Customer = Data!.Customer,
+                Order = Data!
+            };                       
+            AppState.UpdateLayout();
+            if (Data!.Balance == 0)
             {
-                SnackBar.Add("Operation failed", Severity.Warning);
-            }
+                bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
+                if (connected)
+                    await InvokeAsync(() => OrderService.PrintReceipt("Store", AppState!.ReportDataModel));
+            }        
         }
         catch (Exception)
         {

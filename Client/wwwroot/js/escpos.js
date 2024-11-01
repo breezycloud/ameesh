@@ -79,7 +79,9 @@ window.XPrinter = {
 
         items.push(['', '='.repeat(10)]);
         items.push(['Total', (encoder) => encoder.bold().text(formattedTotalCost).bold()]);
-        items.push(['Delivery Amount', (encoder) => encoder.bold().text(formattedDeliveryAmt).bold()]);
+        if (deliveryAmt > 0) {
+            items.push(['Delivery Amount', (encoder) => encoder.bold().text(formattedDeliveryAmt).bold()]);
+        }
         items.push(['Discount', (encoder) => encoder.bold().text(formattedDiscount).bold()]);
         items.push(['Sub Total', (encoder) => encoder.bold().text(formattedSubTotal).bold()]);
         items.push(['Amount Paid', (encoder) => encoder.bold().text(formattedPaid).bold()]);
@@ -109,6 +111,10 @@ window.XPrinter = {
             .align('left')
             .size('small')
             .text(`Name: ${data.customer.customerName}`)
+            .newline()
+            .align('left')
+            .size('small')
+            .text(`Cashier: ${data.cashier}`)
             .newline()
             .newline()
             .align('center')

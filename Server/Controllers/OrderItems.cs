@@ -34,7 +34,7 @@ public class OrderItems : ControllerBase
             Id = x.Key,
             ProductName = x.FirstOrDefault()!.Product,
             QtySold = x.Sum(x => x.Quantity),
-            DispensaryQty = x.Select(p => p.ProductData).Sum(x => x!.StockOnHand)
+            DispensaryQty = x.Select(p => p.ProductData).Sum(p => p!.DispensaryQuantity)
         }).ToList();
 
         var User = await _context.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);

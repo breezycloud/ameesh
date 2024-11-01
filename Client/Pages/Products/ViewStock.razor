@@ -41,7 +41,7 @@ else
              <MudTextField id="figure-right" @bind-Value="Product!.SellPrice" Format="N2" Label="Unit Price" Variant="Variant.Outlined" For="() => Product!.SellPrice"></MudTextField>
          </MudItem>
          <MudItem xs="12" sm="6">
-             <MudTextField Value="Product!.StockOnHand" ReadOnly Format="N0" Label="Current Qty" Variant="Variant.Outlined"></MudTextField>
+             <MudTextField Value="Product!.DispensaryQuantity" ReadOnly Format="N0" Label="Dispensary Qty" Variant="Variant.Outlined"></MudTextField>
          </MudItem>
          <MudItem xs="12" sm="6">
              <MudTextField Value="Product!.StoreQuantity" ReadOnly Format="N0" Label="Store Qty" Variant="Variant.Outlined"></MudTextField>
@@ -49,10 +49,43 @@ else
         <MudItem xs="12" sm="6">
             <MudTextField Value="Product!.QuantitySold" ReadOnly Format="N0" Label="Qty Sold" Variant="Variant.Outlined"></MudTextField>
         </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField Value="Product!.QuantityPending" ReadOnly Format="N0" Label="Undispensed Qty" Variant="Variant.Outlined"></MudTextField>
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField Value="Product!.QuantityCancelled" ReadOnly Format="N0" Label="Cancelled Qty" Variant="Variant.Outlined"></MudTextField>
+        </MudItem>
         <MudItem xs="12" Class="d-flex flex-row align-center justify-end">
             <MudFab Disabled="AppState.IsProcessing" Size="Size.Small" Label="@(AppState.IsProcessing ? "Processing" : "Update")" OnClick="() => Update()" Style="width:150px" Color="Color.Primary"/>
         </MudItem>
-         <MudItem xs="12">
+         <MudItem xs="12" sm="6">
+             <MudDataGrid T="Stock" Items="Product!.Dispensary.OrderByDescending(x => x.Date)" Outlined="true" Context="ctx" Dense="true">
+                 <ToolBarContent>
+                     <MudText Typo="Typo.h6">Dispensary</MudText>
+                     <MudSpacer />
+                     @* <MudTooltip Text="Add Stock" Duration="2000" Placement="Placement.Top">
+                         <MudFab Label="Add Stock" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add"
+                                 OnClick="@(() => AddStock())" Color="Color.Primary" Size="Size.Small" />
+                     </MudTooltip> *@
+                 </ToolBarContent>
+                 <Columns>
+                     <PropertyColumn Property="x=>x.Date" Title="Date" Format="dd/MM/yyyy" />
+                     <PropertyColumn Property="x=>x.Quantity" Title="Qty" Format="N0" />                     
+                     <PropertyColumn Property="x=>x.ExpiryDate" Format="dd/MM/yyyy" Title="Expiry Date" />
+                     <TemplateColumn Context="stx">
+                         <CellTemplate>
+                             <MudButton Size="Size.Small" Color="Color.Tertiary" DisableElevation OnClick="() => MoveToStore(stx.Item)">Move to Store</MudButton>
+                             @* <MudIconButton Disabled="@AppState.IsProcessing" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete"
+                                     OnClick="@(() => DeleteStock(stx.Item))" /> *@
+                         </CellTemplate>
+                     </TemplateColumn>
+                 </Columns>
+                 <PagerContent>
+                     <MudDataGridPager T="Stock" />
+                 </PagerContent>
+             </MudDataGrid>
+         </MudItem>
+         <MudItem xs="12" sm="6">
              <MudDataGrid T="Stock" Items="Product!.Stocks.OrderByDescending(x => x.Date)" Outlined="true" Context="ctx" Dense="true">
                  <ToolBarContent>
                      <MudText Typo="Typo.h6">Stocks</MudText>
@@ -154,7 +187,7 @@ else
             AppState.IsProcessing = false;
             return;
         }
-    
+        Product!.Dispensary.Remove(stock);
         Product!.Stocks.Where(x=> x.id == stock.id)!.FirstOrDefault()!.Quantity += stock!.Quantity;
 
         bool response = false;
@@ -211,8 +244,6 @@ else
             AppState.IsProcessing = false;
             return; 
         }
-
-        Product!.StockOnHand -= stock!.Quantity.GetValueOrDefault();
         try
         {
             Product!.ModifiedDate = AppState.CurrentDateTime;

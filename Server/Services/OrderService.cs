@@ -25,7 +25,7 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
         {
             _logger.LogInformation("Updating product quantity");
             var product = await _context.Products.Where(x => x.StoreId == id && x.Id == item.ProductId).FirstOrDefaultAsync();
-            product!.StockOnHand -= item.Quantity;
+            product!.Dispensary.FirstOrDefault(x => x.id == item.StockId)!.Quantity -= item.Quantity;
             _context.Entry(product).State = EntityState.Modified;
             await _context.SaveChangesAsync();
             _logger.LogInformation("Successfully Updated {0} Quantity", item.Product);
@@ -38,7 +38,7 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
         {
             _logger.LogInformation("Updating product quantity");
             var product = await _context.Products.Where(x => x.StoreId == id && x.Id == item.Product!.Id).FirstOrDefaultAsync();
-            product!.StockOnHand -= item.Quantity;
+            product!.Dispensary.FirstOrDefault(x => x.id == item.Stock!.id)!.Quantity -= item.Quantity;
             _context.Entry(product).State = EntityState.Modified;
             await _context.SaveChangesAsync();
             _logger.LogInformation("Successfully Updated {0} Quantity", item.Product!.ProductName);
@@ -51,7 +51,7 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
         {
             _logger.LogInformation("Updating product quantity");
             var product = await _context.Products.Where(x => x.StoreId == id && x.Id == item.Product!.Id).FirstOrDefaultAsync();
-            product!.StockOnHand += item.Quantity;
+            product!.Dispensary.FirstOrDefault(x => x.id == item.Stock!.id)!.Quantity += item.Quantity;
             _context.Entry(product).State = EntityState.Modified;
             await _context.SaveChangesAsync();
             _logger.LogInformation("Successfully Updated {0} Quantity", item.Product!.ProductName);
@@ -66,7 +66,7 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
             {
                 _logger.LogInformation("Updating product quantity");
                 var product = await _context.Products.Where(x => x.Id == item.Product!.Id).FirstOrDefaultAsync();
-                product!.StockOnHand += item.Quantity;
+                product!.Dispensary.FirstOrDefault(x => x.id == item.Stock!.id)!.Quantity += item.Quantity;
                 _context.Entry(product).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("Successfully Updated {0} Quantity", item.Product!.ProductName);
@@ -95,7 +95,7 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
             _logger.LogInformation("Updating product quantity");
             var product = await _context.Products.Where(x => x.StoreId == id && x.Id == item.ProductId).FirstOrDefaultAsync();
             if (Option == "Dispensary")
-                product!.StockOnHand -= item.Quantity;
+                product!.Dispensary.FirstOrDefault(x => x.id == item.StockId)!.Quantity -= item.Quantity;
             else
                 product!.Stocks.FirstOrDefault(x => x.id == item.StockId)!.Quantity -= item.Quantity;
             _context.Entry(product).State = EntityState.Modified;
@@ -115,14 +115,14 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
     public async Task<int> GetTotalDispensaryExpiryProducts(Guid id)
     {
         _logger.LogInformation("Checking dispensary expiry products");
-        int dispensary = 0;
+        int dispensary = await _context.Products.Where(x => x.StoreId == id).SelectMany(x => x.Dispensary).Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).CountAsync();
         return dispensary;
     }
     
     public async Task<int> GetTotalStoreExpiryProducts(Guid id)
     {
         _logger.LogInformation("Checking store expiry products");
-        int store = await _context.Products.Where(x => x.StoreId == id).SelectMany(x => x.Stocks).Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).CountAsync();
+        int store = await _context.Products.Where(x => x.StoreId == id).SelectMany(x => x.Dispensary).Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).CountAsync();
         return store;
     }
     public async Task CancelOrder(CancellationToken token)
@@ -147,23 +147,23 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
             remainingTime = DateTime.Now.Subtract(x.CreatedDate).Hours
         }).ToList();
         _logger.LogInformation("{0} orders found...", items.Count);
-        // foreach (var item in items)
-        // {
-        //     foreach (var row in item.items)
-        //     {
-        //         var product = await _context.Products.Where(x => x.StoreId == item.storeId && x.Id == row.productId).FirstOrDefaultAsync();
-        //         if (product is null)
-        //             continue;
+        foreach (var item in items)
+        {
+            foreach (var row in item.items)
+            {
+                var product = await _context.Products.Where(x => x.StoreId == item.storeId && x.Id == row.productId).FirstOrDefaultAsync();
+                if (product is null)
+                    continue;
 
-        //         if (!product!.Dispensary.Any(x => x.id == row.stockId))
-        //             continue;
-        //         product!.Dispensary.FirstOrDefault(x => x.id == row.stockId)!.Quantity += row.qty;
-        //         _context.Entry(product).State = EntityState.Modified;
-        //         await _context.SaveChangesAsync();
-        //         await _context.OrderItems.Where(x => x.OrderId == item.id && x.ProductId == row.productId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, Shared.Enums.OrderStatus.Canceled));
-        //     }
-        //     await _context.Orders.Where(x => x.Id == item.id).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, Shared.Enums.OrderStatus.Canceled));
-        // }
+                if (!product!.Dispensary.Any(x => x.id == row.stockId))
+                    continue;
+                product!.Dispensary.FirstOrDefault(x => x.id == row.stockId)!.Quantity += row.qty;
+                _context.Entry(product).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+                await _context.OrderItems.Where(x => x.OrderId == item.id && x.ProductId == row.productId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, Shared.Enums.OrderStatus.Canceled));
+            }
+            await _context.Orders.Where(x => x.Id == item.id).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, Shared.Enums.OrderStatus.Canceled));
+        }
     }
 
     public void Dispose()

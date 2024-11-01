@@ -55,6 +55,7 @@ public class CustomAuthenticationStateProvider : AuthenticationStateProvider
             await _localStorage.RemoveItemAsync("uid");
             await _localStorage.RemoveItemAsync("access");
             await _localStorage.RemoveItemAsync("branch");
+            await _localStorage.RemoveItemAsync("uname");
         }
         else
         {
@@ -62,6 +63,7 @@ public class CustomAuthenticationStateProvider : AuthenticationStateProvider
             await _localStorage.SetItemAsync("uid", response.Id);            
             await _localStorage.SetItemAsync("access", response.Role);
             await _localStorage.SetItemAsync("branch", response.StoreId);
+            await _localStorage.SetItemAsync("uname", response.Username);
         }
 
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());

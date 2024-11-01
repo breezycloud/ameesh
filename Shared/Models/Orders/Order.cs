@@ -25,7 +25,7 @@ public class Order
     [Column(TypeName = "decimal(18, 2)")]
     public decimal Discount { get; set; }
     [Column(TypeName = "decimal(18, 2)")]
-    public decimal DeliveryAmt { get; set; }
+    public decimal DeliveryAmt { get; set; } = 0M;
     [Column(TypeName = "decimal(18, 2)")]
     public decimal SubTotal => TotalAmount - Discount;
     [Column(TypeName = "decimal(18, 2)")]
@@ -42,7 +42,6 @@ public class Order
     public DeliveryAddress? Address { get; set; } = new();
     public DateTime CreatedDate { get; set; } = DateTime.Now;
     public DateTime ModifiedDate { get; set; }
-
     public virtual ICollection<ProductOrderItem> ProductOrders { get; set; } = new List<ProductOrderItem>();
     public virtual ICollection<ReturnedProduct> ReturnedProducts { get; set; } = new List<ReturnedProduct>();
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();

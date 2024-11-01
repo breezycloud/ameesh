@@ -21,6 +21,7 @@ public class OrderCartRow
     public decimal Total => Quantity * Cost;
     public ProductsAvailable? Product { get; set; } = new();
     public Stock? Stock { get; set; } = new();
+
     public string? ItemName => Product!.ProductName;
     public string? SearchByBarcode { get; set; }
     public string? SelectedOption { get; set; }

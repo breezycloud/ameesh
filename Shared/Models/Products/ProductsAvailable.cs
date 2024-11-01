@@ -14,6 +14,7 @@ public class ProductsAvailable
     public string? Barcode { get; set; }
     public string? ProductName { get; set; }
     public decimal? SellPrice { get; set; }
-    public int StockOnHand { get; set; }
+    [Column(TypeName = "jsonb")]
+    public virtual List<Stock> Dispensary { get; set; } = new();
 }
 

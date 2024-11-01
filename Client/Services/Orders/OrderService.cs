@@ -21,6 +21,7 @@ public interface IOrderService
     Task<bool> CompleteOrder(Guid id, Guid uid);
     Task<bool> UpdateOrderItems(List<ProductOrderItem> items);
     Task<bool> PutPayment(Payment model);
+    Task<bool> PutPayments(Payment[] payments);
     Task<bool> DeletePayment(Guid id);
     Task<int> GetReceiptNo(string Type, Guid StoreID);
     string GenerateReceiptNo();
@@ -61,7 +62,8 @@ public class OrderService : IOrderService
         {
             OrderId = id,
             ProductId = i!.Product!.Id,
-            BuyPrice = 0,
+            StockId = i!.Stock!.id,
+            BuyPrice = i!.Stock!.BuyPrice!.Value,
             Product = i!.Product!.ProductName,
             Cost = i!.Cost,
             Quantity = i!.Quantity,
@@ -157,6 +159,22 @@ public class OrderService : IOrderService
         {
             model.Cashier = null;
             var request = _client.CreateClient("AppUrl").PutAsJsonAsync($"api/payments/{model!.Id}", model);
+            var response = await request;
+            response.EnsureSuccessStatusCode();
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    public async Task<bool> PutPayments(Payment[] payments)
+    {
+        try
+        {
+            var request = _client.CreateClient("AppUrl").PutAsJsonAsync($"api/payments/order", payments);
             var response = await request;
             response.EnsureSuccessStatusCode();
             return response.IsSuccessStatusCode;

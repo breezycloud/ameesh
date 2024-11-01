@@ -7,7 +7,6 @@
         <DialogContent>            
              <MudNumericField T="int?" @bind-Value="Row!.NewQuantity" Label="New Quantity" Immediate AutoFocus Min="1" Max="@Row!.TotalQuantity"
                               Variant="Variant.Outlined" />
-            <MudTextField T="string" @bind-Value="Row!.Prescription" Label="Prescription" Variant="Variant.Outlined" />
         </DialogContent>
         <DialogActions>
              <MudButton OnClick="Close">Close</MudButton>

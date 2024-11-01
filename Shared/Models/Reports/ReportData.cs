@@ -11,6 +11,7 @@ public class ReportData
     public ReportHeader? ReportHeader { get; set; }
     public ReportFooter? ReportFooter { get; set; }
     public User? Employee { get; set; }
+    public string? Cashier { get; set; }
     public Store? Branch { get; set; }
     public Customer? Customer { get; set; }
     public Order? Order {get; set; }    

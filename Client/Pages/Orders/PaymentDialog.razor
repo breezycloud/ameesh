@@ -24,7 +24,7 @@
                                Dense ValueChanged="PaymentModeChanged">                        
                         <MudSelectItem Value="@PaymentMode.Cash">Cash</MudSelectItem>
                         <MudSelectItem Value="@PaymentMode.POS">POS</MudSelectItem>
-                        @if (!Regular)
+                        @if (!Regular && !IsEdit)
                         {
                             <MudSelectItem Value="@PaymentMode.Credit">Credit</MudSelectItem>
                         }
@@ -101,8 +101,11 @@
         }
         else
         {
-            AmountDue -= Payment!.Amount;        
-            Order.Payments.Add(Payment);
+            AmountDue -= Payment!.Amount;   
+            if (!IsEdit)
+                Order.Payments.Add(Payment);
+            else
+                 AppState.UpdatePayment(Payment);
             if (AmountDue > 0)
                 Payment = new();        
             else if (AmountDue == 0)
@@ -138,21 +141,37 @@
         bool success = false;
         try
         {
-            success = await OrderService.AddProductOrder(Order);    
-            if (!success)
+            if (!IsEdit)
             {
-                SnackBar.Add("Operation failed!", Severity.Error);
+                success = await OrderService.AddProductOrder(Order);    
+                if (!success)
+                {
+                    SnackBar.Add("Operation failed!", Severity.Error);
+                }
+                else
+                {
+                    AppState!.ReportDataModel = new ReportData { Branch = Store, ReportType = "Store", Customer = customer };
+                    AppState!.ReportDataModel.Order = Order;
+                    AppState!.ReportDataModel.Cashier = await localStorage.GetItemAsync<string>("uname");
+                    var items = Order!.ProductOrders.ToArray();
+                    var internetfound = await js.InvokeAsync<bool>("checkinternet");
+                    if (internetfound && hub!.State == HubConnectionState.Disconnected)
+                        await hub.StartAsync();                
+                    await hub!.SendAsync("UpdateStock", Store!.Id, "Dispensary"!, items);
+                    await hub!.SendAsync("UpdatePharmarcyOrders");
+                    bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
+                    if (success)
+                    {
+                        if (connected)
+                            await OrderService.PrintReceipt("Store", AppState!.ReportDataModel!);
+                        SnackBar.Add("Transaction Successfull", Severity.Success);
+                        AppState.ClearOrderItems();
+                    }
+                }
             }
             else
             {
-                AppState!.ReportDataModel = new ReportData { Branch = Store, ReportType = "Store", Customer = customer };
-                AppState!.ReportDataModel.Order = Order;
-                var items = Order!.ProductOrders.ToArray();
-                var internetfound = await js.InvokeAsync<bool>("checkinternet");
-                if (internetfound && hub!.State == HubConnectionState.Disconnected)
-                    await hub.StartAsync();                
-                await hub!.SendAsync("UpdateStock", Store!.Id, "Dispensary"!, items);
-                await hub!.SendAsync("UpdatePharmarcyOrders");
+               AppState.CheckOut();
             }
         }   
         catch (System.Exception ex)
@@ -162,16 +181,8 @@
                 SnackBar.Add("Operation failed!", Severity.Error);
         }
         finally
-        {            
-            bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
-            if (success)
-            {
-                if (connected)
-                    await OrderService.PrintReceipt("Store", AppState!.ReportDataModel!);
-                SnackBar.Add("Transaction Successfull", Severity.Success);
-                AppState.ClearOrderItems();
-                Cancel();                
-            }
+        {
+            Cancel();
         }
         AppState.IsProcessing = false;
     }

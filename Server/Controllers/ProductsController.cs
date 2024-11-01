@@ -51,11 +51,12 @@ public class ProductsController : ControllerBase
                                                         CategoryName = x.Item!.Category!.CategoryName,
                                                         ProductName = x.Item!.ProductName,
                                                         Price = x.SellPrice.GetValueOrDefault(),
+                                                        DispensaryQuantity = x.DispensaryQuantity,
                                                         MarkupType = x.MarkupType,
                                                         MarkupAmount = x.MarkupAmount,
                                                         MarkupPercentage = x.MarkupPercentage,
                                                         StoreQuantity = x.StoreQuantity,
-                                                        DispensaryQuantity = x.StockOnHand,
+                                                        Dispensary = x.Dispensary,
                                                         Stocks = x.Stocks,
                                                         CreatedDate = x.CreatedDate,
                                                         ModifiedDate = x.ModifiedDate
@@ -87,8 +88,9 @@ public class ProductsController : ControllerBase
                                                         MarkupType = x.MarkupType,
                                                         MarkupAmount = x.MarkupAmount,
                                                         MarkupPercentage = x.MarkupPercentage,
-                                                        DispensaryQuantity = x.StockOnHand,
+                                                        DispensaryQuantity = x.DispensaryQuantity,
                                                         StoreQuantity = x.StoreQuantity,
+                                                        Dispensary = x.Dispensary,
                                                         Stocks = x.Stocks,
                                                         CreatedDate = x.CreatedDate,
                                                         ModifiedDate = x.ModifiedDate
@@ -199,10 +201,10 @@ public class ProductsController : ControllerBase
             StoreId = x.StoreId,
             ProductName = x.Item!.ProductName,
             Price = x.SellPrice.GetValueOrDefault(),
-            CurrentDispensary = x.StockOnHand,
+            CurrentDispensary = x.DispensaryQuantity,
             QuantitySold = x.QuantitySold,
             StoreQuantity = x.StoreQuantity,
-            ExpiryDate = x.Stocks.Select(e => e.ExpiryDate).FirstOrDefault().GetValueOrDefault(),
+            ExpiryDate = x.Dispensary.Select(e => e.ExpiryDate).FirstOrDefault().GetValueOrDefault(),
             CurrentStoreQuantity = x.StoreQuantity          
         }).ToList();
         response.TotalCount = await _context.Products.Where(x => x!.StoreId == StoreId).CountAsync();
@@ -219,7 +221,7 @@ public class ProductsController : ControllerBase
                 var product = await _context.Products.FirstOrDefaultAsync(x => x.StoreId == StoreId && x.Id == item.Id);
                 if (Option == "Dispensary")
                 {                    
-                    product!.StockOnHand += item!.NewQuantity!.Value;
+                    product!.Dispensary!.FirstOrDefault(x => x.id == item.StockId)!.Quantity += item!.NewQuantity!.Value;
                 }
                 else
                 {
@@ -249,7 +251,7 @@ public class ProductsController : ControllerBase
             var product = await _context.Products.FirstOrDefaultAsync(x => x.StoreId == restocking.StoreID && x.Id == restocking.ProductId);
             if (restocking.Option == "Dispensary")
             {
-                product!.StockOnHand += restocking!.NewQty!.Value;
+                product!.Dispensary!.FirstOrDefault(x => x.id == restocking.StockID)!.Quantity += restocking!.NewQty!.Value;
                 product!.Stocks.Where(x => x.id == restocking.StockID)!.First()!.Quantity -= restocking!.NewQty!.Value;
             }
             else
@@ -281,7 +283,43 @@ public class ProductsController : ControllerBase
             Console.WriteLine(Storage);
             if (Storage == "Dispensary")                
             {
-               
+                products = _context.Products.Where(x => x.StoreId == StoreId)
+                                              .AsNoTracking()
+                                              .AsSplitQuery()
+                                              .Include(store => store.Store)
+                                              .Include(item => item.Item)
+                                              .ThenInclude(b => b.Brand)
+                                              .Include(item => item.Item)
+                                              .ThenInclude(category => category!.Category)
+                                              .OrderBy(x => x.CreatedDate)
+                                              .AsParallel()
+                                              .AsEnumerable()
+                                              .Where(x => x.Dispensary.Any(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90))
+                                              .Skip(parameter.Page)
+                                              .Take(parameter.PageSize)
+                                              .ToList();
+                response.TotalCount = _context.Products.AsParallel().SelectMany(x => x.Dispensary).Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Count();
+                foreach (var product in products.AsParallel())
+                {
+                    if (product.Dispensary.AsParallel().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Any())
+                    {
+                        var expired = product.Dispensary.AsParallel().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90);
+                        response!.Data!.Add(new ProductByStore
+                        {
+                            Id = product.Id,
+                            StoreName = product.Store!.BranchName,
+                            BrandName = product.Item!.Brand!.BrandName,
+                            CategoryName = product.Item!.Category!.CategoryName,
+                            ProductName = product.Item!.ProductName,
+                            Price = product.SellPrice.GetValueOrDefault(),
+                            DispensaryQuantity = product.DispensaryQuantity,
+                            StoreQuantity = product.StoreQuantity,
+                            Dispensary = expired.ToList(),
+                            CreatedDate = product.CreatedDate,
+                            ModifiedDate = product.ModifiedDate
+                        });
+                    }                      
+                }
             }
             else
             {
@@ -314,7 +352,7 @@ public class ProductsController : ControllerBase
                             CategoryName = product.Item!.Category!.CategoryName,
                             ProductName = product.Item!.ProductName,
                             Price = product.SellPrice.GetValueOrDefault(),
-                            DispensaryQuantity = product.StockOnHand,
+                            DispensaryQuantity = product.DispensaryQuantity,
                             StoreQuantity = product.StoreQuantity,
                             Stocks = expired.ToList(),
                             CreatedDate = product.CreatedDate,
@@ -342,7 +380,7 @@ public class ProductsController : ControllerBase
     [HttpGet("dispensaryexpiryproducts/{id}")]
     public async Task<int> GetTotalDispensaryExpiryProducts(Guid id)
     {
-        return 0;
+        return _context.Products.AsNoTracking().AsParallel().Where(x => x.StoreId == id).SelectMany(x => x.Dispensary).AsEnumerable().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Count();
     }
     [HttpGet("storeexpiryproducts/{id}")]
     public async Task<int> GetTotalStoreExpiryProducts(Guid id)
@@ -394,7 +432,7 @@ public class ProductsController : ControllerBase
 			return NotFound();
 		}
         var product = await _context.Products.Where(x => x.Id == id && x.StoreId == storeId).FirstOrDefaultAsync();
-        var IsValid = product!.StockOnHand >= qty ? true : false;
+        var IsValid = product!.Dispensary.Any(s => s.id == stockId && s.Quantity >= qty);
         return IsValid;
 	}
 
@@ -421,7 +459,7 @@ public class ProductsController : ControllerBase
                                     ProductName = x.Item!.ProductName,
                                     //CostPrice = x.Stocks.FirstOrDefault()!.BuyPrice.GetValueOrDefault(),
                                     SellPrice = x.SellPrice.GetValueOrDefault(),
-                                    DispensaryQuantity = x.StockOnHand,
+                                    DispensaryQuantity = x.DispensaryQuantity,
                                     StoreQuantity = x.StoreQuantity,
                                 }).ToListAsync();
         }        
@@ -458,7 +496,7 @@ public class ProductsController : ControllerBase
                                               .Include(x => x.Item)                                              
                                               .AsEnumerable()
                                               .AsParallel()
-                                              .Where(x => x.StoreId == id && x.StockOnHand >0)
+                                              .Where(x => x.StoreId == id)
                                               .OrderByDescending(x => x.ModifiedDate)
                                               .Select(p=> new ProductsAvailable
                                               { 
@@ -466,7 +504,7 @@ public class ProductsController : ControllerBase
                                                   Barcode = p.Item!.Barcode,
                                                   ProductName = p.Item!.ProductName,
                                                   SellPrice = p.SellPrice,
-                                                  StockOnHand = p.StockOnHand
+                                                  Dispensary = p.Dispensary.Where(x => x.Quantity.GetValueOrDefault() > 0).ToList()
                                               })
                                               .WithCancellation(token)
                                               .ToList();
@@ -476,7 +514,7 @@ public class ProductsController : ControllerBase
             return NotFound();
         }
 
-        return products;
+        return products.AsParallel().Where(x => x.Dispensary.Any(d => d.Quantity.GetValueOrDefault() > 0));
     }
 
     // PUT: api/Product/5
@@ -544,7 +582,10 @@ public class ProductsController : ControllerBase
             product.Stocks.Add(stock);
         else
         {            
-            product.StockOnHand += stock.Quantity.GetValueOrDefault();
+            if (product.Dispensary.Any(x => x.id == stock.id))
+                product.Dispensary.FirstOrDefault(x => x.id == stock.id)!.Quantity += stock.Quantity;
+            else
+                product.Dispensary.Add(stock);
 
             product.Stocks.FirstOrDefault(x => x.id == stock.id)!.Quantity -= stock.Quantity;
         }
