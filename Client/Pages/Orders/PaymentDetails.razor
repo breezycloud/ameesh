@@ -2,7 +2,7 @@
     <ToolBarContent>
         <MudText Typo="Typo.h6">Payment Details</MudText>
         <MudSpacer />
-        <AuthorizeView Roles="Admin, Master, Cashier, PharmacyCashier">
+        <AuthorizeView Roles="Admin, Master, Cashier">
             <Authorized>
                 @if (!PaymentCompleted)
                 {
@@ -18,12 +18,14 @@
         <PropertyColumn Property="x => x.PaymentDate" Title="Date" />
         <PropertyColumn Property="x => x.Amount" Title="Amount" Format="N2" />
         <PropertyColumn Property="x => x.PaymentMode" Title="Payment Mode" />
-        <PropertyColumn Property="x => x.Cashier.ToString()" Title="Cashier" />
-        <TemplateColumn CellClass="d-flex justify-end">
-            <CellTemplate>
-                <MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
-            </CellTemplate>
-        </TemplateColumn>
+        <PropertyColumn Property="x => x.Cashier!.ToString()" Title="Cashier" />
+         <AuthorizeView Roles="Admin, Master, Manager" Context="ctx">
+            <TemplateColumn CellClass="d-flex justify-end" Context="context">
+                <CellTemplate>
+                    <MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
+                </CellTemplate>
+            </TemplateColumn>
+         </AuthorizeView>
     </Columns>
     <NoRecordsContent>
         <MudText Typo="Typo.h6">Empty record</MudText>
@@ -40,16 +42,19 @@
     public bool PaymentCompleted { get; set; } = false;
     [Parameter]
     public decimal AmountDue { get; set; }
-
+    [Parameter] public Order Order { get; set; } = new();
     private async Task OnNew()
     {
-        var parameters = new DialogParameters
-            {
-                ["Payment"] = new Payment(),
-                ["IsEdit"] = true,
-                ["AmountDue"] = AmountDue,
-                ["Completed"] = PaymentCompleted
-            };
+        var parameters = new DialogParameters 
+        { 
+            ["Order"] = Order,
+            ["customer"] = Order.Customer,
+            ["Store"] = Order!.Store,
+            ["IsEdit"] = true,
+            ["Regular"] = Order!.Customer!.Regular,
+            ["AmountDue"] = AmountDue,
+            ["Completed"] = PaymentCompleted
+        };
         await Dialog.ShowAsync<PaymentDialog>("", parameters);
     }
 

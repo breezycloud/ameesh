@@ -8,29 +8,14 @@
         {
             <MudText Typo="Typo.h6">Order Items</MudText>
         }        
-        <MudSpacer/>
-        @if (PaymentStatus)
-        {
-            if (OrderStatus == OrderStatus.Completed && !DispenseStatus && Data.Count > 0)
-            {
-                <AuthorizeView Roles="Admin, Master, PharmacyManager, PharmacyDispenser, PharmacyCashier">
-                    <Authorized>
-                        <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
-                            Label="@(AppState.IsBusy ? "Processing" : "Dispense")" Style="width:150px;"
-                            OnClick="() => GotoCheckOut()" Color="Color.Primary"
-                            StartIcon="@Icons.Material.Filled.Verified"
-                            DisableElevation="true" />
-                    </Authorized>
-                </AuthorizeView>                
-            }            
-        }        
+        <MudSpacer/>    
     </ToolBarContent>
     <Columns>
         <PropertyColumn Property="x => x.Product" Title="Product" />
         <PropertyColumn Property="x => x.Quantity" Title="Qty" />
         <PropertyColumn Property="x => x.Cost" Title="Cost" Format="N2" />
         <PropertyColumn Property="x => x.Quantity * x.Cost" Title="Total" Format="N2" />
-        <AuthorizeView Roles="Admin, Master, Manager, PharmacyManager" Context="auth">
+        <AuthorizeView Roles="Admin, Master, Manager" Context="auth">
             <Authorized>
                 <TemplateColumn>
                 <CellTemplate>

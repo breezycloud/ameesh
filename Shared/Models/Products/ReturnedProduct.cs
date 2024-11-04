@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Shared.Enums;
 using Shared.Models.Orders;
 
 namespace Shared.Models.Products;
@@ -16,6 +17,8 @@ public class ReturnedProduct
     [Column(TypeName = "decimal(18,2)")]
     public decimal? Cost { get; set; }
     public string? RefundType { get; set;} = "Cash";
+    public RefundPaymentStatus Status { get; set; } = RefundPaymentStatus.Unpaid;
+    public DateTime? ModifiedDate { get; set; }
     [ForeignKey(nameof(ProductId))]
     public virtual Product? Product { get; set; }
     [ForeignKey(nameof(OrderId))]

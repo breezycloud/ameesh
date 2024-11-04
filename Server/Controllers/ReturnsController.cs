@@ -74,6 +74,23 @@ public class ReturnsController(AppDbContext _context) : ControllerBase
         return Ok();
     }
 
+    [HttpPost("paid")]
+    public async Task<ActionResult<ReturnedProduct>> Post(ReturnedProduct payload)
+    {
+        payload.Status = Shared.Enums.RefundPaymentStatus.Paid;
+
+        try
+        {
+            await _context.ReturnedProducts.Where(x => x.Id == payload.Id)
+                .ExecuteUpdateAsync(s=> s.SetProperty(p => p.Status, Shared.Enums.RefundPaymentStatus.Paid).SetProperty(p => p.ModifiedDate, payload.ModifiedDate));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw;
+        }
+        return NoContent();
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {

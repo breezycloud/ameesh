@@ -50,7 +50,8 @@ public class Order
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
     public string? Note { get; set; }
     public bool Dispatched { get; set; }
-    public bool HasDelievery => !string.IsNullOrEmpty(Address!.State);
+    public bool Delivered { get; set; }
+    public bool HasDelievery => !string.IsNullOrEmpty(Address!.State) ? true : false;
     [Column(TypeName = "jsonb")]
     public DeliveryAddress? Address { get; set; } = new();
     [Column(TypeName = "jsonb")]

@@ -2,6 +2,9 @@
 @using Shared.Enums
 @inject IOrderService OrderService
 @inject ISalaryBonusService BonusService
+
+@implements IAsyncDisposable
+
 <EditForm Model="Payment" OnValidSubmit="Save">
     <DataAnnotationsValidator />
     <MudDialog>
@@ -59,7 +62,9 @@
     Guid id { get; set; }
     protected override async Task OnInitializedAsync()
     {        
-        id = await localStorage.GetItemAsync<Guid>("uid");        
+        id = await localStorage.GetItemAsync<Guid>("uid");
+        hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect().Build();
+        await hub.StartAsync();        
     }
 
     void PaymentChanged(bool value)
@@ -102,10 +107,7 @@
         else
         {
             AmountDue -= Payment!.Amount;   
-            if (!IsEdit)
-                Order.Payments.Add(Payment);
-            else
-                 AppState.UpdatePayment(Payment);
+            Order.Payments.Add(Payment);
             if (AmountDue > 0)
                 Payment = new();        
             else if (AmountDue == 0)
@@ -141,6 +143,7 @@
         bool success = false;
         try
         {
+            var internetfound = await js.InvokeAsync<bool>("checkinternet");
             if (!IsEdit)
             {
                 success = await OrderService.AddProductOrder(Order);    
@@ -150,28 +153,20 @@
                 }
                 else
                 {
-                    AppState!.ReportDataModel = new ReportData { Branch = Store, ReportType = "Store", Customer = customer };
-                    AppState!.ReportDataModel.Order = Order;
-                    AppState!.ReportDataModel.Cashier = await localStorage.GetItemAsync<string>("uname");
                     var items = Order!.ProductOrders.ToArray();
-                    var internetfound = await js.InvokeAsync<bool>("checkinternet");
                     if (internetfound && hub!.State == HubConnectionState.Disconnected)
                         await hub.StartAsync();                
                     await hub!.SendAsync("UpdateStock", Store!.Id, "Dispensary"!, items);
-                    await hub!.SendAsync("UpdatePharmarcyOrders");
-                    bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
-                    if (success)
-                    {
-                        if (connected)
-                            await OrderService.PrintReceipt("Store", AppState!.ReportDataModel!);
-                        SnackBar.Add("Transaction Successfull", Severity.Success);
-                        AppState.ClearOrderItems();
-                    }
                 }
             }
             else
             {
-               AppState.CheckOut();
+                var payments = Order!.Payments.ToArray();
+                success = await OrderService.PutPayments(payments);    
+                if (!success)
+                {
+                    SnackBar.Add("Operation failed!", Severity.Error);
+                }
             }
         }   
         catch (System.Exception ex)
@@ -182,9 +177,32 @@
         }
         finally
         {
+            AppState!.ReportDataModel = new ReportData { Branch = Store, ReportType = "Store", Customer = customer };
+            AppState!.ReportDataModel.Order = Order;
+            AppState!.ReportDataModel.Cashier = await localStorage.GetItemAsync<string>("uname");
+            bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
+            if (success)
+            {
+                if (connected)
+                    await OrderService.PrintReceipt("Store", AppState!.ReportDataModel!);
+                SnackBar.Add("Transaction Successfull", Severity.Success);
+                if(!IsEdit)
+                    AppState.ClearOrderItems();
+            }
+            await hub!.SendAsync("UpdateOrder");
+            await hub!.SendAsync("RefreshOrderTimer");
+            await hub!.SendAsync("UpdateOrder");
             Cancel();
         }
         AppState.IsProcessing = false;
+    }
+
+
+    public async ValueTask DisposeAsync()
+    {
+        await hub!.StopAsync();
+        await hub!.DisposeAsync();
+        Order = null!;
     }
 
 }

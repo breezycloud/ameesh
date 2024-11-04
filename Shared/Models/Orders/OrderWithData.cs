@@ -33,6 +33,7 @@ public class OrderWithData
     public string? PaymentStatus { get; set; }
     public bool HasDelievery { get; set; }
     public bool Dispatched { get; set; }
+    public bool Delivered { get; set; }
     public string? DeliveryStatus { get; set; }
     public OrderStatus OrderStatus { get; set; }
     public DateTime CreatedDate { get; set; }

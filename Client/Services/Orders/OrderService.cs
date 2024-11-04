@@ -21,6 +21,7 @@ public interface IOrderService
     Task<bool> CompleteOrder(Order? model);
     Task<bool> CompleteOrder(Guid id);
     Task DispatchOrder(Guid id);
+    Task DeliveredOrder(Guid id);
     Task<bool> UpdateOrderItems(List<ProductOrderItem> items);
     Task<bool> PutPayment(Payment model);
     Task<bool> PutPayments(Payment[] payments);
@@ -125,6 +126,19 @@ public class OrderService : IOrderService
             throw;
         }
     }
+
+     public async Task DeliveredOrder(Guid id)
+     {
+      try
+        {
+            await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/delivered", new CompleteBill(id, Guid.Empty));
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }  
+     }
     public async Task<bool> UpdateOrder(Order? model)
     {
         try

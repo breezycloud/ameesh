@@ -7,6 +7,7 @@ namespace Client.Services.Returns;
 public interface IReturnService
 {
     Task<bool> Put(RefundPayload payload);
+    Task<bool> Put(ReturnedProduct payload);
     Task<bool> Delete(Guid id);
 }
 
@@ -23,6 +24,23 @@ public class ReturnService(IHttpClientFactory _client) : IReturnService
         catch (Exception)
         {
 
+            throw;
+        }
+    }
+
+    public async Task<bool> Put(ReturnedProduct payload)
+    {
+        try
+        {
+            payload.Product = null;
+            payload.Order = null;
+            payload.ModifiedDate = DateTime.Now;
+            var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/returns/paid", payload);
+            response.EnsureSuccessStatusCode();
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception)
+        {
             throw;
         }
     }

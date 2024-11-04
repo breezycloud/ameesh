@@ -31,6 +31,38 @@ else
          </MudStack>
     </MudHidden>    
     <MudGrid Spacing="1">
+          <AuthorizeView Roles="Admin, Master">
+            <Authorized>
+                 <MudItem xs="12" Class="d-flex row align-center justify-end">
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.Center">
+                        @if (Data!.Balance == 0 && !Data!.PaymentConfirmed)
+                        {
+                            <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
+                                Label="@(AppState.IsBusy ? "Processing" : "Confirm")" Style="width:120px;"
+                                OnClick="() => CompleteOrder()" Color="Color.Primary"
+                                StartIcon="@Icons.Material.Filled.Verified"
+                                DisableElevation="true" />
+                        } 
+                        @if (Data!.HasDelievery && !Data!.Dispatched)
+                        {
+                            <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
+                                Label="@(AppState.IsBusy ? "Processing" : "Dispatch")" Style="width:120px;"
+                                OnClick="() => Dispatch()" Color="Color.Dark"
+                                StartIcon="@Icons.Material.Filled.DeliveryDining"
+                                DisableElevation="true" />
+                        }
+                        @if (Data!.Dispatched && !Data!.Delivered)
+                        {
+                            <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
+                                Label="@(AppState.IsBusy ? "Processing" : "Delivered")" Style="width:120px;"
+                                OnClick="() => Dispatch()" Color="Color.Success"
+                                StartIcon="@Icons.Material.Filled.DeliveryDining"
+                                DisableElevation="true" />
+                        }
+                    </MudStack>            
+                </MudItem>                  
+            </Authorized>
+        </AuthorizeView> 
         <MudItem xs="12" sm="6">
             <MudTextField Label="Receipt #" Variant="Variant.Outlined" ReadOnly Value="Data!.ReceiptNo" />
             </MudItem>
@@ -49,16 +81,22 @@ else
         @if (Data!.HasDelievery)
         {
              <MudItem xs="12" sm="6">
-                <MudTextField Label="State" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address.State" />
+                <MudTextField Label="State" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address!.State" />
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudTextField Label="Lga" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address.Lga" />
+                <MudTextField Label="Lga" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address!.Lga" />
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudTextField Label="Ward" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address.Ward" />
+                <MudTextField Label="Ward" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address!.Ward" />
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudTextField Label="Delivery Address" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address.Address" />
+                <MudTextField Label="Delivery Address" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address!.Address" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField Label="Date Dispatched" Format="dd/MM/yyyy" Variant="Variant.Outlined" ReadOnly Value="Data!.Address!.DispatchedDate" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField Label="Date Delivered" Format="dd/MM/yyyy" Variant="Variant.Outlined" ReadOnly Value="Data!.Address!.DeliveryDate" />
             </MudItem>
         }  
         <MudItem xs="12" sm="6">
@@ -81,33 +119,12 @@ else
         </MudItem>        
         <MudItem xs="12" sm="6">
             <MudTextField Label="Sales Person" Variant="Variant.Outlined" ReadOnly Value="Data!.User!.ToString()" />
-        </MudItem>     
-        <AuthorizeView Roles="Admin, Master">
-            <Authorized>
-                 <MudItem xs="12" sm="6">
-                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.Center">
-                        @if (Data.Balance == 0 && !Data!.PaymentConfirmed)
-                        {
-                            <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
-                                Label="@(AppState.IsBusy ? "Processing" : "Confirm Payment")" Style="width:150px;"
-                                OnClick="() => CompleteOrder()" Color="Color.Primary"
-                                StartIcon="@Icons.Material.Filled.Verified"
-                                DisableElevation="true" />
-                        } 
-                        @if (!Data!.Dispatched)
-                        {
-                            <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
-                                Label="@(AppState.IsBusy ? "Processing" : "Dispatch")" Style="width:120px;"
-                                OnClick="() => Dispatch()" Color="Color.Dark"
-                                StartIcon="@Icons.Material.Filled.DeliveryDining"
-                                DisableElevation="true" />
-                        }
-                    </MudStack>            
-                </MudItem>                  
-            </Authorized>
-        </AuthorizeView>       
+        </MudItem>  
+        <MudItem xs="12" sm="6">
+            <MudTextField Label="Note" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Note" />
+        </MudItem>   
         <MudItem xs="12">
-            <PaymentDetails Items="Data!.Payments.ToList()" PaymentCompleted="@(Data!.Balance > 0 && Data!.Status != OrderStatus.Canceled ? false : true)" AmountDue="Data!.Balance"/>
+            <PaymentDetails Order="@Data" Items="Data!.Payments.ToList()" PaymentCompleted="@(Data!.Balance > 0 && Data!.Status != OrderStatus.Canceled ? false : true)" AmountDue="Data!.Balance"/>
         </MudItem>
         @if (Data!.ProductOrders.Any())
         {
@@ -203,6 +220,38 @@ else
 		{
 			await OrderService.DispatchOrder(Data!.Id);
 			SnackBar.Add("Order Successfully Dispatched", Severity.Success);
+			if (hub!.State != HubConnectionState.Disconnected)
+            {
+                await hub!.SendAsync("RefreshOrderTimer");
+                await hub!.SendAsync("UpdateOrder");                    
+            }
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+    }
+
+    private async Task Deliver()
+    {
+        AppState.IsProcessing = true;
+		//var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to mark as delivered", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await OrderService.DeliveredOrder(id);
+			SnackBar.Add("Order Successfully Updated", Severity.Success);
 			if (hub!.State != HubConnectionState.Disconnected)
             {
                 await hub!.SendAsync("RefreshOrderTimer");

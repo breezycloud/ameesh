@@ -33,40 +33,7 @@ public class SeedData
                 AddCustomers(db);
                 //AddExpenseTypes(db);                
             }
-        }        
-
-        // var payments = db.Payments.Where(x => x.UserId == Guid.Parse("cccaa529-1300-40dc-9697-b4ea989b4e8d") && x.PaymentDate!.Value.Date == DateTime.Now.Date);
-        // decimal collected = 0M;
-        // foreach (var payment in payments)
-        //     collected += payment!.Amount;
-        
-        // Console.WriteLine(collected.ToString("N2"));
-            
-        //var stocks = db.Products.AsNoTracking().AsParallel().SelectMany(x => x.Stocks).AsEnumerable().Where(x => Convert.IsDBNull(x.ExpiryDate));
-        //db.Products.AsNoTracking().AsParallel().SelectMany(x => x.Stocks).AsEnumerable().Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Count();
-
-        //var products = db.Products.AsNoTracking().AsParallel().ToList();
-        //foreach (var product in products)
-        //{           
-
-        //   if (product.Stocks.Count > 1)
-        //   {
-        //       Console.WriteLine("id:{0}", product.Id);
-        //       var count = product.Stocks.Count - 1;
-        //       product.Stocks.RemoveRange(1, count);
-        //       db.Entry(product).State = EntityState.Modified;
-        //       db.SaveChanges();
-        //   }
-        //   else
-        //        continue;
-        //}
-
-        // var date = new DateOnly(2024, 06, 8);
-        // var time = new TimeOnly(10, 50, 00);
-        // var lastModified = new DateTime(date, time);
-        // var Now = DateTime.Now;
-        //db.LabTests.ExecuteUpdate(s => s.SetProperty(p => p.Parameters, new List<TestParameter>())
-        //           .SetProperty(p => p.Tests, new List<TestEntry>()));
+        }
     }
 
     private static void AddExpenseTypes(AppDbContext db)

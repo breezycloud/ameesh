@@ -226,6 +226,29 @@ public class OrdersController : ControllerBase
         return Ok();
     }
 
+    [HttpPost("delivered")]
+    public async Task<ActionResult> DeliverOrder(CompleteBill bill)
+    {
+        var date = DateOnly.FromDateTime(DateTime.Now);
+        try
+        {
+            var order = await _context.Orders.FindAsync(bill.OrderId);
+            if (order is null)
+             return NotFound();
+
+            order!.Delivered = true;
+            order!.Address!.DeliveryDate = date;
+            order!.ModifiedDate = DateTime.Now;
+            _context.Entry(order).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+        }
+        catch (System.Exception ex)
+        {
+            return BadRequest(ex);
+        }        
+        return Ok();
+    }
+
     [HttpPost("complete")]
     public async Task<ActionResult> CompleteOrder(Order x)
     {
@@ -301,6 +324,7 @@ public class OrdersController : ControllerBase
                                                 DeliveryStatus = x.GetDeliveryStatus(),
                                                 HasDelievery = x.HasDelievery,
                                                 Dispatched = x.Dispatched,
+                                                Delivered = x.Delivered,
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 SubTotal = x.SubTotal,
@@ -349,6 +373,7 @@ public class OrdersController : ControllerBase
                                                 DeliveryStatus = x.GetDeliveryStatus(),
                                                 HasDelievery = x.HasDelievery,
                                                 Dispatched = x.Dispatched,
+                                                Delivered = x.Delivered,
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 Discount = x.Discount,
@@ -433,6 +458,7 @@ public class OrdersController : ControllerBase
                                                 DeliveryStatus = x.GetDeliveryStatus(),
                                                 HasDelievery = x.HasDelievery,
                                                 Dispatched = x.Dispatched,
+                                                Delivered = x.Delivered,
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 SubTotal = x.SubTotal,
@@ -478,6 +504,7 @@ public class OrdersController : ControllerBase
                                                 DeliveryStatus = x.GetDeliveryStatus(),
                                                 HasDelievery = x.HasDelievery,
                                                 Dispatched = x.Dispatched,
+                                                Delivered = x.Delivered,
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 Discount = x.Discount,
@@ -698,6 +725,7 @@ public class OrdersController : ControllerBase
                                                 DeliveryStatus = x.GetDeliveryStatus(),
                                                 HasDelievery = x.HasDelievery,
                                                 Dispatched = x.Dispatched,
+                                                Delivered = x.Delivered,
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 Discount = x.Discount,

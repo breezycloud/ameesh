@@ -42,10 +42,20 @@
                     @if (ctx.Item.HasDelievery)
                     {
                         <MudChip Size="Size.Small">@ctx.Item.DeliveryStatus</MudChip>
+                        @if (ctx.Item.Delivered)
+                        {
+                            <MudChip Size="Size.Small" Color="Color.Primary">Delivered</MudChip>
+                        }
                         <AuthorizeView Roles="Cashier" Context="auth">
                             @if (!ctx.Item.Dispatched)
                             {
                                 <MudButton StartIcon="@Icons.Material.Filled.DeliveryDining" Color="Color.Info" OnClick="() => Dispatch(ctx.Item.Id)" Size="Size.Small">Dispatch</MudButton>
+                            }
+                            @if (ctx.Item.Dispatched && !ctx.Item.Delivered)
+                            {
+                                <MudButton StartIcon="@Icons.Material.Filled.CheckCircle" Color="Color.Info" OnClick="() => Delivered(ctx.Item.Id)" Size="Size.Small">
+                                    Delivered
+                                </MudButton>
                             }
                         </AuthorizeView>
                     }
@@ -60,9 +70,15 @@
                         {
                             <MudButton Color="Color.Success" OnClick="() => Complete(context.Item.Id)" Size="Size.Small">Confirm</MudButton>
                         }
-                        @if (!context.Item.Dispatched)
+                        @if (context.Item.HasDelievery && !context.Item.Dispatched)
                         {
                             <MudButton Color="Color.Info" OnClick="() => Dispatch(context.Item.Id)" Size="Size.Small">Dispatch</MudButton>
+                        }
+                        @if (context.Item.Dispatched && !context.Item.Delivered)
+                        {
+                            <MudButton StartIcon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" OnClick="() => Delivered(context.Item.Id)" Size="Size.Small">
+                                Delivered
+                            </MudButton>
                         }
                         <MudButton Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
                     </CellTemplate>
@@ -109,6 +125,38 @@
 		try
 		{
 			await OrderService.DispatchOrder(id);
+			SnackBar.Add("Order Successfully Updated", Severity.Success);
+			if (hub!.State != HubConnectionState.Disconnected)
+            {
+                await hub!.SendAsync("RefreshOrderTimer");
+                await hub!.SendAsync("UpdateOrder");                    
+            }
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+    }
+
+    private async Task Delivered(Guid id)
+    {
+        AppState.IsProcessing = true;
+		//var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to mark as delivered", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await OrderService.DeliveredOrder(id);
 			SnackBar.Add("Order Successfully Updated", Severity.Success);
 			if (hub!.State != HubConnectionState.Disconnected)
             {

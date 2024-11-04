@@ -14,7 +14,6 @@ public class AppState
     public void UpdateLayout() => OnUpdateLayout?.Invoke(this, EventArgs.Empty);
     public event EventHandler? OnCheckOut;
     public void CheckOut() => OnCheckOut?.Invoke(this, EventArgs.Empty);
-
     
     public event EventHandler<bool>? RefererHandler;
     public void RefererSelected(bool value) => RefererHandler?.Invoke(this, value);
