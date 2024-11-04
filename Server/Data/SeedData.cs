@@ -26,8 +26,8 @@ public class SeedData
         using var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         if (IsDev)
         {
-            //db.Database.EnsureDeleted();
-            if (db.Database.EnsureCreated())
+            // db.Database.EnsureDeleted();
+            if (db.Database.EnsureCreated())    
             {
                 AddUsers(db);
                 AddCustomers(db);
@@ -96,7 +96,7 @@ public class SeedData
             db.Customers.Add(new Customer
             {
                 Id = Guid.NewGuid(),
-                CustomerName = "Walk-in customer",
+                CustomerName = "Regular Customer",
                 PhoneNo = "09023920202",
                 ContactAddress = "123, online",
                 Regular = true,

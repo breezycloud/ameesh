@@ -1,0 +1,29 @@
+﻿@using Client.Pages.Returns
+@using Shared.Enums
+@inject IOrderService Service
+
+<MudDataGrid Items="Data" Dense Outlined>    
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Third Party Items</MudText>  
+        <MudSpacer/>      
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.ItemName" Title="Product" />
+        <PropertyColumn Property="x => (int)x.Quantity" Title="Qty" />
+        <PropertyColumn Property="x => x.Cost" Title="Cost" Format="N2" />
+        <PropertyColumn Property="x => x.Price" Title="Sell Price" Format="N2" />
+        <PropertyColumn Property="x => x.Total" Title="Total" Format="N2" />
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.h6">Empty record</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="ThirdPartyItem" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    [Parameter]
+    public List<ThirdPartyItem> Data { get; set; } = new();
+}
+

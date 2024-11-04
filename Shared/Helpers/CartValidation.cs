@@ -12,6 +12,7 @@ public class CartValidation
 {
     [Required(ErrorMessage = "Cart cannot be empty")]
     public int? RowsCount { get; set; }
+    public string? Note { get; set; }
     public decimal SubTotal { get; set; }
     public decimal GrandTotal { get; set; }
     public decimal AmountPaid { get; set; }

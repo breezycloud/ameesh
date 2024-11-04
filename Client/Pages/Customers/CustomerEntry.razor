@@ -11,15 +11,21 @@
         </TitleContent>
         <DialogContent>
             <MudGrid Spacing="1">
-                <MudItem xs="12" sm="6">
+                <MudItem xs="12">
                     <MudTextField @ref="_TxtName" @bind-Value="Customer!.CustomerName" Label="Customer Name" Margin="Margin.Dense" Variant="Variant.Outlined" For="@(() => Customer.CustomerName)"></MudTextField>
                  </MudItem>
                  <MudItem xs="12" sm="6">
-                     <MudTextField @bind-Value="Customer!.PhoneNo" Label="Phone Number" Margin="Margin.Dense" Variant="Variant.Outlined" For="@(() => Customer.PhoneNo)"></MudTextField>
-                 </MudItem>                              
+                     <MudTextField @bind-Value="Customer!.PhoneNo" Label="Phone 1" Margin="Margin.Dense" Variant="Variant.Outlined" For="@(() => Customer.PhoneNo)"></MudTextField>
+                 </MudItem>    
+                 <MudItem xs="12" sm="6">
+                     <MudTextField @bind-Value="Customer!.PhoneNo2" Label="Phone 2" Margin="Margin.Dense" Variant="Variant.Outlined" For="@(() => Customer.PhoneNo2)"></MudTextField>
+                 </MudItem>                           
                  <MudItem xs="12">
-                     <MudTextField @bind-Value="Customer!.ContactAddress" Lines="3" Label="Home Address" Variant="Variant.Outlined"></MudTextField>
-                 </MudItem>                 
+                     <MudTextField @bind-Value="Customer!.ContactAddress" Lines="3" Label="Address 1" Variant="Variant.Outlined"></MudTextField>
+                 </MudItem>
+                <MudItem xs="12">
+                     <MudTextField @bind-Value="Customer!.ContactAddress2" Lines="3" Label="Address 2" Variant="Variant.Outlined"></MudTextField>
+                 </MudItem>                  
             </MudGrid>
         </DialogContent>
         <DialogActions>

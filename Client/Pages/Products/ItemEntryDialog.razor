@@ -48,44 +48,41 @@
 
                 @if (!IsEdit)
                 {
-                    @* <MudItem xs="12">
-                        <MudCheckBox Size="Size.Small" @bind-Value="AddToStore" UnCheckedColor="Color.Dark" Color="Color.Primary">Add to store</MudCheckBox>
-                    </MudItem> *@
-                    @if (AddToStore)
-                    {                        
-                        <MudItem xs="12">
-                            <MudTextField id="figure-right" @bind-Value="stock!.BuyPrice" Format="N2" Label="Buying Price" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
-                                <MudRadioGroup T="MarkupType" @bind-Value="Product!.MarkupType">
-                                    <MudRadio Dense Value="@MarkupType.Fixed">Fixed Amount</MudRadio>
-                                    <MudRadio Dense Value="@MarkupType.Percentage">Percentage</MudRadio>
-                                </MudRadioGroup>
-                            </MudStack>
-                        </MudItem>
-                        if (Product!.MarkupType == MarkupType.Fixed)
-                        {
-                            <MudItem xs="12" sm="6">
-                                <MudTextField T="decimal" Value="Product!.MarkupAmount" ValueChanged="CalculateSellPrice" Format="N2" Label="Amount" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
-                            </MudItem>
-                        }
-                        else
-                        {
-                            <MudItem xs="12" sm="6">
-                                <MudNumericField T="decimal" Value="Product!.MarkupPercentage" ValueChanged="CalculateSellPrice" Label="Percentage" Min="0" Max="100" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
-                            </MudItem>
-                        }
+                    <MudItem xs="12">
+                        <MudCheckBox Size="Size.Small" @bind-Value="AddToStore" UnCheckedColor="Color.Dark" Color="Color.Primary">Move to Shop</MudCheckBox>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField id="figure-right" @bind-Value="stock!.BuyPrice" Format="N2" Label="Buying Price" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
+                            <MudRadioGroup T="MarkupType" @bind-Value="Product!.MarkupType">
+                                <MudRadio Dense Value="@MarkupType.Fixed">Fixed Amount</MudRadio>
+                                <MudRadio Dense Value="@MarkupType.Percentage">Percentage</MudRadio>
+                            </MudRadioGroup>
+                        </MudStack>
+                    </MudItem>
+                    if (Product!.MarkupType == MarkupType.Fixed)
+                    {
                         <MudItem xs="12" sm="6">
-                            <MudTextField id="figure-right" ReadOnly @bind-Value="Product!.SellPrice" Format="N2" Label="Selling Price" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudNumericField T="int?" @bind-Value="stock!.Quantity" Label="Quantity" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudDatePicker @bind-Date="stock!.ExpiryDate" DisableToolbar PickerVariant="PickerVariant.Dialog" DateFormat="dd/MM/yyyy" Label="Expiry Date" Variant="Variant.Outlined" For="(() => stock!.ExpiryDate)" Margin="Margin.Dense" />
+                            <MudTextField T="decimal" Value="Product!.MarkupAmount" ValueChanged="CalculateSellPrice" Format="N2" Label="Amount" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
                         </MudItem>
                     }
+                    else
+                    {
+                        <MudItem xs="12" sm="6">
+                            <MudNumericField T="decimal" Value="Product!.MarkupPercentage" ValueChanged="CalculateSellPrice" Label="Percentage" Min="0" Max="100" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
+                        </MudItem>
+                    }
+                    <MudItem xs="12" sm="6">
+                        <MudTextField id="figure-right" ReadOnly @bind-Value="Product!.SellPrice" Format="N2" Label="Selling Price" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField T="int?" @bind-Value="stock!.Quantity" Label="Quantity" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudDatePicker @bind-Date="stock!.ExpiryDate" DisableToolbar PickerVariant="PickerVariant.Dialog" DateFormat="dd/MM/yyyy" Label="Expiry Date" Variant="Variant.Outlined" For="(() => stock!.ExpiryDate)" Margin="Margin.Dense" />
+                    </MudItem>
                 }                 
             </MudGrid>
         </DialogContent>
@@ -389,16 +386,20 @@
                 {
                     stock!.id = Guid.NewGuid();
                     stock!.Date = Product!.CreatedDate;
+                    Product!.ItemId = Item!.Id;
+                    Product!.StoreId = StoreID!.Value;
+                    Product!.Item = null;
+                    Product!.CreatedDate = CurrentDateTime;
+                    Product!.ModifiedDate = CurrentDateTime;
                     if (AddToStore)
-                    {
-                        Product!.ItemId = Item!.Id;
-                        Product!.StoreId = StoreID!.Value;
-                        Product!.Item = null;
-                        Product!.CreatedDate = CurrentDateTime;
-                        Product!.ModifiedDate = CurrentDateTime;
+                        MoveToShop(stock);
+                    else
                         Product!.Stocks.Add(stock);
+                    
+                    response = await ProductService.AddProduct(Product);
+                    if (response)
+                    {
                         CheckStockEntries();
-                        response = await ProductService.AddProduct(Product);
                     }
                 }
             }
@@ -433,11 +434,34 @@
             var count = Product!.Stocks.Count - 1;
             Product.Stocks.RemoveRange(1, count);            
         }
+        if (AddToStore)
+        {
+            Product!.Dispensary.Clear();
+        }
+    }
+    private void MoveToShop(Stock stock)
+    {
+        Product!.Dispensary.Add(new Stock
+        {
+            id = stock!.id,
+            Date = stock!.Date,
+            Quantity = stock!.Quantity,
+            BuyPrice = stock!.BuyPrice,
+            ExpiryDate = stock!.ExpiryDate
+        });
+        Product!.Stocks.Add(new Stock
+        {
+            id = stock!.id,
+            Date = stock!.Date,
+            Quantity = 0,
+            BuyPrice = stock!.BuyPrice,
+            ExpiryDate = stock!.ExpiryDate
+        });
     }
     async void ClearControls()
     {
         Item = new();
-        Item.Id = Guid.NewGuid();   
+        Item.Id = Guid.NewGuid();
         Product!.MarkupAmount =0;
         Product!.MarkupPercentage =0;
         CategoryChanged(Category);

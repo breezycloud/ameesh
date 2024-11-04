@@ -38,6 +38,11 @@ else
 				 @bind-SelectedDataItem="customer"
 				 Dense
 			 Outlined>
+		<ToolBarContent>
+        	<MudSpacer />
+        	<MudTextField T="string" Value="AppState._searchString" ValueChanged="@(s => OnSearch(s))" Placeholder="Search" Immediate="false"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    	</ToolBarContent>
 		<Columns>
 			<PropertyColumn Title="Name" Property="x => x.CustomerName" />
 			<PropertyColumn Title="Contact No" Property="x => x.PhoneNo" />
@@ -47,7 +52,10 @@ else
 			<TemplateColumn>
 				<CellTemplate>
 					<MudButton StartIcon="@Icons.Material.Filled.PersonSearch" Color="Color.Info" OnClick="() => OnViewClicked(context.Item.Id)" Size="Size.Small">View</MudButton>
-					<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>					
+					@if (!context.Item.IsWalkIn)
+					{
+						<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
+					}
 					<AuthorizeView Roles="Admin, Master" Context="auth">
 						<Authorized>							
 							@if (!context.Item.IsWalkIn)
@@ -105,12 +113,14 @@ else
 		try
 		{
 			var parameter = new PaginationParameter { Page = request.Page, PageSize = request.PageSize };
+			if (!string.IsNullOrEmpty(AppState._searchString))
+            	parameter.SearchTerm = AppState._searchString;
 			var response = await CustomerService.GetPagedCustomerData(parameter);
 			return new GridData<CustomerData>()
-				{
-					Items = response!.Data!.OrderByDescending(x =>x.TotalSales).ToList()!,
-					TotalItems = response.TotalCount
-				};
+			{
+				Items = response!.Data!.OrderByDescending(x =>x.TotalSales).ToList()!,
+				TotalItems = response.TotalCount
+			};
 		}
 		catch (Exception ex)
 		{
@@ -182,6 +192,16 @@ else
 			AppState.IsProcessing = false;
 		}
 	}
+
+	async void OnSearch(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            AppState._searchString = string.Empty;
+        else
+            AppState._searchString = text;
+
+        await _gridComponent!.ReloadServerData();
+    }
 
 
 	private async Task Save()

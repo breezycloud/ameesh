@@ -75,6 +75,23 @@ public class AppState
     
     }
 
+    public static decimal CalculateProfit(IEnumerable<ThirdPartyItem> items)
+    {
+        decimal buy = 0M; 
+        decimal sell = 0M;
+        foreach (var item in items)
+        {
+            buy += item.Cost * item.Quantity;
+        }
+        foreach (var item in items)
+        {
+            sell += item.Price * item.Quantity;
+        }
+    
+        return sell - buy;
+    
+    }
+
     public static decimal CalculateRefunds(IEnumerable<ReturnedProduct> products, DateOnly p)
     {
         var date = new DateTime(p.Year, p.Month, p.Day).Date;
@@ -115,6 +132,8 @@ public class AppState
         }        
         return States!.AsParallel().Where(x => x.State == state).SelectMany(x => x.Lgas!).Where(x => x.Lga == lga).SelectMany(x => x.Wards!).Where(x => x.Contains(value, StringComparison.OrdinalIgnoreCase));
     }
+
+    
 
     public CancellationToken GetCancellationToken()
     {

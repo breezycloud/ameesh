@@ -26,12 +26,19 @@ public class CustomersController : ControllerBase
 	public async Task<ActionResult<GridDataResponse<CustomerData>>> PagedCategories(PaginationParameter parameter, CancellationToken cancellationToken)
 	{
         GridDataResponse<CustomerData> response = new();
-        response!.Data = await _context.Customers.AsNoTracking()
+		if (!string.IsNullOrEmpty(parameter.SearchTerm))
+		{
+			parameter.SearchTerm = $"%{parameter.SearchTerm}%";
+			response!.Data = await _context.Customers.AsNoTracking()
                                                  .AsSplitQuery()
                                                  .Include(o => o.Orders)
-                                                 .OrderByDescending(o => o.ModifiedDate)
-                                                 .Skip(parameter.Page)
+												 .Where(x => EF.Functions.ILike(x.CustomerName!, parameter.SearchTerm) ||
+														EF.Functions.ILike(x.PhoneNo!, parameter.SearchTerm) ||
+														EF.Functions.ILike(x.ContactAddress!, parameter.SearchTerm))
+												 .Skip(parameter.Page)
                                                  .Take(parameter.PageSize)
+                                                 .OrderByDescending(o => o.CreatedDate)
+												 .ThenByDescending(o => o.ModifiedDate)
                                                  .Select(n => new CustomerData
                                                  {
                                                      Id = n.Id,
@@ -43,7 +50,34 @@ public class CustomersController : ControllerBase
                                                      CreatedDate = n.CreatedDate
                                                  })                                                 
                                                  .ToListAsync();
-        response!.TotalCount = await _context.Customers.AsNoTracking().CountAsync();
+			response!.TotalCount = await _context.Customers.AsNoTracking()
+														.Where(x => EF.Functions.ILike(x.CustomerName!, parameter.SearchTerm) ||
+														EF.Functions.ILike(x.PhoneNo!, parameter.SearchTerm) ||
+														EF.Functions.ILike(x.ContactAddress!, parameter.SearchTerm))
+														.CountAsync();									
+		}
+        else
+		{
+			response!.Data = await _context.Customers.AsNoTracking()
+                                                 .AsSplitQuery()
+                                                 .Include(o => o.Orders)
+                                                 .Skip(parameter.Page)
+                                                 .Take(parameter.PageSize)
+                                                 .OrderByDescending(o => o.CreatedDate)
+												 .ThenByDescending(o => o.ModifiedDate)
+                                                 .Select(n => new CustomerData
+                                                 {
+                                                     Id = n.Id,
+                                                     CustomerName = n.CustomerName,
+                                                     PhoneNo = n.PhoneNo,
+                                                     ContactAddress = n.ContactAddress,
+                                                     TotalSales = n.Orders.Count,
+													 IsWalkIn = n.Regular,
+                                                     CreatedDate = n.CreatedDate
+                                                 })                                                 
+                                                 .ToListAsync();
+        	response!.TotalCount = await _context.Customers.AsNoTracking().CountAsync();
+		}
         return response;
 	}
 

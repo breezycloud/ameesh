@@ -8,6 +8,7 @@ namespace Shared.Enums
 {
     public enum PaymentStatus
     {
+        Awaiting,
         Paid,
         Unpaid
     }

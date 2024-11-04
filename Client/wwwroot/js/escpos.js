@@ -64,6 +64,9 @@ window.XPrinter = {
         data.order.productOrders.forEach(item => {
             items.push([`${item.product} x ${item.quantity}`, (item.cost * item.quantity).toLocaleString(undefined, { minimumFractionDigits: 2 })]);
         });
+        data.order.thirdPartyItems.forEach(item => {
+            items.push([`${item.itemName} x ${item.quantity}`, (item.total).toLocaleString(undefined, { minimumFractionDigits: 2 })]);
+        });
         deliveryAmt = data.order.deliveryAmt;
         discount = data.order.discount;
         totalCost = data.order.totalAmount;
@@ -133,6 +136,10 @@ window.XPrinter = {
                 ],
                 items
             )
+            .align('left')
+            .size('small')
+            .text(`Note: ${data.order.note}`)
+            .newline()
             .align('center')
             .qrcode(receiptNo, 1, 7, 'h')
             .newline()

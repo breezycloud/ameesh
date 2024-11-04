@@ -155,13 +155,13 @@ public class OrdersController : ControllerBase
                 TotalAmount = x.TotalAmount,
                 SubTotal = x.SubTotal,
                 Balance = x.Balance,
-                BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice),
-                SellPrice = x.ProductOrders.Sum(x => x.Cost),
-                Profit = AppState.CalculateProfit(x.ProductOrders) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),            
-                Quantity = x.ProductOrders.Sum(p => p.Quantity),
+                BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice) + x.ThirdPartyItems.Sum(x => x.Cost),
+                SellPrice = x.ProductOrders.Sum(x => x.Cost) + x.ThirdPartyItems.Sum(x => x.Total),
+                Profit = AppState.CalculateProfit(x.ProductOrders) + AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),            
+                Quantity = x.ProductOrders.Sum(p => p.Quantity) + (int)x.ThirdPartyItems.Sum(x => x.Quantity),
                 HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
                 ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault()),
-                HasOrderItems = x.ProductOrders.Any(),
+                HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
                 Refund = x.ReturnedProducts.Sum(r => (decimal)r.Quantity! * r.Cost.GetValueOrDefault()),
                 Discount = x.Discount,
                 // Sale = x.User!.ToString(),
@@ -194,31 +194,29 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            var user = _context.Users.AsParallel().FirstOrDefault(x => x.Id == bill.UserId);
-            var x = _context.Orders.Include(x => x.ProductOrders).AsParallel().Where(x => x.Id == bill.OrderId).FirstOrDefault();
-            x!.Status = OrderStatus.Completed;
-            
-            _context.Entry(x).State = EntityState.Modified;                        
-            var item = new
-            {
-                id = x.Id,
-                storeId = x.StoreId,
-                items = x.ProductOrders.Select(t => new { productId = t.ProductId, stockId = t.StockId, qty = t.Quantity }).ToList(),
-                remainingTime = DateTime.Now.Subtract(x.CreatedDate).Hours
-            };
-            foreach (var row in item.items)
-            {
-                var product = await _context.Products.Where(x => x.StoreId == item.storeId && x.Id == row.productId).FirstOrDefaultAsync();
-                if (product is null)
-                    continue;
+            await _context.Orders.Where(x => x.Id == bill.OrderId).ExecuteUpdateAsync(s => s.SetProperty(p => p.PaymentConfirmed, true));   
+        }
+        catch (System.Exception ex)
+        {
+            return BadRequest(ex);
+        }        
+        return Ok();
+    }
 
-                if (!product!.Dispensary.Any(x => x.id == row.stockId))
-                    continue;
-                product!.Dispensary.FirstOrDefault(x => x.id == row.stockId)!.Quantity -= row.qty;
-                _context.Entry(product).State = EntityState.Modified;
-                await _context.SaveChangesAsync();
-                await _context.OrderItems.Where(x => x.OrderId == item.id && x.ProductId == row.productId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, Shared.Enums.OrderStatus.Completed));
-            }            
+    [HttpPost("dispatch")]
+    public async Task<ActionResult> DispatchOrder(CompleteBill bill)
+    {
+        var date = DateOnly.FromDateTime(DateTime.Now);
+        try
+        {
+            var order = await _context.Orders.FindAsync(bill.OrderId);
+            if (order is null)
+             return NotFound();
+
+            order!.Dispatched = true;
+            order!.Address!.DispatchedDate = date;
+            order!.ModifiedDate = DateTime.Now;
+            _context.Entry(order).State = EntityState.Modified;
             await _context.SaveChangesAsync();
         }
         catch (System.Exception ex)
@@ -227,6 +225,7 @@ public class OrdersController : ControllerBase
         }        
         return Ok();
     }
+
     [HttpPost("complete")]
     public async Task<ActionResult> CompleteOrder(Order x)
     {
@@ -282,7 +281,9 @@ public class OrdersController : ControllerBase
                                             .ThenInclude(x => x.Cashier)
                                             .AsParallel()
                                             .Where(x => x.StoreId == parameter.FilterId
-                                            && x.Customer!.CustomerName!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) || x.ReceiptNo!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase))
+                                            && x.Customer!.CustomerName!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) || 
+                                            x.ReceiptNo!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                                            (!string.IsNullOrEmpty(x.Address!.State) && x.Address!.State!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase)))
                                             .OrderByDescending(x => x.ModifiedDate)
                                             .Skip(parameter.Page)
                                             .Take(parameter.PageSize)
@@ -297,6 +298,9 @@ public class OrdersController : ControllerBase
                                                 ReceiptNo = x.ReceiptNo,
                                                 TotalAmount = x.TotalAmount,
                                                 PaymentStatus = x.GetPaymentStatus().ToString(),
+                                                DeliveryStatus = x.GetDeliveryStatus(),
+                                                HasDelievery = x.HasDelievery,
+                                                Dispatched = x.Dispatched,
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 SubTotal = x.SubTotal,
@@ -342,6 +346,9 @@ public class OrdersController : ControllerBase
                                                 TotalAmount = x.TotalAmount,
                                                 SubTotal = x.SubTotal,
                                                 PaymentStatus = x.GetPaymentStatus().ToString(),
+                                                DeliveryStatus = x.GetDeliveryStatus(),
+                                                HasDelievery = x.HasDelievery,
+                                                Dispatched = x.Dispatched,
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 Discount = x.Discount,
@@ -423,6 +430,9 @@ public class OrdersController : ControllerBase
                                                 ReceiptNo = x.ReceiptNo,
                                                 TotalAmount = x.TotalAmount,
                                                 PaymentStatus = x.GetPaymentStatus().ToString(),
+                                                DeliveryStatus = x.GetDeliveryStatus(),
+                                                HasDelievery = x.HasDelievery,
+                                                Dispatched = x.Dispatched,
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 SubTotal = x.SubTotal,
@@ -465,6 +475,9 @@ public class OrdersController : ControllerBase
                                                 TotalAmount = x.TotalAmount,
                                                 SubTotal = x.SubTotal,
                                                 PaymentStatus = x.GetPaymentStatus().ToString(),
+                                                DeliveryStatus = x.GetDeliveryStatus(),
+                                                HasDelievery = x.HasDelievery,
+                                                Dispatched = x.Dispatched,
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 Discount = x.Discount,
@@ -607,6 +620,15 @@ public class OrdersController : ControllerBase
         if (record is null)
             return NotFound();
 
+        var details = await _context.OrderItems.Where(x => x.OrderId == id).ToArrayAsync();
+        foreach (var item in details)
+        {
+           var product = await _context.Products.FindAsync(item.ProductId);
+           if (product is null)
+            continue;
+           product!.Dispensary.Where(x => x.id == item.StockId).FirstOrDefault()!.Quantity += item.Quantity;
+           await _context.Products.Where(x => x.Id == product.Id).ExecuteUpdateAsync(x => x.SetProperty(p => p.Dispensary, product.Dispensary));
+        }
         _context.Orders.Remove(record);
         await _context.SaveChangesAsync();
         return NoContent();
@@ -673,6 +695,9 @@ public class OrdersController : ControllerBase
                                                 SubTotal = x.SubTotal,
                                                 Profit = AppState.CalculateProfit(x.ProductOrders) -x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),
                                                 PaymentStatus = x.GetPaymentStatus().ToString(),
+                                                DeliveryStatus = x.GetDeliveryStatus(),
+                                                HasDelievery = x.HasDelievery,
+                                                Dispatched = x.Dispatched,
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 Discount = x.Discount,
@@ -702,7 +727,6 @@ public class OrdersController : ControllerBase
                                 .Include(x => x.ProductOrders)
                                 .ThenInclude(x => x.ProductData)
                                 .Include(x => x.ReturnedProducts.Where(r => r.Date.Date == filter!.StartDate.GetValueOrDefault().Date))
-
                                 .Include(x => x.Payments)
                                 .AsParallel()
                                 .AsEnumerable()
@@ -740,12 +764,13 @@ public class OrdersController : ControllerBase
                 TotalAmount = x.TotalAmount,
                 SubTotal = x.SubTotal,
                 Balance = x.Balance,
-                BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice),
-                SellPrice = x.ProductOrders.Sum(x => x.Cost),
-                Quantity = x.ProductOrders.Sum(p => p.Quantity),
+                BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice) + x.ThirdPartyItems.Sum(x => x.Cost),
+                SellPrice = x.ProductOrders.Sum(x => x.Cost) + x.ThirdPartyItems.Sum(x => x.Total),
+                Profit = AppState.CalculateProfit(x.ProductOrders) + AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),            
+                Quantity = x.ProductOrders.Sum(p => p.Quantity) + (int)x.ThirdPartyItems.Sum(x => x.Quantity),
                 HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
                 ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault()),
-                HasOrderItems = x.ProductOrders.Any(),
+                HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
                 Refund = x.ReturnedProducts.Sum(r => (decimal)r.Quantity! * r.Cost.GetValueOrDefault()),                
                 Discount = x.Discount,
             };

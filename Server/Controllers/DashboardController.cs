@@ -41,23 +41,11 @@ public class DashboardController(AppDbContext _context) : ControllerBase
                 ReceiptNo = x.ReceiptNo,
                 Total = x.TotalAmount,                
                 Status = x.Status,
-                HasOrderItems = x.ProductOrders.Any(),
+                HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
                 Balance = x.Balance,
                 SubTotal = x.SubTotal,
             }).ToArray(),
-            ProductPieChart = _context.OrderItems.AsNoTracking()
-                                                   .AsSplitQuery()
-                                                   .Include(x => x.Order)
-                                                   .Include(x => x.ProductData)
-                                                   .AsParallel()
-                                                   .Where(x => x.Order!.OrderDate == filter!.Date)
-                                                   .GroupBy(x => x.ProductId)
-                                                   .Select(p => new OrderChartModel
-                                                   {
-                                                        Date = DateOnly.FromDateTime(date),
-                                                        Item = p.FirstOrDefault()!.Product,
-                                                        SalesCount = p.Count()
-                                                   }).OrderByDescending(x => x.SalesCount).Take(10).ToArray(),
+         
             Earnings = _context.Orders.AsNoTracking()
                                         .Include(x => x.ProductOrders)
                                         .Include(x => x.ReturnedProducts)
@@ -71,7 +59,7 @@ public class DashboardController(AppDbContext _context) : ControllerBase
                                             TotalSales = p.Count(),
                                             TotalAmount = p.Sum(s => s.TotalAmount),
                                             Discount = p.Sum(s => s.Discount),
-                                            Profit = AppState.CalculateProfit(p.SelectMany(x => x.ProductOrders)),
+                                            Profit = AppState.CalculateProfit(p.SelectMany(x => x.ProductOrders)) + AppState.CalculateProfit(p.SelectMany(x => x.ThirdPartyItems)),
                                             Refunds = AppState.CalculateRefunds(p.SelectMany(s => s.ReturnedProducts), p.First().OrderDate)
                                         }).OrderBy(x => x.Date).ToArray(),
             SummaryByCashiers = _context.Payments.AsNoTracking().AsSplitQuery().Include(x => x.Cashier).Where(x => x.PaymentDate!.Value == date).GroupBy(x => x.UserId).Select(s => new SummaryByCashier
@@ -88,6 +76,34 @@ public class DashboardController(AppDbContext _context) : ControllerBase
             }).Where(x => x.Amount > 0).OrderByDescending(x => x.Amount).ToArray()
 
         };
+        List<OrderChartModel> ItemsChart = [];
+        var NormalItems = _context.OrderItems.AsNoTracking()
+                                                   .AsSplitQuery()
+                                                   .Include(x => x.Order)
+                                                   .Include(x => x.ProductData)
+                                                   .AsParallel()
+                                                   .Where(x => x.Order!.OrderDate == filter!.Date)
+                                                   .GroupBy(x => x.ProductId)
+                                                   .Select(p => new OrderChartModel
+                                                   {
+                                                        Date = DateOnly.FromDateTime(date),
+                                                        Item = p.FirstOrDefault()!.Product,
+                                                        SalesCount = p.Count()
+                                                   }).OrderByDescending(x => x.SalesCount).Take(10).ToArray();
+        var ThirdPartyItems = _context.Orders.AsNoTracking().AsParallel().SelectMany(p => p.ThirdPartyItems).GroupBy(x => x.ItemName)
+                                                   .Select(p => new OrderChartModel
+                                                   {
+                                                        Date = DateOnly.FromDateTime(date),
+                                                        Item = p.FirstOrDefault()!.ItemName,
+                                                        SalesCount = p.Count()
+                                                   }).OrderByDescending(x => x.SalesCount).Take(10).ToArray();
+        foreach (var item in NormalItems)
+            ItemsChart.Add(item);
+        
+        foreach (var item in ThirdPartyItems)
+            ItemsChart.Add(item);
+
+        model.ProductPieChart = ItemsChart.ToArray();
         model.TotalRevenue = model.Earnings.Where(x => x.Date == filter.Date).Select(x => x.ActualProfit).FirstOrDefault(0M);
         var months = Enumerable.Range(1, 12);
         var sales = await _context.Orders.GroupBy(x => new { x.OrderDate.Year, x.OrderDate.Month }).Select(x => new OrderSalesLine
@@ -101,7 +117,7 @@ public class DashboardController(AppDbContext _context) : ControllerBase
         {                        
             for (int i = 1; i <= months.Count(); i++)
             {
-                var akwai = sales.FirstOrDefault(x => x.Month == i);
+                var akwai = sales.FirstOrDefault(x => x.Month == i);    
                 if (akwai is null)
                 {
                     lines.Add(new OrderSalesLine
@@ -151,7 +167,6 @@ public class DashboardController(AppDbContext _context) : ControllerBase
         
             PharmacyRecentSales = await _context.Orders.AsNoTracking()
                                                 .Include(x => x.ProductOrders)
-                                                
                                                 .Include(x => x.Payments)
                                                 .OrderByDescending(x => x.OrderDate)
                                                 .Take(10)
@@ -161,7 +176,7 @@ public class DashboardController(AppDbContext _context) : ControllerBase
                 ReceiptNo = x.ReceiptNo,
                 Total = x.TotalAmount,                
                 Status = x.Status,
-                HasOrderItems = x.ProductOrders.Any(),
+                HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
                 Balance = x.Balance,
                 SubTotal = x.SubTotal,
             }).ToArrayAsync(),
@@ -225,7 +240,7 @@ public class DashboardController(AppDbContext _context) : ControllerBase
                                             TotalSales = p.Count(),
                                             TotalAmount = p.Sum(s => s.TotalAmount),
                                             Discount = p.Sum(s => s.Discount),
-                                            Profit = AppState.CalculateProfit(p.SelectMany(x => x.ProductOrders)),
+                                            Profit = AppState.CalculateProfit(p.SelectMany(x => x.ProductOrders))  + AppState.CalculateProfit(p.SelectMany(x => x.ThirdPartyItems)),
                                             Refunds = p.SelectMany(s => s.ReturnedProducts).Sum(s => s.Cost.GetValueOrDefault())
                                         }).OrderBy(x => x.Date).ToArray();
         

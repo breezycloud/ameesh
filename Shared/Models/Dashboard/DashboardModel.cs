@@ -104,6 +104,7 @@ namespace Shared.Models.Dashboard
         public bool HasOtherServices {get; set; }
         public bool HasOrderItems { get; set; } = false;
         public PaymentStatus PaymentStatus { get; set; }
+        public string? DeliveryStatus { get; set; }
         public OrderStatus Status { get; set; }
     }
 

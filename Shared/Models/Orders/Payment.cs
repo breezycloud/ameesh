@@ -24,5 +24,4 @@ public class Payment
     public virtual Order? Order { get; set; }
     public virtual User? Cashier { get; set; } = new();
     public DateTime CreatedDate { get; set; } = DateTime.Now;
-
 }

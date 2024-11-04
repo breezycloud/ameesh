@@ -14,11 +14,11 @@
              Outlined>
     <ToolBarContent>
         <MudSpacer />
-        <MudTextField T="string" Value="AppState._searchString" ValueChanged="@(s => OnSearch(s))" Placeholder="Search" Immediate="false"
+        <MudTextField T="string" Value="AppState._searchString" ValueChanged="@(s => OnSearch(s))" Placeholder="Search by receipt no, customer name, delivery state" Immediate="false"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
     </ToolBarContent>
     <Columns>        
-        <PropertyColumn Property="x => x.ReceiptNo" Title="Receipt No" CellStyleFunc="_cellStyleFunc" />
+        <PropertyColumn Property="x => x.CustomerName" Title="Name" CellStyleFunc="_cellStyleFunc" />
         <PropertyColumn Property="x => x.Date" Title="Date" Format="dd/MM/yyyy" />
         <PropertyColumn Property="x => x.CreatedDate.ToShortTimeString()" Title="Time" />
         <PropertyColumn Property="x => x.TotalAmount" Title="Total" Format="N2" />
@@ -31,13 +31,44 @@
                     {
                         <MudChip Size="Size.Small" Color="Color.Success">Paid</MudChip>                        
                     }
+                    else if (ctx.Item.PaymentStatus == "Awaiting")
+                    {
+                        <MudChip Size="Size.Small" OnClick="() => Complete(ctx.Item.Id)" Color="Color.Warning">Awaiting Confirmation</MudChip>                        
+                    }
                     else
                     {
                         <MudChip Size="Size.Small" Color="Color.Error">Unpaid</MudChip>
-                    }      
+                    }
+                    @if (ctx.Item.HasDelievery)
+                    {
+                        <MudChip Size="Size.Small">@ctx.Item.DeliveryStatus</MudChip>
+                        <AuthorizeView Roles="Cashier" Context="auth">
+                            @if (!ctx.Item.Dispatched)
+                            {
+                                <MudButton StartIcon="@Icons.Material.Filled.DeliveryDining" Color="Color.Info" OnClick="() => Dispatch(ctx.Item.Id)" Size="Size.Small">Dispatch</MudButton>
+                            }
+                        </AuthorizeView>
+                    }
                 </MudStack>
             </CellTemplate>
-        </TemplateColumn>        
+        </TemplateColumn>  
+        <AuthorizeView Roles="Admin, Master" Context="auth">
+            <Authorized>							
+                <TemplateColumn>
+                    <CellTemplate>
+                        @if (context.Item.PaymentStatus == "Awaiting")
+                        {
+                            <MudButton Color="Color.Success" OnClick="() => Complete(context.Item.Id)" Size="Size.Small">Confirm</MudButton>
+                        }
+                        @if (!context.Item.Dispatched)
+                        {
+                            <MudButton Color="Color.Info" OnClick="() => Dispatch(context.Item.Id)" Size="Size.Small">Dispatch</MudButton>
+                        }
+                        <MudButton Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Authorized>
+        </AuthorizeView>      
     </Columns>
     <NoRecordsContent>
         <MudText Typo="Typo.h6">No records found</MudText>
@@ -62,6 +93,38 @@
         {
             await _gridComponent!.ReloadServerData();
         });        
+    }
+
+    private async Task Dispatch(Guid id)
+    {
+        AppState.IsProcessing = true;
+		//var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to dispatch order", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await OrderService.DispatchOrder(id);
+			SnackBar.Add("Order Successfully Updated", Severity.Success);
+			if (hub!.State != HubConnectionState.Disconnected)
+            {
+                await hub!.SendAsync("RefreshOrderTimer");
+                await hub!.SendAsync("UpdateOrder");                    
+            }
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
     }
 
     private async Task<GridData<OrderWithData>> GetGridData(GridState<OrderWithData> request)
@@ -137,8 +200,13 @@
     async Task Complete(Guid id)
     {
         AppState.IsProcessing = true;      
-        var uid = await localStorage.GetItemAsync<Guid>("uid");
-        var result = await OrderService.CompleteOrder(id, uid);
+        var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to confirm payment", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+        var result = await OrderService.CompleteOrder(id);
         if (result)
         {
             if (hub!.State != HubConnectionState.Disconnected)
@@ -149,6 +217,38 @@
         }
         AppState.IsProcessing = false;
     }
+
+    private async Task OnDelete(Guid id)
+	{
+		AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to delete", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await OrderService.Delete(id);
+			SnackBar.Add("Order Successfully Deleted", Severity.Success);
+			if (hub!.State != HubConnectionState.Disconnected)
+            {
+                await hub!.SendAsync("RefreshOrderTimer");
+                await hub!.SendAsync("UpdateOrder");                    
+            }
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+	}
     
     public async ValueTask DisposeAsync()
     {

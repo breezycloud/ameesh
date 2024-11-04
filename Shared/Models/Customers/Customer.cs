@@ -20,6 +20,9 @@ public class Customer
     [StringLength(11, MinimumLength = 11, ErrorMessage = "Phone No must be atleast 11 digits")]
     public string? PhoneNo { get; set; }
     public string? ContactAddress { get; set; }
+    [StringLength(11, MinimumLength = 11, ErrorMessage = "Phone No must be atleast 11 digits")]
+    public string? PhoneNo2 { get; set; }
+    public string? ContactAddress2 { get; set; }
     public bool Regular { get; set; } = false;    
     public double Discount { get; set; }
     public double LoyaltyDiscount => TotalReferals >= 50 ? 0.05 : TotalReferals >= 100 ? 0.1 : 0;

@@ -1,5 +1,6 @@
 ﻿@layout AppLayout
 @page "/order"
+@using Client.Handlers
 @inject ICustomerService CustomerService
 @inject IOrderService OrderService
 @inject IProductService ItemService
@@ -36,28 +37,14 @@ else
      </MudStack>
     <MudGrid Spacing="2">
         <MudItem xs="12" sm="5">
-            <MudGrid Spacing="2">
-                @* <AuthorizeView Roles="Admin, Master, Manager">
-                    <MudItem xs="12" sm="6">
-                        <MudToggleGroup T="string" Style="width: 300px;" Value="SelectedOption" ValueChanged="OptionChanged" Outline Delimiters Dense Rounded CheckMark FixedContent>
-                            <MudToggleItem Value="@("Lab")" />
-                            <MudToggleItem Value="@("Store")" />
-                        </MudToggleGroup>
-                    </MudItem>
-                </AuthorizeView>                 
+            <MudGrid Spacing="2">               
                 <AuthorizeView Roles="Admin, Master, Manager, Cashier">
-               <MudItem xs="12">
-                        <MudChip Icon="@Icons.Material.Rounded.MedicalServices" Color="Color.Primary">@SelectedOption</MudChip>
-                    </MudItem>
-                </AuthorizeView>                
-                 <MudItem xs="12" sm="6" Class="@BtnCSS">
-                     @if (!string.IsNullOrEmpty(SelectedOption))
-                     {                     
-                        <MudTooltip Text="Add Customer" Duration="2000" Placement="Placement.Top">
+                    <MudItem xs="12">  
+                          <MudTooltip Text="Add Customer" Duration="2000" Placement="Placement.Top">
                             <MudFab Label="New Customer" DisableElevation="true" StartIcon="@Icons.Material.Filled.Add" OnClick="() => NewCustomer()" Color="Color.Primary" Size="Size.Small" />
-                        </MudTooltip>
-                     }
-                 </MudItem>                      *@
+                        </MudTooltip> 
+                    </MudItem>
+                </AuthorizeView>                                
                 <MudItem xs="12" sm="6">
                     <MudTextField T="string" Margin="Margin.Dense" ReadOnly Variant="Variant.Outlined" Label="Date" Value="@(DateTime.Now.ToString("dd/MM/yyyy"))" Format="dd/MM/yyyy" />
                 </MudItem>
@@ -106,7 +93,36 @@ else
                         <MudAutocomplete @ref="_Stocks" T="Stock" AnchorOrigin="Origin.BottomCenter" Value="Row.Stock" Label="Select stock" ValueChanged="StockChanged"
                                          SearchFunc="@SearchStocks" Dense="true" Variant="Variant.Outlined" ShowProgressIndicator="true"
                                          ToStringFunc="@(e => e==null ? null : $"{(e.Quantity > 0 ? $"Available Qty: {e.Quantity}" : "")}")" Margin="Margin.Dense" />
-                    </MudItem>                    
+                    </MudItem>    
+                    <MudItem xs="12" sm="6">
+                        <MudCheckBox T="bool" Margin="@Margin.Dense" @bind-Value="AddThirdPartyItem" Size="Size.Small">Add Third Party Item</MudCheckBox>
+                    </MudItem>
+                    if (AddThirdPartyItem)
+                    {
+                        <MudItem xs="12" sm="6" Class="d-flex align-center justify-end">
+                            <MudButton Size="Size.Small" OnClick="NewThirdPartyItem">Add New</MudButton>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="Item Name" @bind-Value="ThirdPartyItem.ItemName" 
+                                Margin="Margin.Dense" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField T="decimal" id="figure-right" Format="N2" Label="Cost Price" @bind-Value="ThirdPartyItem.Cost" 
+                            Margin="Margin.Dense" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                              <MudTextField T="decimal" id="figure-right" Format="N2" Label="Sell Price" Value="ThirdPartyItem.Price" 
+                                Margin="Margin.Dense" ValueChanged="PriceChanged" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudNumericField T="decimal" id="figure-center" Min="1" Label="Quantity" @bind-Value="ThirdPartyItem.Quantity"  
+                                Margin="Margin.Dense" Variant="Variant.Outlined" Immediate/>
+                        </MudItem>
+                         <MudItem xs="12" sm="6">
+                              <MudTextField T="decimal" ReadOnly id="figure-right" Format="N2" Label="Total" Value="ThirdPartyItem.Total" 
+                                Margin="Margin.Dense" Variant="Variant.Outlined" />
+                        </MudItem>
+                    }
                 }
             </MudGrid>
         </MudItem>
@@ -146,10 +162,8 @@ else
                      </NoRecordsContent>
                  </MudDataGrid>
              </MudItem>
-             <MudItem xs="12" sm="6" Class="d-flex flex-column align-end justify-end">
-             </MudItem>
-             <MudItem xs="12" sm="6" Class="d-flex flex-column justify-end gap-2">
-                 <MudCheckBox T="bool" Margin="@Margin.Dense" Value="RequireDelivery" Size="Size.Small" ValueChanged="DeliveryChanged">Require Delivery</MudCheckBox>
+             <MudItem xs="12" sm="6">
+                <MudCheckBox T="bool" Margin="@Margin.Dense" Value="RequireDelivery" Size="Size.Small" ValueChanged="DeliveryChanged">Require Delivery</MudCheckBox>
                 @if (RequireDelivery)
                 {
                     <MudGrid Spacing="1">
@@ -171,11 +185,14 @@ else
                                     Value="Address!.Ward" ValueChanged="@OnWardChanged" Variant="Variant.Outlined" Immediate="true"
                                     SearchFunc="@SearchWard" ToStringFunc="@(e => e == null ? string.Empty : $"{e}")"  />
                         </MudItem>
-                        <MudItem xs="12">
-                            <MudTextField T="decimal" id="figure-right" Format="N2" Label="Delivery Amount" Value="cart.DeliveryAmt" 
-                                ValueChanged="DeliveryAmtChanged" Margin="Margin.Dense" Variant="Variant.Outlined" />
-                        </MudItem>
                     </MudGrid>
+                }
+             </MudItem>
+             <MudItem xs="12" sm="6" Class="d-flex flex-column justify-end gap-2">
+                @if (RequireDelivery)
+                {
+                      <MudTextField T="decimal" id="figure-right" Format="N2" Label="Delivery Amount" Value="cart.DeliveryAmt" 
+                            ValueChanged="DeliveryAmtChanged" Margin="Margin.Dense" Variant="Variant.Outlined" />
                 }
                 <MudTextField id="figure-right" Label="Sub Total" @bind-Value="cart.SubTotal" Margin="Margin.Dense"
                                 Variant="Variant.Outlined" Disabled="true" Format="N2"
@@ -193,8 +210,8 @@ else
                                     Variant="Variant.Outlined" Immediate="false" ValueChanged="DiscountChanged" />
                 }            
 
-                @* <MudTextField id="figure-right" Style="color:red;" Label="Amount Due" Disabled="true" Variant="Variant.Outlined" ReadOnly="true" Margin="Margin.Dense"
-                        Value="@(Rows!.Count > 0 && cart.Discount > 0 ? cart.AmountDue = (cart.GrandTotal - cart.Discount) : cart.AmountDue = cart.GrandTotal)" Format="N2" />                 *@
+                <MudTextField id="figure-right" Style="color:red;" Label="Amount Due" Disabled="true" Variant="Variant.Outlined" ReadOnly="true" Margin="Margin.Dense"
+                        Value="@(Rows!.Count > 0 && cart.Discount > 0 ? cart.AmountDue = (cart.GrandTotal - cart.Discount) : cart.AmountDue = cart.GrandTotal)" Format="N2" />
                 @if (ClearLabSales)
                 {
                     <MudTextField id="figure-right" Format="N2" Label="Amount Paid" @bind-Value="cart.AmountPaid" Margin="Margin.Dense"
@@ -211,6 +228,21 @@ else
                     </MudSelect>
                 }                
              </MudItem>
+             @if (RequireDelivery)
+             {
+                 @if (!customer.Regular && !string.IsNullOrEmpty(customer!.ContactAddress))
+                {
+                    <MudItem xs="12">
+                        <MudCheckBox T="bool" Margin="@Margin.Dense" Value="SameAddress" Size="Size.Small" ValueChanged="ContactAddressChanged">Same as contact address</MudCheckBox>
+                    </MudItem>
+                }
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Address!.Address" Lines="2" Label="Delivery Address" Variant="Variant.Outlined"></MudTextField>
+                </MudItem>
+             }
+            <MudItem xs="12">
+                <MudTextField @bind-Value="cart!.Note" Lines="2" Label="Notes" Variant="Variant.Outlined"></MudTextField>
+            </MudItem>  
              <MudItem xs="12" sm="6" Class="d-flex align-center justify-center">
                  <MudTooltip Text="Back" Duration="1000" Placement="Placement.Top">
                      <MudFab Size="Size.Medium" Style="width:200px;" Label="Back" OnClick="() => Warn()" Variant="Variant.Outlined" Color="Color.Dark" />
@@ -234,16 +266,19 @@ else
     private Customer[]? CustomerReferers = [];
     private CartValidation cart = new();
     private ProductsAvailable[]? Products = [];
+    private ThirdPartyItem? ThirdPartyItem = new();
     private Product[]? ProductsByCategory = [];
     private Category[]? Categories = [];
     private User[]? Users = [];
     private User? Consultant = new();
-    private string? SelectedOption, ConsultationNote;
+    private string? SelectedOption, Note;
     private bool IsReferedByDoctor { get; set; }
     private bool IsReferedByEscort { get; set; }
     private bool IsReferedCustomer { get; set; }
     private bool RequireConsultation { get; set; }
     private bool RequireDelivery { get; set; }
+    private bool SameAddress { get; set; }
+    private bool AddThirdPartyItem { get; set; }
     private OrderCartRow Row { get; set; } = new() { SelectedOption = "Store" };
     private List<OrderCartRow>? Rows { get; set; } = new();
     private Guid StoreID, UserID, OrderID;
@@ -256,6 +291,7 @@ else
     private bool ClearLabSales, ExchangeProduct = false;
     private string? StoreOption = string.Empty;
     private int TotalSuspendedBills {get; set; } = 0;
+
     protected override async Task OnInitializedAsync()
     {
         AppState.IsBusy = true;
@@ -332,6 +368,20 @@ else
     {
         ExchangeProduct = value;
         Products = [];
+        StateHasChanged();
+    }
+
+    void ContactAddressChanged(bool value)
+    {
+        SameAddress = value;
+        if (!string.IsNullOrEmpty(customer!.ContactAddress))
+        {
+            Address!.Address = customer!.ContactAddress;
+            if (!value)
+            {
+                Address!.Address = "";
+            }
+        }
         StateHasChanged();
     }
 
@@ -441,7 +491,56 @@ else
         Row = new();
     }
 
+    void NewThirdPartyItem()
+    {
+        if (string.IsNullOrEmpty(ThirdPartyItem.ItemName))
+        {
+            SnackBar.Add("Enter item name to proceed!", Severity.Warning);           
+            return;
+        }
+        else if (ThirdPartyItem.Quantity <= 0)
+        {
+            SnackBar.Add("Enter quantity to proceed!", Severity.Warning);           
+            return;
+        }
+        else if (ThirdPartyItem.Cost <= 0)
+        {
+            SnackBar.Add("Enter cost to proceed!", Severity.Warning);           
+            return;
+        }
+        else if (ThirdPartyItem.Price <= 0)
+        {
+            SnackBar.Add("Enter price to proceed!", Severity.Warning);           
+            return;
+        }
+        ThirdPartyItem.ItemName = StringConverter.ConvertToTitleCase(ThirdPartyItem.ItemName!);
+        ThirdPartyItem.Id = Guid.NewGuid();
+        Rows!.Add(new()
+        {
+            ThirdPartyItem = ThirdPartyItem,
+            Quantity = (int)ThirdPartyItem.Quantity,
+            IsThirdParty = true
+        });      
+        ThirdPartyItem = new();
+        SumRows();
+        StateHasChanged();
+    }
 
+    void PriceChanged(decimal value)
+    {
+        if (value <= 0)
+        {
+            SnackBar.Add("Enter price to proceed!", Severity.Warning);           
+            return;
+        }
+        else if (value < ThirdPartyItem.Cost)
+        {
+            SnackBar.Add("Enter valid amount to proceed!", Severity.Warning);           
+            return;
+        }
+        ThirdPartyItem.Price = value;
+        StateHasChanged();
+    }
 
     private async void ProductQuantityChanged(int e)
     {
@@ -537,7 +636,7 @@ else
 
     async Task HandleSelectedDataItemChanged(DataGridRowClickEventArgs<OrderCartRow> row)
     {
-        if (row.Item.SelectedOption == "Lab")
+        if (row.Item.IsThirdParty)
         {
             return;
         }
@@ -567,7 +666,19 @@ else
             SnackBar.Add("Select Customer to proceed", Severity.Warning);
             return;
         }
+        if (RequireDelivery && cart!.DeliveryAmt <= 0)
+        {
+            AppState.IsProcessing = false;
+            SnackBar.Add("Enter delivery amount to proceed", Severity.Warning);
+            return;
+        }
 
+        if (RequireDelivery && string.IsNullOrEmpty(Address!.Address))
+        {
+            AppState.IsProcessing = false;
+            SnackBar.Add("Enter delivery address to proceed", Severity.Warning);
+            return;
+        }
 
         if (cart.RowsCount <= 0 || cart.RowsCount is null)        
         {
@@ -622,6 +733,8 @@ else
                 StoreId = StoreID,
                 DeliveryAmt = cart.DeliveryAmt,
                 Address = this.Address,
+                Note = cart.Note,
+                ThirdPartyItems = OrderService.ThirdPartyItems(Rows!),
                 ProductOrders = OrderService.OrderItems(OrderID, Rows!)!,
                 Payments = new List<Payment>() { new Payment { OrderId = OrderID, UserId = UserID, Cashier = null, PaymentDate = currentDateTime, PaymentMode = cart.PaymentMode, Amount = cart.AmountPaid, CreatedDate = currentDateTime}},
                 User = null,
@@ -629,7 +742,6 @@ else
                 ModifiedDate = currentDateTime
             };
 
-            
             var parameters = new DialogParameters 
             { 
                 ["hub"] = hub,
@@ -790,17 +902,17 @@ else
         StateHasChanged();
     }
 
-    DeliveryAddress? Address = null;
+    DeliveryAddress? Address = new();
     void DeliveryChanged(bool value)
     {
         RequireDelivery = value;
         if (value)
-        {
             Address = new();
-            cart!.DeliveryAmt = 0;
-        }
         else
-            Address = null;
+            Address = new();
+            
+        cart!.DeliveryAmt = 0;
+        SumRows();
         StateHasChanged();
     }
 
@@ -813,6 +925,7 @@ else
             return;
         }
         cart.DeliveryAmt = value;
+        SumRows();
         StateHasChanged();
     }
 

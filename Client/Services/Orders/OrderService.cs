@@ -6,6 +6,7 @@ using Microsoft.JSInterop;
 using QuestPDF.Fluent;
 using Shared.Helpers;
 using Shared.Models.Orders;
+using Shared.Models.Products;
 using Shared.Models.Reports;
 using System.Net.Http.Json;
 using System.Reflection;
@@ -18,7 +19,8 @@ public interface IOrderService
     Task<bool> AddProductOrder(Order model);
     Task<bool> UpdateOrder(Order? model);
     Task<bool> CompleteOrder(Order? model);
-    Task<bool> CompleteOrder(Guid id, Guid uid);
+    Task<bool> CompleteOrder(Guid id);
+    Task DispatchOrder(Guid id);
     Task<bool> UpdateOrderItems(List<ProductOrderItem> items);
     Task<bool> PutPayment(Payment model);
     Task<bool> PutPayments(Payment[] payments);
@@ -31,6 +33,7 @@ public interface IOrderService
     Task<Order?> GetOrder(Guid id);
     Task<Order?> GetOrder(string? receiptNumber, Guid storeId);
     List<ProductOrderItem> OrderItems(Guid id, List<OrderCartRow> rows);
+    List<ThirdPartyItem> ThirdPartyItems(List<OrderCartRow> rows);
     Task<GridDataResponse<OrderWithData>?> GetOrderByStore(string Type, PaginationParameter parameter);
     Task<GridDataResponse<OrderWithData>?> GetOrderWithReturns(PaginationParameter parameter);
     ICollection<OrderReferer> GetOrderReferers(Guid id, string type, ICollection<OrderReferer> referers);
@@ -43,6 +46,7 @@ public interface IOrderService
     Task SaleReport(ReportFilter filter);
     Task CancelOrder(Guid id);
     Task<bool> GetPaymentStatus(Guid id);
+    Task<bool> Delete(Guid id);
 }
 public class OrderService : IOrderService
 {
@@ -55,10 +59,22 @@ public class OrderService : IOrderService
         _client = client;
         _js = js;
     }
+    public async Task<bool> Delete(Guid id)
+    {
+        try
+        {
+            var response = await _client.CreateClient("AppUrl").DeleteAsync($"api/orders/{id}");
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception)
+        {
 
+            throw;
+        }
+    }
     public List<ProductOrderItem> OrderItems(Guid id, List<OrderCartRow> rows)
     {
-        var items = rows.AsParallel().Select(i => new ProductOrderItem
+        var items = rows.AsParallel().Where(x => !x.IsThirdParty).Select(i => new ProductOrderItem
         {
             OrderId = id,
             ProductId = i!.Product!.Id,
@@ -71,19 +87,24 @@ public class OrderService : IOrderService
         return items;
     }
 
+    public List<ThirdPartyItem> ThirdPartyItems(List<OrderCartRow> rows)
+    {
+        var items = rows.AsParallel().Where(x => x.IsThirdParty).Select(i => new ThirdPartyItem
+        {
+            Id = i!.ThirdPartyItem!.Id,
+            ItemName = i!.ThirdPartyItem!.ItemName,
+            Cost = i!.ThirdPartyItem!.Cost,
+            Price = i!.ThirdPartyItem!.Price!,
+            Quantity = i!.ThirdPartyItem!.Quantity,
+        }).ToList();
+        return items;
+    }
+
     public async Task CancelOrder(Guid id)
     {
         try
         {
-            try
-            {
-                await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/cancelorders", id);                
-            }
-            catch (Exception)
-            {
-
-                throw;
-            }
+            await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/cancelorders", id);
         }
         catch (Exception)
         {
@@ -92,6 +113,18 @@ public class OrderService : IOrderService
         }
     }
 
+    public async Task DispatchOrder(Guid id)
+    {
+        try
+        {
+            await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/dispatch", new CompleteBill(id, Guid.Empty));
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
     public async Task<bool> UpdateOrder(Order? model)
     {
         try
@@ -122,12 +155,12 @@ public class OrderService : IOrderService
         }
     }
 
-    public async Task<bool> CompleteOrder(Guid id, Guid uid)
+    public async Task<bool> CompleteOrder(Guid id)
     {
         try
         {
-            
-            var request = _client.CreateClient("AppUrl").PostAsJsonAsync($"api/orders/completeorder", new CompleteBill(id, uid));
+
+            var request = _client.CreateClient("AppUrl").PostAsJsonAsync($"api/orders/completeorder", new CompleteBill(id, Guid.Empty));
             var response = await request;
             return response.IsSuccessStatusCode;
         }
@@ -249,7 +282,7 @@ public class OrderService : IOrderService
 
     public async Task<int> GetReceiptNo(string Type, Guid StoreID)
     {
-        int receiptNbr= await _client.CreateClient("AppUrl").GetFromJsonAsync<int>($"api/orders/receiptno/{StoreID}");
+        int receiptNbr = await _client.CreateClient("AppUrl").GetFromJsonAsync<int>($"api/orders/receiptno/{StoreID}");
         return receiptNbr;
     }
 
@@ -283,17 +316,15 @@ public class OrderService : IOrderService
         response = await _client.CreateClient("AppUrl").GetFromJsonAsync<bool>($"api/products/validateqty?id={id}&qty={qty}");
         return response;
     }
-
     public async Task<(Guid storeId, byte[]? buffer)> PrintDocument(Guid storeID, Guid id, string Type, string ReceiptNo)
     {
         await GetBillQrCode(id, Type, ReceiptNo);
         if (content is not null)
         {
             return await Task.FromResult((storeID, content));
-        }    
+        }
         return (storeID, null);
     }
-    
     public async Task GetBillQrCode(Guid id, string Type, string ReceiptNo)
     {
         var code = new Converter().ConvertToByte(ReceiptNo);
@@ -302,7 +333,6 @@ public class OrderService : IOrderService
         if (content != null)
             await _js.InvokeVoidAsync("XPrinter.Test", Convert.ToBase64String(content));
     }
-
     public async Task GetReceiptBase64String(string Type, ReportData report)
     {
         try
@@ -322,15 +352,14 @@ public class OrderService : IOrderService
             content = ConvertToBytes(receipt.GetImage());
             if (content != null)
             {
-                await _js.InvokeVoidAsync("XPrinter.Test", Convert.ToBase64String(content));                
+                await _js.InvokeVoidAsync("XPrinter.Test", Convert.ToBase64String(content));
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine(ex);
-        }        
+        }
     }
-
     private byte[] ConvertToBytes(IEnumerable<byte[]> bytes)
     {
         List<byte> resultList = [];
@@ -346,7 +375,7 @@ public class OrderService : IOrderService
         try
         {
             string OrderID = string.Empty;
-             OrderID = report.Order!.ReceiptNo!;
+            OrderID = report.Order!.ReceiptNo!;
 
             report.ReportHeader = new ReportHeader
             {
@@ -374,7 +403,6 @@ public class OrderService : IOrderService
         }
         return null!;
     }
-
     public ICollection<OrderReferer> GetOrderReferers(Guid id, string type, ICollection<OrderReferer> referers)
     {
         if (!referers.Any())
@@ -387,18 +415,14 @@ public class OrderService : IOrderService
         _js.InvokeVoidAsync("console.log", referers);
         return referers;
     }
-
     public async Task<Order?> GetOrder(Guid id)
     {
         return await _client.CreateClient("AppUrl").GetFromJsonAsync<Order?>($"api/orders/{id}");
     }
-
     public async Task<Order?> GetOrder(string? receiptNumber, Guid storeId)
     {
         return await _client.CreateClient("AppUrl").GetFromJsonAsync<Order?>($"api/orders/byreceiptno?rno={receiptNumber}&storeId={storeId}");
     }
-
-
     public async Task SaleReport(ReportFilter filter)
     {
         string reportName = $"{filter!.ReportOption} Report {(filter.Criteria == "Date" ? $"{filter.StartDate:d}" : $"{filter.StartDate:d} - {filter.EndDate:d}")}.pdf";
@@ -406,7 +430,7 @@ public class OrderService : IOrderService
 
         HttpResponseMessage response = await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/report", filter);
 
-        template = await response.Content.ReadFromJsonAsync<SalesReportTemplate?>();        
+        template = await response.Content.ReadFromJsonAsync<SalesReportTemplate?>();
         try
         {
             if (template != null)
@@ -421,17 +445,14 @@ public class OrderService : IOrderService
             Console.WriteLine(ex.Message);
         }
     }
-
     public async Task PrintBill(string ReceiptNo)
     {
         await _js.InvokeVoidAsync("XPrinter.PrintBill", ReceiptNo);
     }
-
     public async Task PrintReceipt(string Type, ReportData report)
     {
         await _js.InvokeVoidAsync("XPrinter.Print", Type, report);
     }
-
     public async Task<bool> GetPaymentStatus(Guid id)
     {
         try

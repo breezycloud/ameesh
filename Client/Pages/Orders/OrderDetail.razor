@@ -45,7 +45,22 @@ else
                 <MudItem xs="12" sm="6">
                     <MudTextField Label="Phone No" Variant="Variant.Outlined"ReadOnly @bind-Value="Data!.Customer!.PhoneNo" />
                 </MudItem>                     
-        }        
+        }      
+        @if (Data!.HasDelievery)
+        {
+             <MudItem xs="12" sm="6">
+                <MudTextField Label="State" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address.State" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField Label="Lga" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address.Lga" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField Label="Ward" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address.Ward" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField Label="Delivery Address" Variant="Variant.Outlined" ReadOnly @bind-Value="Data!.Address.Address" />
+            </MudItem>
+        }  
         <MudItem xs="12" sm="6">
             <MudTextField Label="Total Amount" Format="N2" Variant="Variant.Outlined"ReadOnly Value="Data!.TotalAmount" />
         </MudItem>
@@ -66,30 +81,52 @@ else
         </MudItem>        
         <MudItem xs="12" sm="6">
             <MudTextField Label="Sales Person" Variant="Variant.Outlined" ReadOnly Value="Data!.User!.ToString()" />
-        </MudItem>        
-        <MudItem xs="12" sm="6">            
-        </MudItem>        
+        </MudItem>     
         <AuthorizeView Roles="Admin, Master">
             <Authorized>
-                @if (Data.Status == OrderStatus.Canceled && Data.Balance == 0)
-                {
-                    <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
-                        Label="@(AppState.IsBusy ? "Processing" : "Complete Order")" Style="width:190px;"
-                        OnClick="() => CompleteOrder()" Color="Color.Primary"
-                        StartIcon="@Icons.Material.Filled.Verified"
-                        DisableElevation="true" />
-                }                
+                 <MudItem xs="12" sm="6">
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.Center">
+                        @if (Data.Balance == 0 && !Data!.PaymentConfirmed)
+                        {
+                            <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
+                                Label="@(AppState.IsBusy ? "Processing" : "Confirm Payment")" Style="width:150px;"
+                                OnClick="() => CompleteOrder()" Color="Color.Primary"
+                                StartIcon="@Icons.Material.Filled.Verified"
+                                DisableElevation="true" />
+                        } 
+                        @if (!Data!.Dispatched)
+                        {
+                            <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
+                                Label="@(AppState.IsBusy ? "Processing" : "Dispatch")" Style="width:120px;"
+                                OnClick="() => Dispatch()" Color="Color.Dark"
+                                StartIcon="@Icons.Material.Filled.DeliveryDining"
+                                DisableElevation="true" />
+                        }
+                    </MudStack>            
+                </MudItem>                  
             </Authorized>
-        </AuthorizeView>
-          <MudItem xs="12">
-            <LineItems Data="Data!.ProductOrders.ToList()" CId="Data!.Customer!.Id" CType="Data!.Customer!.Regular" Returns="Data!.ReturnedProducts.ToArray()" OrderStatus="Data!.Status" PaymentStatus="@(Data!.Balance > 0 && Data!.Status != OrderStatus.Canceled ? false : true)" />
-        </MudItem>        
-        <MudItem xs="12" sm="6">
+        </AuthorizeView>       
+        <MudItem xs="12">
             <PaymentDetails Items="Data!.Payments.ToList()" PaymentCompleted="@(Data!.Balance > 0 && Data!.Status != OrderStatus.Canceled ? false : true)" AmountDue="Data!.Balance"/>
         </MudItem>
-         <MudItem xs="12" sm="6">
-            <ReturnedLineItems Deduction="Deduction" Data="Data!.ReturnedProducts.ToArray()"/>
-        </MudItem>       
+        @if (Data!.ProductOrders.Any())
+        {
+             <MudItem xs="12">
+                <LineItems Data="Data!.ProductOrders.ToList()" CId="Data!.Customer!.Id" CType="Data!.Customer!.Regular" Returns="Data!.ReturnedProducts.ToArray()" OrderStatus="Data!.Status" PaymentStatus="@(Data!.Balance > 0 && Data!.Status != OrderStatus.Canceled ? false : true)" />
+            </MudItem>   
+        }
+        @if (Data!.ThirdPartyItems.Any())
+        {
+            <MudItem xs="12">
+                <ThirdPartyLineItems Data="Data!.ThirdPartyItems" />
+            </MudItem> 
+        }    
+        @if (Data!.ReturnedProducts.Any())
+        {
+            <MudItem xs="12">
+                <ReturnedLineItems Deduction="Deduction" Data="Data!.ReturnedProducts.ToArray()"/>
+            </MudItem>       
+        }
     </MudGrid>
 }
 
@@ -121,34 +158,67 @@ else
 
     private async Task CompleteOrder()
     {
-        var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to update order", yesText: "Yes", cancelText: "No");
-        if (prompt is null)
-        {
-            AppState.IsProcessing = false;
-            return;
-        }
-        bool result = false;
-        try
-        {            
-            result = await OrderService.CompleteOrder(Data);
-            if (result)
+        AppState.IsProcessing = true;
+		//var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to confirm payment", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await OrderService.CompleteOrder(Data!.Id);
+			SnackBar.Add("Order Successfully Updated", Severity.Success);
+			if (hub!.State != HubConnectionState.Disconnected)
             {
-                SnackBar.Add("Order Successfully Updated", Severity.Success);                
                 await hub!.SendAsync("RefreshOrderTimer");
                 await hub!.SendAsync("UpdateOrder");                    
             }
-            else
-            {
-                SnackBar.Add("Operation failed", Severity.Warning);
-            }
-        }
-        catch (Exception)
-        {
-            if (!result)
-                SnackBar.Add("Operation failed", Severity.Warning);
-        }        
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
     }    
 
+    private async Task Dispatch()
+    {
+        AppState.IsProcessing = true;
+		var mode = await localStorage.GetItemAsync<bool>("mode");
+		var prompt = await Dialog.ShowMessageBox("Confirmation", "Do you really wish to dispatch order", yesText: "Yes", cancelText: "No");
+		if (prompt is null)
+		{
+			AppState.IsProcessing = false;
+			return;
+		}
+
+		try
+		{
+			await OrderService.DispatchOrder(Data!.Id);
+			SnackBar.Add("Order Successfully Dispatched", Severity.Success);
+			if (hub!.State != HubConnectionState.Disconnected)
+            {
+                await hub!.SendAsync("RefreshOrderTimer");
+                await hub!.SendAsync("UpdateOrder");                    
+            }
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			SnackBar.Add("Operation failed", Severity.Warning);
+		}
+		finally
+		{
+			AppState.IsProcessing = false;
+		}
+    }
     async Task GetData()
     {
         Data = await OrderService.GetOrder(id);
