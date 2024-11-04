@@ -33,6 +33,43 @@ public class SeedData
                 AddCustomers(db);
                 //AddExpenseTypes(db);                
             }
+            //ImportCustomers(services);
+        }
+    }
+
+    private static async void ImportCustomers(IServiceProvider services)
+    {
+
+        var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Server.Data.data.json");
+        var fs = new StreamReader(stream!);
+        var contents = await fs.ReadToEndAsync();
+        var customers = JsonSerializer.Deserialize<CustomerJson[]?>(contents);
+        if (customers!.Any())
+        {
+            var factory = services.GetRequiredService<IServiceScopeFactory>();
+            using var scope = factory.CreateScope();
+            using var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            int count = customers!.Length;
+            int index = 1;
+            Console.WriteLine("found {0} customers", count);
+            Thread.Sleep(100);
+            foreach (var item in customers)
+            {
+                await db.Customers.AddAsync(
+                    new Customer 
+                    { Id = Guid.NewGuid(), CustomerName = item.name, PhoneNo = item!.phone, ContactAddress = item.address2}
+                );
+                Console.WriteLine("Imported {0} of {1} row", index, count);
+                //Thread.Sleep(100);
+                index++;
+            }
+            await db.SaveChangesAsync();
+        }
+        else
+        {
+            Console.WriteLine("No customers found yet");
+
         }
     }
 

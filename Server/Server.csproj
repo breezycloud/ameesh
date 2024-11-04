@@ -8,7 +8,9 @@
     <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
-  
+  <ItemGroup>
+    <EmbeddedResource Include="Data\data.json" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Bogus" Version="35.4.0" />
