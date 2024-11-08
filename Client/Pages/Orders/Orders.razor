@@ -5,6 +5,18 @@
 @inject IJSRuntime js
 @implements IAsyncDisposable
 
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexEnd">
+    <MudCheckBox T="bool" Value="AppState.HasThirdItem" ValueChanged="ThirdItemChanged"  Size="Size.Small">
+        Has Third Party Items ?
+    </MudCheckBox>
+   @if (!string.IsNullOrEmpty(AppState._searchString) || AppState.HasThirdItem)
+   {
+        <MudTooltip Duration="1000" Text="Clear filter" Placement="Placement.Top">
+            <MudIconButton OnClick="ClearFilters" Color="Color.Error" Icon="@Icons.Material.Filled.Clear" Size="Size.Small">
+            </MudIconButton>
+        </MudTooltip>
+   }
+</MudStack>
 <MudDataGrid T="OrderWithData"
              @ref="_gridComponent"             
              ServerData="GetGridData"
@@ -100,7 +112,7 @@
     private string searchString = "";
     private string? timer = "";
     private HubConnection? hub;
-
+    
     protected override async Task OnInitializedAsync()
     {
         hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithStatefulReconnect().Build();
@@ -177,7 +189,7 @@
 
     private async Task<GridData<OrderWithData>> GetGridData(GridState<OrderWithData> request)
     {                
-        var parameter = new PaginationParameter { FilterId = AppState.StoreID, Page = request.Page * request.PageSize, PageSize = request.PageSize };
+        var parameter = new PaginationParameter { FilterId = AppState.StoreID, Page = request.Page * request.PageSize, PageSize = request.PageSize, HasThirdItems = AppState.HasThirdItem };
         if (!string.IsNullOrEmpty(AppState._searchString))
             parameter.SearchTerm = AppState._searchString;
         var response = await OrderService.GetOrderByStore(AppState.SelectedOption!, parameter);
@@ -215,6 +227,12 @@
             await OrderService.PrintBill(receipt!);
     }
 
+    async Task ClearFilters()
+    {
+        AppState._searchString = string.Empty;
+        AppState.HasThirdItem = false;
+        await ReloadServerData();
+    }
     async Task ReloadServerData()
     {
         await _gridComponent!.ReloadServerData();
@@ -297,6 +315,13 @@
 			AppState.IsProcessing = false;
 		}
 	}
+
+    public async void ThirdItemChanged(bool value)
+    {
+        AppState.HasThirdItem = value;
+        await _gridComponent!.ReloadServerData();
+        StateHasChanged();
+    }
     
     public async ValueTask DisposeAsync()
     {

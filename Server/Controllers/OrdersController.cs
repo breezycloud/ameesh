@@ -302,11 +302,13 @@ public class OrdersController : ControllerBase
                                             .Include(x => x.ProductOrders)
                                             .Include(x => x.Payments)
                                             .ThenInclude(x => x.Cashier)
+                                            .AsEnumerable()
                                             .AsParallel()
                                             .Where(x => x.StoreId == parameter.FilterId
                                             && x.Customer!.CustomerName!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) || 
                                             x.ReceiptNo!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) ||
-                                            (!string.IsNullOrEmpty(x.Address!.State) && x.Address!.State!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase)))
+                                            (parameter.HasThirdItems && x.ThirdPartyItems.Any()) ||
+                                            ((x.Address is not null && !string.IsNullOrEmpty(x.Address!.State)) && x.Address!.State!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase)))
                                             .OrderByDescending(x => x.ModifiedDate)
                                             .Skip(parameter.Page)
                                             .Take(parameter.PageSize)
@@ -331,15 +333,16 @@ public class OrdersController : ControllerBase
                                                 HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
                                                 HasOrderItems = x.ProductOrders.Any(),
                                                 Discount = x.Discount,
-
                                                 Sale = x.User!.ToString(),
-                                                
                                                 Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString(),
                                                 CreatedDate = x.CreatedDate,
                                                 ModifiedDate = x.ModifiedDate
                                             }).ToList();
-            response!.TotalCount = await _context.Orders.Where(x => x.StoreId == parameter.FilterId
-            && EF.Functions.ILike(x.Customer!.CustomerName!, pattern) || EF.Functions.ILike(x.ReceiptNo!, pattern)).CountAsync(cancellationToken);
+            response!.TotalCount =  _context.Orders.Include(x => x.Customer).AsEnumerable().AsParallel().Where(x => x.StoreId == parameter.FilterId
+                                            && x.Customer!.CustomerName!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) || 
+                                            x.ReceiptNo!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                                            (parameter.HasThirdItems && x.ThirdPartyItems.Any()) ||
+                                            ((x.Address is not null && !string.IsNullOrEmpty(x.Address!.State)) && x.Address!.State!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase))).Count();
         }
         else
         {
@@ -351,8 +354,9 @@ public class OrdersController : ControllerBase
                                             .Include(x => x.ProductOrders)
                                             .Include(x => x.Payments)
                                             .ThenInclude(x => x.Cashier)
-                                            .Where(store => store.StoreId == parameter.FilterId)
+                                            .AsEnumerable()
                                             .AsParallel()
+                                            .Where(x =>  (parameter.HasThirdItems ? (x.StoreId == parameter.FilterId && x.ThirdPartyItems.Any()) : x.StoreId == parameter.FilterId))
                                             .OrderByDescending(x => x.ModifiedDate)
                                             .Skip(parameter.Page)
                                             .Take(parameter.PageSize)
@@ -377,14 +381,12 @@ public class OrdersController : ControllerBase
                                                 OrderStatus = x.Status,
                                                 Balance = x.Balance,
                                                 Discount = x.Discount,
-
                                                 Sale = x.User!.ToString(),
-                                                
                                                 Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString(),
                                                 CreatedDate = x.CreatedDate,
                                                 ModifiedDate = x.ModifiedDate
                                             }).ToList();
-            response!.TotalCount = await _context.Orders.Where(store => store.StoreId == parameter.FilterId).CountAsync(cancellationToken);
+            response!.TotalCount =  _context.Orders.AsEnumerable().AsParallel().Where(x =>  (parameter.HasThirdItems ? (x.StoreId == parameter.FilterId && x.ThirdPartyItems.Any()) : x.StoreId == parameter.FilterId)).Count();
         }        
         return response;
 	}
@@ -524,6 +526,110 @@ public class OrdersController : ControllerBase
 	{
 		return await _context.Orders.OrderByDescending(x => x.CreatedDate).ToArrayAsync();
 	}
+
+    [HttpGet("thirdparty")]
+    public async Task<ActionResult<IEnumerable<OrderWithThirdParty>>> GetThirdPartyOrders(ReportFilter filter)
+    {
+        
+        if (filter.Criteria == "Date")
+        {
+            return _context.Orders.AsNoTracking()
+                                            .AsSplitQuery()
+                                            .Include(x => x.User)
+                                            .Include(x => x.Customer)                                            
+                                            .Include(x => x.ProductOrders)
+                                            .ThenInclude(x => x.ProductData)
+                                            .Include(x => x.ReturnedProducts.Where(d => d.Date.Date == filter!.StartDate.GetValueOrDefault().Date))
+                                            .Include(x => x.Payments)
+                                            .ThenInclude(x=>x.Cashier)
+                                            .AsParallel()
+                                            .AsEnumerable()
+                                            .Where(x =>  x.StoreId == filter.StoreID && x.OrderDate == DateOnly.FromDateTime(filter!.StartDate!.Value))
+                                            .OrderByDescending(x => x.ModifiedDate)
+                                            .Select(x => new OrderWithThirdParty
+                                            {
+                                                 Id = x.Id,
+                                                Date = x.OrderDate,
+                                                Option = "Store",
+                                                Customer = x.Customer!.CustomerName,
+                                                IsHasDiscount = x.Customer!.HasDiscount,
+                                                ReceiptNo = x.ReceiptNo,
+                                                AmountPaid = x.Payments.Sum(p => p.Amount),
+                                                TotalAmount = x.TotalAmount,
+                                                SubTotal = x.SubTotal,
+                                                Balance = x.Balance,
+                                                BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice) + x.ThirdPartyItems.Sum(x => x.Cost),
+                                                SellPrice = x.ProductOrders.Sum(x => x.Cost) + x.ThirdPartyItems.Sum(x => x.Total),
+                                                Profit = AppState.CalculateProfit(x.ProductOrders) + AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),            
+                                                Quantity = x.ProductOrders.Sum(p => p.Quantity) + (int)x.ThirdPartyItems.Sum(x => x.Quantity),
+                                                HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
+                                                ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault()),
+                                                HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
+                                                Refund = x.ReturnedProducts.Sum(r => (decimal)r.Quantity! * r.Cost.GetValueOrDefault()),
+                                                Discount = x.Discount,
+                                                HasThirdItems = x.ThirdPartyItems.Any(),
+                                                ThirdPartyItems = x.ThirdPartyItems,
+                                                OrderItems = x.ProductOrders.Select(p => new OrderItemDetail
+                                                {
+                                                    ItemName = p.Product,
+                                                    Quantity = p.Quantity,
+                                                    Cost =  p.Cost,
+                                                    Consultation = p.BuyPrice
+                                                }).ToArray()
+                                            
+                                            }).ToList();
+        }
+        else
+        {
+             return _context.Orders.AsNoTracking()
+                                            .AsSplitQuery()
+                                            .Include(x => x.User)
+                                            .Include(x => x.Customer)                                            
+                                            .Include(x => x.ProductOrders)
+                                            .ThenInclude(x => x.ProductData)
+                                            .Include(x => x.ReturnedProducts.Where(d => d.Date.Date == filter!.StartDate.GetValueOrDefault().Date))
+                                            .Include(x => x.Payments)
+                                            .ThenInclude(x=>x.Cashier)
+                                            .AsParallel()
+                                            .AsEnumerable()
+                                            .Where(x =>  x.StoreId == filter.StoreID && x.OrderDate >= DateOnly.FromDateTime(filter!.StartDate!.Value) 
+                                            && x.OrderDate <= DateOnly.FromDateTime(filter!.EndDate!.Value))
+                                            .OrderByDescending(x => x.ModifiedDate)
+                                            .Select(x => new OrderWithThirdParty
+                                            {
+                                                 Id = x.Id,
+                                                Date = x.OrderDate,
+                                                Option = "Store",
+                                                Customer = x.Customer!.CustomerName,
+                                                IsHasDiscount = x.Customer!.HasDiscount,
+                                                ReceiptNo = x.ReceiptNo,
+                                                AmountPaid = x.Payments.Sum(p => p.Amount),
+                                                TotalAmount = x.TotalAmount,
+                                                SubTotal = x.SubTotal,
+                                                Balance = x.Balance,
+                                                BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice) + x.ThirdPartyItems.Sum(x => x.Cost),
+                                                SellPrice = x.ProductOrders.Sum(x => x.Cost) + x.ThirdPartyItems.Sum(x => x.Total),
+                                                Profit = AppState.CalculateProfit(x.ProductOrders) + AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),            
+                                                Quantity = x.ProductOrders.Sum(p => p.Quantity) + (int)x.ThirdPartyItems.Sum(x => x.Quantity),
+                                                HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
+                                                ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault()),
+                                                HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
+                                                Refund = x.ReturnedProducts.Sum(r => (decimal)r.Quantity! * r.Cost.GetValueOrDefault()),
+                                                Discount = x.Discount,
+                                                HasThirdItems = x.ThirdPartyItems.Any(),
+                                                ThirdPartyItems = x.ThirdPartyItems,
+                                                OrderItems = x.ProductOrders.Select(p => new OrderItemDetail
+                                                {
+                                                    ItemName = p.Product,
+                                                    Quantity = p.Quantity,
+                                                    Cost =  p.Cost,
+                                                    Consultation = p.BuyPrice
+                                                }).ToArray()
+                                            
+                                            }).ToList();
+        }
+
+    }
 
 	[HttpGet("{id}")]
 	public async Task<ActionResult<Order?>> GetOrder(Guid id)

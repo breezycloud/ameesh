@@ -31,8 +31,9 @@ public class SeedData
             {
                 AddUsers(db);
                 AddCustomers(db);
-                //AddExpenseTypes(db);                
+                //AddExpenseTypes(db);
             }
+            //AddExpenseTypes(db);
             //ImportCustomers(services);
         }
     }
@@ -77,8 +78,8 @@ public class SeedData
     {
         db.ExpenseTypes.Add(new()
         {
-            Id = Guid.NewGuid(),
-            Expense = "Referral Payment",
+            Id = Guid.Parse("30bef2c8-fb10-447b-8ac2-9a651d91088b"),
+            Expense = "Order Expense",
             CreatedDate = Now,
             ModifiedDate = Now
         });

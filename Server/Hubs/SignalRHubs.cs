@@ -7,6 +7,8 @@ using Shared.Helpers;
 using Shared.Models.Orders;
 using Shared.Models.Products;
 using Shared.Models.Reports;
+using Shared.Models.Expenses;
+using Shared.Enums;
 
 namespace Server.Hubs;
 
@@ -102,6 +104,36 @@ public class SignalRHubs : Hub
         await UpdateProducts();
         await UpdateOrders();
         await UpdateOrder();
+    }
+
+    public async Task AutoExpense(ExpenseEntryDto expense)
+    {
+        var scopeFactory = _services.GetRequiredService<IServiceScopeFactory>();
+        using var scope = scopeFactory.CreateScope();
+        using var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var eType = await db.ExpenseTypes.FindAsync(expense.TypeId);
+        if (eType is null)
+        {
+            _logger.LogInformation("Expense type is not found");
+            return;
+        }
+        _logger.LogInformation("Adding Automatic expense");
+        await db.Expenses.AddAsync(new Expense 
+        {
+            Id = Guid.NewGuid(),
+            UserId = expense.UserId,
+            Date = expense.CreatedDate,
+            StoreId = expense.StoreId,
+            Description = "Automatic order expense",
+            TypeId = expense.TypeId,
+            Reference = expense.ReferenceNo,
+            PaymentMode = PaymentMode.None,
+            Amount = 4000,
+            CreatedDate = expense.CreatedDate
+        });
+        await db.SaveChangesAsync();
+        _logger.LogInformation("Saved Automatic expense");
+
     }
 
     public async Task AllExpiryProducts(Guid id)

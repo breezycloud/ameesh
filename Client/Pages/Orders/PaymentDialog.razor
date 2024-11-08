@@ -54,8 +54,8 @@
     [Parameter] public bool Completed { get; set; } = false;
     [Parameter] public HubConnection? hub { get; set; }
     [Parameter] public bool Regular { get; set; } = false;
-    [Parameter]
-    public decimal AmountDue { get; set; }
+    [Parameter] public decimal AmountDue { get; set; }
+    [Parameter] public bool Expense { get; set; } = false;
     public bool ChkFullPayment { get; set; } = false;
     void Cancel() => DialogInstance!.Close(DialogResult.Ok(true));
     private bool IsConnected = false;
@@ -157,6 +157,13 @@
                     if (internetfound && hub!.State == HubConnectionState.Disconnected)
                         await hub.StartAsync();                
                     await hub!.SendAsync("UpdateStock", Store!.Id, "Dispensary"!, items);
+                    if (Expense)
+                    {
+                        var expense = new ExpenseEntryDto(Store!.Id, Order.UserId, 
+                            Guid.Parse("30bef2c8-fb10-447b-8ac2-9a651d91088b"),
+                            Order!.ReceiptNo, Order!.CreatedDate);
+                        await hub!.SendAsync("AutoExpense", expense);   
+                    }
                 }
             }
             else

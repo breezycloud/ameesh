@@ -93,7 +93,10 @@ else
                         <MudAutocomplete @ref="_Stocks" T="Stock" AnchorOrigin="Origin.BottomCenter" Value="Row.Stock" Label="Select stock" ValueChanged="StockChanged"
                                          SearchFunc="@SearchStocks" Dense="true" Variant="Variant.Outlined" ShowProgressIndicator="true"
                                          ToStringFunc="@(e => e==null ? null : $"{(e.Quantity > 0 ? $"Available Qty: {e.Quantity}" : "")}")" Margin="Margin.Dense" />
-                    </MudItem>    
+                    </MudItem>   
+                     <MudItem xs="12">
+                        <MudCheckBox T="bool" CheckedColor="Color.Primary" Margin="@Margin.Dense" @bind-Value="AddExpense" Size="Size.Small">Add Expense</MudCheckBox>
+                    </MudItem> 
                     <MudItem xs="12" sm="6">
                         <MudCheckBox T="bool" Margin="@Margin.Dense" @bind-Value="AddThirdPartyItem" Size="Size.Small">Add Third Party Item</MudCheckBox>
                     </MudItem>
@@ -279,6 +282,7 @@ else
     private bool RequireDelivery { get; set; }
     private bool SameAddress { get; set; }
     private bool AddThirdPartyItem { get; set; }
+    private bool AddExpense { get; set; } = true;
     private OrderCartRow Row { get; set; } = new() { SelectedOption = "Store" };
     private List<OrderCartRow>? Rows { get; set; } = new();
     private Guid StoreID, UserID, OrderID;
@@ -750,7 +754,8 @@ else
                 ["IsEdit"] = false,
                 ["Regular"] = customer!.Regular,
                 ["AmountDue"] = order.Balance,
-                ["Completed"] = false
+                ["Completed"] = false,
+                ["Expense"] = AddExpense
             };
             await Dialog.ShowAsync<PaymentDialog>("", parameters);
         }

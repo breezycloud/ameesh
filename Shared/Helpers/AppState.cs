@@ -48,7 +48,8 @@ public class AppState
     public Product? Product { get; set; }
     public Order? Pharmacy { get; set; }
     public SalaryBonus? SalaryBonus { get; set; }
-    public string? Route { get; set; }
+    public string? Route { get; set; }    
+    public bool HasThirdItem { get; set; } = false;
     public string GetQrCode() {
         Converter converter = new Converter();
         var code = ReportDataModel!.Order is not null ? ReportDataModel!.Order.Id : ReportDataModel!.Order!.Id;
