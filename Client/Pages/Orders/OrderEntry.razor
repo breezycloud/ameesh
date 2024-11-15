@@ -1,4 +1,4 @@
-﻿@layout AppLayout
+@layout AppLayout
 @page "/order"
 @using Client.Handlers
 @inject ICustomerService CustomerService
@@ -922,13 +922,15 @@ else
 
     void DeliveryAmtChanged(decimal value)
     {
-        if (this.Address is null || string.IsNullOrEmpty(this.Address.State) || string.IsNullOrEmpty(this.Address.Lga) || string.IsNullOrEmpty(this.Address.Ward))
+        if (this.Address is null || string.IsNullOrEmpty(this.Address.State))
         {
             SnackBar.Add("Select delivery location", Severity.Warning);
             cart!.DeliveryAmt = 0;
             return;
         }
         cart.DeliveryAmt = value;
+        this.Address.Lga = string.Empty;
+        this.Address.Ward = string.Empty;
         SumRows();
         StateHasChanged();
     }
