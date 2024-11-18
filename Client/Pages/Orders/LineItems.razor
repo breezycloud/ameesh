@@ -67,7 +67,7 @@
         await Dialog.ShowAsync<ReturnEntry>("", parameters);
     }
 
-    bool AvailableQuantity(Guid id, int qty)
+    bool AvailableQuantity(Guid id, decimal qty)
     {
         var TotalReturnsQty = Returns!.Where(x => x.ProductId == id).Sum(x => x.Quantity.GetValueOrDefault());
         if (TotalReturnsQty >= qty)

@@ -16,7 +16,7 @@ public class SaleItem
     [Column(TypeName = "decimal(18, 2)")]
     public decimal OtherService { get; set; }
     [Column(TypeName = "decimal(18,2)")]
-    public int Quantity { get; set; } = 0;
+    public decimal Quantity { get; set; } = 0;
     [Column(TypeName = "decimal(18, 2)")]
     public decimal BuyPrice { get; set; }
     [Column(TypeName = "decimal(18, 2)")]

@@ -16,7 +16,7 @@ public class ExpiryProductData
     public string? ProductName { get; set; }
     public decimal BuyPrice { get; set; }
     public decimal SellPrice { get; set; }
-    public int Quantity { get; set; }
+    public decimal Quantity { get; set; }
     public DateTime ExpiryDate { get; set; }
     public int DaysToExpire => ExpiryDate!.Date.Subtract(DateTime.Now.Date).Days;
 }

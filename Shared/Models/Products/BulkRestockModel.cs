@@ -12,7 +12,7 @@ namespace Shared.Models.Products;
 public class BulkRestockModel
 {
     public IEnumerable<Product>? Products { get; set;} = new HashSet<Product>();
-    public int? NewQuantity { get; set;}
+    public decimal? NewQuantity { get; set;}
 }
 
 public class BulkRestockDispensary
@@ -25,14 +25,14 @@ public class BulkRestockDispensary
     public DateTime Date { get; set; } = DateTime.Now;
     public string? ProductName { get; set; }
     public decimal Price { get; set; }
-    public int _Dispensary { get; set; }
-    public int CurrentDispensary { get; set; }
-    public int QuantitySold { get; set; }
-    public int StoreQuantity { get; set; }
-    public int CurrentStoreQuantity { get; set; }
+    public decimal _Dispensary { get; set; }
+    public decimal CurrentDispensary { get; set; }
+    public decimal QuantitySold { get; set; }
+    public decimal StoreQuantity { get; set; }
+    public decimal CurrentStoreQuantity { get; set; }
     public DateTime? ExpiryDate { get; set; }
-    //public int QtyOnHand => Dispensary.Sum(x => x.Quantity!.Value) - OrderItems.Where(x => x.Status != OrderStatus.Canceled).Sum(x => x.Quantity);
-    public int? NewQuantity { get; set; }
+    //public decimal QtyOnHand => Dispensary.Sum(x => x.Quantity!.Value) - OrderItems.Where(x => x.Status != OrderStatus.Canceled).Sum(x => x.Quantity);
+    public decimal? NewQuantity { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.Now;
     public DateTime ModifiedDate { get; set; }    
 }

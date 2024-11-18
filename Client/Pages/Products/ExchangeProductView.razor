@@ -23,7 +23,7 @@
                     <MudTextField @bind-Value="Cost" ReadOnly Format="N2" Label="Selling Price" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
                 </MudItem>              
                 <MudItem xs="12" sm="6">
-                    <MudNumericField id="figure-right" T="int?" Value="Data!.Quantity" Label="Total Quantity" ReadOnly Variant="Variant.Outlined" For="() => Data!.Quantity" Margin="Margin.Dense"></MudNumericField>
+                    <MudNumericField id="figure-right" T="decimal?" Value="Data!.Quantity" Label="Total Quantity" ReadOnly Variant="Variant.Outlined" For="() => Data!.Quantity" Margin="Margin.Dense"></MudNumericField>
                 </MudItem>
                 <MudItem xs="12" sm="6">
                     <MudTextField Value="Data!.ExpiryDate" ReadOnly Format="dd/MM/yyyy" Label="Expiry Date" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
@@ -35,10 +35,10 @@
                                      ToStringFunc="@(e => e == null ? null : $"{e.CustomerName}")" AutoFocus />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudNumericField id="figure-right" T="int?" Value="@(Data!.Quantity - NewQty)" Label="Remaining Quantity" ReadOnly Variant="Variant.Outlined" For="() => Data!.Quantity" Margin="Margin.Dense"></MudNumericField>
+                    <MudNumericField id="figure-right" T="decimal?" Value="@(Data!.Quantity - NewQty)" Label="Remaining Quantity" ReadOnly Variant="Variant.Outlined" For="() => Data!.Quantity" Margin="Margin.Dense"></MudNumericField>
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudNumericField id="figure-right" T="int?" Value="NewQty" Label="Quantity" Max="Data!.Quantity" ValueChanged="QtyChanged" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
+                    <MudNumericField id="figure-right" T="decimal?" Value="NewQty" Label="Quantity" Max="Data!.Quantity" ValueChanged="QtyChanged" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
                 </MudItem>       
                 <MudItem xs="12" sm="6">
                     <MudTextField id="figure-right" Value="Total" Label="Total" ReadOnly Format="N2" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
@@ -76,7 +76,7 @@
     [Parameter]
     public Stock? Data { get; set; } = new();
     private bool IsReadOnly = false;
-    private int? NewQty = 0;    
+    private decimal? NewQty = 0;    
     private decimal Discount { get; set; }
     private decimal SubTotal => NewQty >= 0 ? Cost * NewQty!.Value - Discount : 0;
     private decimal Total => NewQty >= 0 ? Cost * NewQty!.Value : 0;
@@ -96,7 +96,7 @@
 
     void Close() => DialogInstance?.Close(DialogResult.Ok(true));
 
-    void QtyChanged(int? value)
+    void QtyChanged(decimal? value)
     {
         NewQty = value;
         Discount = 0;

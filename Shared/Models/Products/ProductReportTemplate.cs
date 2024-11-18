@@ -24,7 +24,7 @@ public class ProductItems
     public string? ProductName { get; set; }
     public decimal CostPrice { get; set; }
     public decimal SellPrice { get; set; }
-    public int DispensaryQuantity { get; set; }
-    public int StoreQuantity { get; set; }
+    public decimal DispensaryQuantity { get; set; }
+    public decimal StoreQuantity { get; set; }
     public decimal Projection => (DispensaryQuantity + StoreQuantity) * SellPrice;
 }

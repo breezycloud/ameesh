@@ -8,7 +8,7 @@ namespace Shared.Models.Orders;
 
 public class OrderItemDetail
 {
-    public int? Quantity {  get; set; }
+    public decimal? Quantity {  get; set; }
     public string? ItemName {  get; set; }
     public decimal Cost { get; set;}
     public decimal Consultation { get; set; }

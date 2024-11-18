@@ -13,6 +13,6 @@ public class UserSoldProduct
     public DateTime ReportDate { get; set; }
     public string? User { get; set; }    
     public List<SoldProducts> Products { get; set; } = [];
-    public int SumTotalQty => Products.Sum(s => s.QtySold);
-    public int SumTotalDispensary => Products.Sum(s => s.DispensaryQty);
+    public decimal SumTotalQty => Products.Sum(s => s.QtySold);
+    public decimal SumTotalDispensary => Products.Sum(s => s.DispensaryQty);
 }

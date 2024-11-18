@@ -522,7 +522,7 @@ else
         Rows!.Add(new()
         {
             ThirdPartyItem = ThirdPartyItem,
-            Quantity = (int)ThirdPartyItem.Quantity,
+            Quantity = ThirdPartyItem.Quantity,
             IsThirdParty = true
         });      
         ThirdPartyItem = new();
@@ -546,7 +546,7 @@ else
         StateHasChanged();
     }
 
-    private async void ProductQuantityChanged(int e)
+    private async void ProductQuantityChanged(decimal e)
     {
         OrderCartRow? row = null;
         if (Rows!.Any(x => x.SelectedOption == "Lab"))

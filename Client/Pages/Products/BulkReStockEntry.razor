@@ -40,7 +40,7 @@
                     </MudSelect>                    
                 </MudItem>
                 <MudItem xs="12">
-                    <MudNumericField id="figure-right" T="int?" @bind-Value="RestockModel!.NewQuantity" For="@(() => RestockModel!.NewQuantity)"
+                    <MudNumericField id="figure-right" T="decimal?" @bind-Value="RestockModel!.NewQuantity" For="@(() => RestockModel!.NewQuantity)"
                                      Label="Quantity" Min="1" Margin="Margin.Dense" Variant="Variant.Outlined"></MudNumericField>
                 </MudItem>
              </MudGrid>
@@ -78,7 +78,7 @@
     private Guid StoreID, UserID;
 
     private string? SelectedOption = "Store";
-    private int? QtyOnHand { get; set; }
+    private decimal? QtyOnHand { get; set; }
 
     private HubConnection? hub;
     protected override async Task OnInitializedAsync()

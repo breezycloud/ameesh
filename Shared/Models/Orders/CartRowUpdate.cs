@@ -11,10 +11,10 @@ public class CartRowUpdate
 {
     [Key]
     public Guid id { get; set; }
-    public int TotalQuantity { get;set; }
-    public int OldQuantity { get;set; }
+    public decimal TotalQuantity { get;set; }
+    public decimal OldQuantity { get;set; }
     [Required(ErrorMessage = "Quantity is required")]
-    public int? NewQuantity { get;set; }
+    public decimal? NewQuantity { get;set; }
     public string? Prescription { get; set; }
 
 }

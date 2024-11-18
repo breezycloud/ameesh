@@ -19,8 +19,8 @@ public class ProductByStore
     public decimal MarkupAmount { get; set; }
     public decimal MarkupPercentage { get; set; }
     public decimal Price { get; set; }
-    public int DispensaryQuantity {  get; set; }
-    public int StoreQuantity {  get; set; }
+    public decimal DispensaryQuantity {  get; set; }
+    public decimal StoreQuantity {  get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime ModifiedDate { get; set; }
     public List<Stock> Stocks { get; set; } = new();

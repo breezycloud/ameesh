@@ -50,7 +50,7 @@
                     <MudNumericField id="figure-right" ReadOnly @bind-Value="Product!.Price" Min="0" Margin="Margin.Dense" Label="Unit Price" Variant="Variant.Outlined"></MudNumericField>
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudNumericField T="int?" @bind-Value="Stock!.Quantity" Margin="Margin.Dense" Label="Quantity" Variant="Variant.Outlined"></MudNumericField>
+                    <MudNumericField T="decimal?" @bind-Value="Stock!.Quantity" Margin="Margin.Dense" Label="Quantity" Variant="Variant.Outlined"></MudNumericField>
                 </MudItem>
                 <MudItem xs="12" sm="6">
                     <MudDatePicker @bind-Date="Stock!.ExpiryDate" Margin="Margin.Dense" PickerVariant="PickerVariant.Dialog" DateFormat="dd/MM/yyyy" Label="Expiry Date" Variant="Variant.Outlined" For="(() => Stock!.ExpiryDate)" />

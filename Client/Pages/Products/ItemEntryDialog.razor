@@ -78,7 +78,7 @@
                         <MudTextField id="figure-right" ReadOnly @bind-Value="Product!.SellPrice" Format="N2" Label="Selling Price" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
                     </MudItem>
                     <MudItem xs="12" sm="6">
-                        <MudNumericField T="int?" @bind-Value="stock!.Quantity" Label="Quantity" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
+                        <MudNumericField T="decimal?" @bind-Value="stock!.Quantity" Label="Quantity" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
                     </MudItem>
                     <MudItem xs="12" sm="6">
                         <MudDatePicker @bind-Date="stock!.ExpiryDate" DisableToolbar PickerVariant="PickerVariant.Dialog" DateFormat="dd/MM/yyyy" Label="Expiry Date" Variant="Variant.Outlined" For="(() => stock!.ExpiryDate)" Margin="Margin.Dense" />
@@ -114,7 +114,7 @@
     MudTextField<string?> _TxtName { get; set; } = new();
 
     private Guid? StoreID = null;
-    private int? Quantity = null;
+    private decimal? Quantity = null;
     private Store? Store; private Store[]? stores = [];
     private bool IsReadOnly = false;
 

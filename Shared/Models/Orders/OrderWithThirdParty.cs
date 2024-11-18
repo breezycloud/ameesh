@@ -20,8 +20,8 @@ public class OrderWithThirdParty
     public string? Option { get; set; }
     [Column(TypeName = "decimal(18, 2)")]
     public decimal OtherService { get; set; }
-    [Column(TypeName = "decimal(18,2)")]
-    public int Quantity { get; set; } = 0;
+    [Column(TypeName = "decimal(18,1)")]
+    public decimal Quantity { get; set; } = 0;
     [Column(TypeName = "decimal(18, 2)")]
     public decimal BuyPrice { get; set; }
     [Column(TypeName = "decimal(18, 2)")]

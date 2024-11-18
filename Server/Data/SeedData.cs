@@ -26,12 +26,12 @@ public class SeedData
         using var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         if (IsDev)
         {
-            // db.Database.EnsureDeleted();
+            //db.Database.EnsureDeleted();
             if (db.Database.EnsureCreated())    
             {
                 AddUsers(db);
                 AddCustomers(db);
-                //AddExpenseTypes(db);
+                AddExpenseTypes(db);
             }
             //AddExpenseTypes(db);
             //ImportCustomers(services);

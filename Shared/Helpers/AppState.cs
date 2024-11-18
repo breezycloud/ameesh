@@ -18,8 +18,8 @@ public class AppState
     public event EventHandler<bool>? RefererHandler;
     public void RefererSelected(bool value) => RefererHandler?.Invoke(this, value);
 
-    public event EventHandler<int>? OnUpdateItemQty;
-    public void UpdateItemQuantity(int value) => OnUpdateItemQty?.Invoke(this, value);
+    public event EventHandler<decimal>? OnUpdateItemQty;
+    public void UpdateItemQuantity(decimal value) => OnUpdateItemQty?.Invoke(this, value);
     public event EventHandler<CartRowUpdate>? OnRowUpdate;
     public void UpdateItemQuantity(CartRowUpdate value) => OnRowUpdate?.Invoke(this, value);
 

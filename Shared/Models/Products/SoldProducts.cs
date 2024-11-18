@@ -10,6 +10,6 @@ public class SoldProducts
 {
     public Guid Id { get; set; }
     public string? ProductName { get; set; }
-    public int QtySold { get; set; }
-    public int DispensaryQty { get; set; }
+    public decimal QtySold { get; set; }
+    public decimal DispensaryQty { get; set; }
 }

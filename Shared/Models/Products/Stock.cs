@@ -15,7 +15,8 @@ public class Stock
     public Guid id { get; set; } = Guid.NewGuid();
     public DateTime Date { get; set; } = DateTime.Now;
     [Required(ErrorMessage = "Quantity is required")]    
-    public int? Quantity { get; set; }
+    [Column(TypeName = "decimal(18, 1)")]
+    public decimal? Quantity { get; set; }
     [Required(ErrorMessage = "Buy Price is required")]    
     public decimal? BuyPrice { get; set; }    
     public DateTime? ExpiryDate { get; set; }

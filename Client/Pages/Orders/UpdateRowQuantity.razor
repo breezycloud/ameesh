@@ -5,7 +5,7 @@
             <MudText Typo="Typo.h6">Update Quantity</MudText>
         </TitleContent>
         <DialogContent>            
-             <MudNumericField T="int?" @bind-Value="Row!.NewQuantity" Label="New Quantity" Immediate AutoFocus Min="1" Max="@Row!.TotalQuantity"
+             <MudNumericField T="decimal?" @bind-Value="Row!.NewQuantity" Label="New Quantity" Immediate AutoFocus Min="1" Max="@Row!.TotalQuantity"
                               Variant="Variant.Outlined" />
         </DialogContent>
         <DialogActions>

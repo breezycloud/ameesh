@@ -19,7 +19,7 @@ public class ProductOrderItem
     public Guid StockId { get; set; }
     public string? Product { get; set; }
     public decimal BuyPrice { get; set; }
-    public int Quantity { get; set; }
+    public decimal Quantity { get; set; }
     [Column(TypeName = "decimal(18, 2)")]
     public decimal Cost { get; set; }
     public OrderStatus Status { get; set; } = OrderStatus.Pending;

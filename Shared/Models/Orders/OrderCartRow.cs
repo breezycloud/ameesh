@@ -12,7 +12,7 @@ namespace Shared.Models.Orders;
 public class OrderCartRow
 {
     public decimal GrandTotal { get; set; }   
-    public int Quantity { get; set; } = 0;
+    public decimal Quantity { get; set; } = 0;
     [Column(TypeName = "decimal(18, 2)")]
     public decimal Cost => IsThirdParty ? ThirdPartyItem!.Price : Product!.SellPrice!.Value;
     [Column(TypeName = "decimal(18, 2)")]

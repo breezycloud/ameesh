@@ -13,6 +13,6 @@ namespace Shared.Models.Orders;
 public class QuantityAndPrescription
 {
     [Required]
-    public int? Quantity { get; set; }
+    public decimal? Quantity { get; set; }
     public string? Prescription { get; set; }
 }

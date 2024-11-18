@@ -27,19 +27,19 @@
                         <MudDatePicker @bind-Date="Stock!.ExpiryDate" ReadOnly PickerVariant="PickerVariant.Dialog" DateFormat="dd/MM/yyyy" Label="Expiry Date" Variant="Variant.Outlined" For="(() => _ExpDate)" />
                     </MudItem>
                     <MudItem xs="12" sm="6">
-                        <MudNumericField T="int?" Value="(Stock!.Quantity + NewQty)" Label="Current Quantity" Variant="Variant.Outlined"></MudNumericField>
+                        <MudNumericField T="decimal?" Value="(Stock!.Quantity + NewQty)" Label="Current Quantity" Variant="Variant.Outlined"></MudNumericField>
                     </MudItem>
                     <MudItem xs="12" sm="6">
-                        <MudNumericField T="int?" @bind-Value="NewQty" Label="New Quantity" Variant="Variant.Outlined"></MudNumericField>
+                        <MudNumericField T="decimal?" @bind-Value="NewQty" Label="New Quantity" Variant="Variant.Outlined"></MudNumericField>
                     </MudItem>
                 }
                 else
                 {
                     <MudItem xs="12" sm="6">
-                        <MudTextField T="int" ReadOnly Value="(DispensaryQty + NewQty!.Value)" Label="Current Quantity" Variant="Variant.Outlined"></MudTextField>
+                        <MudTextField T="decimal" ReadOnly Value="(DispensaryQty + NewQty!.Value)" Label="Current Quantity" Variant="Variant.Outlined"></MudTextField>
                     </MudItem>
                     <MudItem xs="12" sm="6">
-                        <MudNumericField T="int?" @bind-Value="NewQty" Label="New Quantity" Min="0" Max="StoreQty" Variant="Variant.Outlined"></MudNumericField>
+                        <MudNumericField T="decimal?" @bind-Value="NewQty" Label="New Quantity" Min="0" Max="StoreQty" Variant="Variant.Outlined"></MudNumericField>
                     </MudItem>
                 }
 
@@ -66,11 +66,11 @@
     [Parameter]
     public decimal SellPrice { get; set; }
     [Parameter]
-    public int StoreQty { get; set; } = 0;
+    public decimal StoreQty { get; set; } = 0;
     [Parameter]
-    public int DispensaryQty { get; set; } = 0;
+    public decimal DispensaryQty { get; set; } = 0;
     [Parameter]
-    public int? NewQty { get; set; } = 0;
+    public decimal? NewQty { get; set; } = 0;
     [Parameter] 
     public Guid StoreID { get; set; }
     [Parameter] 

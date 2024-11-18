@@ -10,6 +10,6 @@ public class ReceiptItem
     public decimal UnitPrice { get; set; }
     public decimal Discount { get; set; }
     public decimal VAT { get; set; }
-    public int Quantity { get; set; }    
+    public decimal Quantity { get; set; }    
 }
 

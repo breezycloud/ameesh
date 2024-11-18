@@ -36,15 +36,15 @@
                     <MudDatePicker @bind-Date="Stock!.ExpiryDate" ReadOnly="IsReadOnly" PickerVariant="PickerVariant.Dialog" DisableToolbar DateFormat="dd/MM/yyyy" Label="Expiry Date" Variant="Variant.Outlined" For="(() => Stock!.ExpiryDate)" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudNumericField T="int?" @bind-Value="Stock!.Quantity" Label="Quantity" ReadOnly="IsReadOnly"  Variant="Variant.Outlined" For="() => Stock!.Quantity"></MudNumericField>
+                    <MudNumericField T="decimal?" @bind-Value="Stock!.Quantity" Label="Quantity" ReadOnly="IsReadOnly"  Variant="Variant.Outlined" For="() => Stock!.Quantity"></MudNumericField>
                 </MudItem>
                 @if (Option == "Dispensary")
                 {
                     <MudItem xs="12" sm="6">
-                        <MudNumericField T="int?" Value="@(Stock!.Quantity - NewQty)" Label="Quantity" ReadOnly Variant="Variant.Outlined" For="() => Stock!.Quantity"></MudNumericField>
+                        <MudNumericField T="decimal?" Value="@(Stock!.Quantity - NewQty)" Label="Quantity" ReadOnly Variant="Variant.Outlined" For="() => Stock!.Quantity"></MudNumericField>
                     </MudItem>
                     <MudItem xs="12" sm="6">
-                        <MudNumericField id="figure-right" T="int?" @bind-Value="NewQty" Label="New Quantity" Max="Stock!.Quantity" Variant="Variant.Outlined"></MudNumericField>
+                        <MudNumericField id="figure-right" T="decimal?" @bind-Value="NewQty" Label="New Quantity" Max="Stock!.Quantity" Variant="Variant.Outlined"></MudNumericField>
                     </MudItem>                    
                 }                
             </MudGrid>
@@ -77,7 +77,7 @@
     public List<Stock>? Stocks { get; set; } = new();
 
     private bool IsReadOnly = false;
-    private int? NewQty;
+    private decimal? NewQty;
     private DateTime? _ExpDate;
 
     private HubConnection? hub;
