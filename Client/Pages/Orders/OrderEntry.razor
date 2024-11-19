@@ -248,12 +248,12 @@ else
             </MudItem>  
              <MudItem xs="12" sm="6" Class="d-flex align-center justify-center">
                  <MudTooltip Text="Back" Duration="1000" Placement="Placement.Top">
-                     <MudFab Size="Size.Medium" Style="width:200px;" Label="Back" OnClick="() => Warn()" Variant="Variant.Outlined" Color="Color.Dark" />
+                     <MudFab DisableElevation Size="Size.Medium" Style="width:200px;" Label="Back" OnClick="() => Warn()" Variant="Variant.Outlined" Color="Color.Dark" />
                  </MudTooltip>
              </MudItem>
              <MudItem xs="12" sm="6" Class="d-flex align-center justify-center">
                  <MudTooltip Text="Click to pay now" Duration="1000" Placement="Placement.Top">
-                     <MudFab Size="Size.Medium" Disabled="AppState.IsProcessing" Label="@(AppState.IsProcessing ? "Processing" : "Pay now")" Style="width:200px;" OnClick="() => CheckOut()" Color="Color.Success" />
+                     <MudFab DisableElevation Size="Size.Medium" Disabled="AppState.IsProcessing" Label="@(AppState.IsProcessing ? "Processing" : "Pay now")" Style="width:200px;" OnClick="() => CheckOut()" Color="Color.Success" />
                  </MudTooltip>
              </MudItem>
          </MudGrid>
@@ -285,7 +285,7 @@ else
     private bool AddExpense { get; set; } = true;
     private OrderCartRow Row { get; set; } = new() { SelectedOption = "Store" };
     private List<OrderCartRow>? Rows { get; set; } = new();
-    private Guid StoreID, UserID, OrderID;
+    private Guid MainStore, StoreID, UserID, OrderID;
     private string? LastReceiptNo;
     private Store? Store; private Store[]? branches = [];
     private decimal discountLimit = 0.1M;
@@ -316,15 +316,18 @@ else
         BtnCSS = "d-flex align-center justify-start";
         if (access == "Admin" || access == "Master")
         {
-            branches = await StoreService.GetStores();  
-            Store = branches!.FirstOrDefault();
-            StoreID = Store!.Id;
+            branches = await StoreService.GetStores();
+            if (branches.Length > 1)
+                Store = branches!.LastOrDefault();
+            else
+                Store = branches!.FirstOrDefault();
+            MainStore = StoreID = Store!.Id;
             //BtnCSS = "d-flex align-end justify-end";
         }
         else
         {
             //BtnCSS = "d-flex align-center justify-start";
-            StoreID = await localStorage.GetItemAsync<Guid>("branch");
+            MainStore = StoreID = await localStorage.GetItemAsync<Guid>("branch");
             Store = await StoreService.GetStore(StoreID);
             if (SelectedOption == "Lab")
                 SelectedOption = "Lab";
@@ -365,6 +368,8 @@ else
     {
         Store = branches!.FirstOrDefault(x => x.Id == id);
         StoreID = Store!.Id;
+        Products = [];
+        _Products.Text = string.Empty;
         StateHasChanged();
     }
 
@@ -734,7 +739,7 @@ else
                 CustomerId = string.IsNullOrEmpty(customer!.CustomerName) ? null : customer!.Id,
                 Discount = cart!.Discount,
                 OrderDate = DateOnly.FromDateTime(currentDateTime),
-                StoreId = StoreID,
+                StoreId = MainStore,
                 DeliveryAmt = cart.DeliveryAmt,
                 Address = this.Address,
                 Note = cart.Note,

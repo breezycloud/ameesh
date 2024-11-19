@@ -41,6 +41,7 @@ public class ProductsController : ControllerBase
                                                     .Include(item => item.Item)
                                                     .ThenInclude(category => category!.Category)
                                                     .Include(items => items.OrderItems)
+                                                    .Where(x => x.StoreId == parameter!.FilterId)
                                                     .OrderByDescending(d => d.CreatedDate)
                                                     .Skip(parameter.Page)
                                                     .Take(parameter.PageSize)                                                    
@@ -61,7 +62,7 @@ public class ProductsController : ControllerBase
                                                         CreatedDate = x.CreatedDate,
                                                         ModifiedDate = x.ModifiedDate
                                                     }).ToListAsync(cancellationToken);
-            response.TotalCount = await _context.Products.CountAsync();
+            response.TotalCount = await _context.Products.Where(x => x.StoreId == parameter!.FilterId).CountAsync();
         }		
 		else
 		{
@@ -74,7 +75,7 @@ public class ProductsController : ControllerBase
                                                     .Include(item => item.Item)
                                                     .ThenInclude(category => category!.Category)
                                                     .Include(items => items.OrderItems)
-                                                    .Where(x => EF.Functions.ILike(x!.Item!.Brand!.BrandName!, pattern) || EF.Functions.ILike(x!.Item!.ProductName!, pattern))
+                                                    .Where(x => x.StoreId == parameter!.FilterId && EF.Functions.ILike(x!.Item!.Brand!.BrandName!, pattern) || EF.Functions.ILike(x!.Item!.ProductName!, pattern))
                                                     .OrderByDescending(d => d.CreatedDate)
                                                     .Skip(parameter.Page)
                                                     .Take(parameter.PageSize)
@@ -96,7 +97,7 @@ public class ProductsController : ControllerBase
                                                         ModifiedDate = x.ModifiedDate
                                                     })
                                                     .ToListAsync(cancellationToken);
-            response.TotalCount = await _context.Products.Where(x => x!.Item!.CategoryID == parameter.FilterId).CountAsync();
+            response.TotalCount = await _context.Products.Where(x => x.StoreId == parameter!.FilterId).CountAsync();
         }
         return response;
 	}

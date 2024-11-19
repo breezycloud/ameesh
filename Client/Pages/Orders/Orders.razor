@@ -123,6 +123,12 @@
         });        
     }
 
+    public async void StoreChanged()
+    {
+        await _gridComponent!.ReloadServerData();
+        Console.WriteLine("Store Changed {0}", AppState.StoreID);
+    }
+
     private async Task Dispatch(Guid id)
     {
         AppState.IsProcessing = true;

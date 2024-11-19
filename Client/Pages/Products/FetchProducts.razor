@@ -143,7 +143,7 @@ else
 	{
 		try
 		{			
-			var parameter = new PaginationParameter { Page = request.Page * request.PageSize, PageSize = request.PageSize };
+			var parameter = new PaginationParameter { FilterId = AppState.StoreID, Page = request.Page * request.PageSize, PageSize = request.PageSize };
 			if (!string.IsNullOrEmpty(AppState._searchString))
 				parameter.SearchTerm = AppState._searchString;
 			var response = await ProductService.GetPagedProducts(parameter);			

@@ -109,7 +109,10 @@ else
 		hub = builder.Build();
 		await hub.StartAsync();
 		stores = await StoreService.GetStores();
-		Store = stores!.FirstOrDefault();
+		if (stores.Length > 1)
+			Store = stores!.LastOrDefault();
+		else
+			Store = stores!.FirstOrDefault();
 		StoreID = Store!.Id;
 		hub.On("UpdateUsers", async () =>
 		{

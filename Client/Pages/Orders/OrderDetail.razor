@@ -55,7 +55,7 @@ else
                         {
                             <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
                                 Label="@(AppState.IsBusy ? "Processing" : "Delivered")" Style="width:120px;"
-                                OnClick="() => Dispatch()" Color="Color.Success"
+                                OnClick="() => Deliver()" Color="Color.Success"
                                 StartIcon="@Icons.Material.Filled.DeliveryDining"
                                 DisableElevation="true" />
                         }

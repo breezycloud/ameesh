@@ -63,10 +63,11 @@ else
         </AuthorizeView>        
     </MudStack> 
     
-    <Orders/>
+    <Orders @ref="OrdersComponent"/>
 }
 
 @code {
+    private Orders OrdersComponent;
     private EventHandler? OnChange;
     private Guid UserID;
     private Store? Store; private Store[]? stores = [];
@@ -87,10 +88,6 @@ else
         {
             AppState!.StoreID = await localStorage.GetItemAsync<Guid>("branch");
             Store = await StoreService.GetStore(AppState!.StoreID);
-            @* if (access == "Lab")
-                AppState.SelectedOption = "Lab";
-            else
-                AppState.SelectedOption = "Store"; *@
         }
         AppState.IsBusy = false;
     }
@@ -102,7 +99,12 @@ else
     void StoreChanged(Guid id)
     {
         Store = stores!.FirstOrDefault(x => x.Id == id);
-        AppState!.StoreID = Store!.Id;  
+        AppState!.StoreID = Store!.Id;
+        if (OrdersComponent is not null)
+        {
+            OrdersComponent.StoreChanged();
+        }
+        StateHasChanged();
     }
 
     void OptionChanged(string option)

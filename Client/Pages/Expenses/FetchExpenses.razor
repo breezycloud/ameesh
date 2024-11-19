@@ -101,7 +101,10 @@
 		if (access == "Admin" || access == "Master")
 		{
 			stores = await StoreService.GetStores();
-			Store = stores!.LastOrDefault();			
+			if (stores.Length > 1)
+                Store = stores!.LastOrDefault();
+            else
+                Store = stores!.FirstOrDefault();
 			StoreChanged(Store!.Id);
 		}
 		else

@@ -93,7 +93,7 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
         foreach (var item in items)
         {
             _logger.LogInformation("Updating product quantity");
-            var product = await _context.Products.Where(x => x.StoreId == id && x.Id == item.ProductId).FirstOrDefaultAsync();
+            var product = await _context.Products.Where(x => x.Id == item.ProductId).FirstOrDefaultAsync();
             if (Option == "Dispensary")
                 product!.Dispensary.FirstOrDefault(x => x.id == item.StockId)!.Quantity -= item.Quantity;
             else

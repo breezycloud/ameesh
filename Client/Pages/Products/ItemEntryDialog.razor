@@ -278,8 +278,7 @@
 
     void StoreChanged(Store store)
     {
-        if (Store is null)
-            Store = store;
+        Store = store;
         StoreID = Store!.Id;
         StateHasChanged();
     }

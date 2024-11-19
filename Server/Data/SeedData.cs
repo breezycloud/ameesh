@@ -32,6 +32,7 @@ public class SeedData
                 AddUsers(db);
                 AddCustomers(db);
                 AddExpenseTypes(db);
+                ImportCustomers(services);
             }
             //AddExpenseTypes(db);
             //ImportCustomers(services);
