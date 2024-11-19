@@ -13,7 +13,7 @@ public class Store
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required(ErrorMessage = "Name is required")]
-    public string? BranchName { get; set; } = "Ameesh Luxury Pharmacy";
+    public string? BranchName { get; set; } = "Ameesh Luxury";
     public string? BranchAddress { get; set; }
     [Required(ErrorMessage = "Phone No is required")]
     public string? PhoneNo1 { get; set; }
