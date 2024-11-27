@@ -17,8 +17,11 @@ using Server.Logging;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Server.Config;
+using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson();
 // Add services to the container.
@@ -45,7 +48,7 @@ string ConnectionString = string.Empty;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 builder.Services.AddScoped<AppDbContext>();
-builder.Services.AddDbContextFactory<AppDbContext>(options =>
+builder.Services.AddDbContextFactory<LoggingContext>(options =>
 {
     options.UseNpgsql(ConnectionString, o => { o.SetPostgresVersion(16, 3); o.EnableRetryOnFailure(); });
 });
@@ -89,9 +92,10 @@ builder.Services.AddResponseCompression(opts =>
 
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<ILoggerProvider, ApplicationLoggerProvider>();
-//builder.Services.AddSynchronizationServices();
+
+
 var app = builder.Build();
-SeedData.EnsureSeeded(app.Services, true);
+//SeedData.EnsureSeeded(app.Services, true);
 
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions

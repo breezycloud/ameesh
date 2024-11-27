@@ -1,9 +1,5 @@
 ﻿using ApexCharts;
-using Client.Pages.Reports;
-using Client.Pages.Reports.Templates.Receipt;
-using Client.Pages.Reports.Templates.Sales;
 using Microsoft.JSInterop;
-using QuestPDF.Fluent;
 using Shared.Helpers;
 using Shared.Models.Orders;
 using Shared.Models.Products;
@@ -340,34 +336,14 @@ public class OrderService : IOrderService
         return (storeID, null);
     }
     public async Task GetBillQrCode(Guid id, string Type, string ReceiptNo)
-    {
-        var code = new Converter().ConvertToByte(ReceiptNo);
-        var document = new BillReceipt(code, Type, ReceiptNo);
-        content = ConvertToBytes(document.GetImage());
-        if (content != null)
-            await _js.InvokeVoidAsync("XPrinter.Test", Convert.ToBase64String(content));
+    {        
+        await _js.InvokeVoidAsync("XPrinter.Test", Convert.ToBase64String(content));
     }
     public async Task GetReceiptBase64String(string Type, ReportData report)
     {
         try
-        {
-            string OrderID = string.Empty;
-            OrderID = report.Order!.ReceiptNo!;
-
-            report.ReportHeader = new ReportHeader
-            {
-                Store = report.Branch,
-                Logo = await _client.CreateClient("AppUrl").GetByteArrayAsync("icon-512.png"),
-                Title = report.ReportType
-            };
-            report.ReportFooter = new ReportFooter();
-            report.ReportFooter.QR = new Converter().ConvertToByte(OrderID);
-            var receipt = new ReceiptTemplate(report);
-            content = ConvertToBytes(receipt.GetImage());
-            if (content != null)
-            {
-                await _js.InvokeVoidAsync("XPrinter.Test", Convert.ToBase64String(content));
-            }
+        {            
+            await _js.InvokeVoidAsync("XPrinter.Test", Convert.ToBase64String(content));
         }
         catch (Exception ex)
         {
@@ -388,19 +364,19 @@ public class OrderService : IOrderService
         byte[]? content = null;
         try
         {
-            string OrderID = string.Empty;
-            OrderID = report.Order!.ReceiptNo!;
+            // string OrderID = string.Empty;
+            // OrderID = report.Order!.ReceiptNo!;
 
-            report.ReportHeader = new ReportHeader
-            {
-                Store = report.Branch,
-                Logo = await _client.CreateClient("AppUrl").GetByteArrayAsync("icon-512.png"),
-                Title = report.ReportType
-            };
-            report.ReportFooter = new ReportFooter();
-            report.ReportFooter.QR = new Converter().ConvertToByte(OrderID);
-            var receipt = new ReceiptTemplate(report);
-            content = await receipt.Create();
+            // report.ReportHeader = new ReportHeader
+            // {
+            //     Store = report.Branch,
+            //     Logo = await _client.CreateClient("AppUrl").GetByteArrayAsync("icon-512.png"),
+            //     Title = report.ReportType
+            // };
+            // report.ReportFooter = new ReportFooter();
+            // report.ReportFooter.QR = new Converter().ConvertToByte(OrderID);
+            // var receipt = new ReceiptTemplate(report);
+            // content = await receipt.Create();
             if (content != null)
             {
                 await _js.InvokeAsync<object>("exportFile", $"Receipt-{Guid.NewGuid()}.pdf", Convert.ToBase64String(content));
@@ -444,15 +420,10 @@ public class OrderService : IOrderService
 
         HttpResponseMessage response = await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/report", filter);
 
-        template = await response.Content.ReadFromJsonAsync<SalesReportTemplate?>();
+        var content = await response.Content.ReadAsByteArrayAsync();
         try
-        {
-            if (template != null)
-            {
-                var report = new SalesReport(template);
-                var content = report.GeneratePdf();
-                await _js.InvokeAsync<object>("exportFile", reportName, Convert.ToBase64String(content));
-            }
+        {                
+            await _js.InvokeAsync<object>("exportFile", reportName, Convert.ToBase64String(content));
         }
         catch (Exception ex)
         {

@@ -16,9 +16,9 @@ namespace Server.Logging;
 
 public class DatabaseLogger : ILogger
     {
-        private readonly IDbContextFactory<AppDbContext> _contextFactory;
+        private readonly IDbContextFactory<LoggingContext> _contextFactory;
 
-        public DatabaseLogger(IDbContextFactory<AppDbContext> contextFactory)
+        public DatabaseLogger(IDbContextFactory<LoggingContext> contextFactory)
         {
             _contextFactory = contextFactory;
         }

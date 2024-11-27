@@ -2,7 +2,7 @@
 using QuestPDF.Infrastructure;
 using Shared.Models.Orders;
 
-namespace Client.Pages.Reports.Templates.Receipt
+namespace Server.Pages.Reports.Templates.Receipt
 {
     public class OrderContent(Order Order) : IComponent
     {

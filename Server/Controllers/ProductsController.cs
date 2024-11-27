@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.CodeAnalysis.Options;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
 using Server.Context;
+using Server.Pages.Reports.Templates.Product;
 using Shared.Enums;
 using Shared.Helpers;
 using Shared.Models.Products;
@@ -436,8 +438,7 @@ public class ProductsController : ControllerBase
         var IsValid = product!.Dispensary.Any(s => s.id == stockId && s.Quantity >= qty);
         return IsValid;
 	}
-
-    [HttpGet("productlist")]
+    
     public async IAsyncEnumerable<List<ProductItems>> GetProductsList()
     {
         int DefaultPageSize = 100;
@@ -464,6 +465,20 @@ public class ProductsController : ControllerBase
                                     StoreQuantity = x.StoreQuantity,
                                 }).ToListAsync();
         }        
+    }
+
+    [HttpGet("productlist")]
+    public async Task<ActionResult> Export()
+    {
+        var model = new ProductReportTemplate { StoreName = "Ameesh Luxury" };
+        await foreach (var item in GetProductsList())
+        {
+            model.Items.AddRange(item);
+        }
+        var doc = new ProductReport(model);
+        var pdf = doc.GeneratePdf();
+
+        return File(pdf, "application/pdf");
     }
 
     // GET: api/Products/5

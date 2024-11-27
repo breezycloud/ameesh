@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Components.Routing;
-using Mud = MudBlazor;
+
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using Shared.Models.Reports;
 using Shared.Models.Products;
 
-namespace Client.Pages.Reports.Templates.Product;
+namespace Server.Pages.Reports.Templates.Product;
 
 public class StockAuditReport(UserSoldProduct? Model) : IDocument
 {

@@ -16,7 +16,6 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor.Services;
-using QuestPDF.Infrastructure;
 using Shared.Models;
 using Toolbelt.Blazor.Extensions.DependencyInjection;
 using Client.Services.Welfare;
@@ -72,10 +71,5 @@ builder.Services.AddSingleton<ILoggerProvider, ApplicationLoggerProvider>();
 builder.Services.AddHttpClient("LoggerJob", c => c.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress));
 builder.Services.AddSingleton<LoggerJob>();
 
-
-QuestPDF.Settings.License = LicenseType.Community;
-//QuestPDF.Settings.EnableDebugging = true;
-
-//QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = true;
 
 await builder.Build().RunAsync();

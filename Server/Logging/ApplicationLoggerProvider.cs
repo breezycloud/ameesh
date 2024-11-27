@@ -11,9 +11,9 @@ using System.Threading.Tasks;
 namespace Server.Logging;
 public class ApplicationLoggerProvider : ILoggerProvider
 {
-    private readonly IDbContextFactory<AppDbContext> _contextFactory;
+    private readonly IDbContextFactory<LoggingContext> _contextFactory;
 
-    public ApplicationLoggerProvider(IDbContextFactory<AppDbContext> contextFactory)
+    public ApplicationLoggerProvider(IDbContextFactory<LoggingContext> contextFactory)
     {
         _contextFactory = contextFactory;
     }

@@ -2,7 +2,9 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
 using Server.Context;
+using Server.Pages.Reports.Templates.Product;
 using Shared.Models.Orders;
 using Shared.Models.Products;
 using Shared.Models.Reports;
@@ -29,7 +31,8 @@ public class OrderItems : ControllerBase
     [HttpGet("stockoutreport/{id}")]
     public async Task<ActionResult<UserSoldProduct>> GetStockOut(Guid id)
     {
-        var products = _context.OrderItems.AsNoTracking().AsSplitQuery().Include(x => x.Order).Include(x => x.ProductData).Where(x => x.Order!.UserId == id).AsEnumerable().AsParallel().GroupBy(x => x.ProductId).Select(x => new SoldProducts
+        var date = DateOnly.FromDateTime(DateTime.Now);
+        var products = _context.OrderItems.AsNoTracking().AsSplitQuery().Include(x => x.Order).Include(x => x.ProductData).Where(x => x.Order!.UserId == id && x.Order.OrderDate == date).AsEnumerable().AsParallel().GroupBy(x => x.ProductId).Select(x => new SoldProducts
         {
             Id = x.Key,
             ProductName = x.FirstOrDefault()!.Product,
@@ -46,12 +49,15 @@ public class OrderItems : ControllerBase
                 Products = []
             };
 
-        return new UserSoldProduct
+        var data = new UserSoldProduct
         {
             ReportDate = DateTime.Now,
             User = User!.ToString(),
             Products = products
         };
+        var doc = new StockAuditReport(data);
+        var content = doc.GeneratePdf();
+        return File(content, "application/pdf");
     }
 
     // PUT: api/OrdersItems/5

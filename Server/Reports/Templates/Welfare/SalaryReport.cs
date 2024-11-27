@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Components.Routing;
-using Mud = MudBlazor;
+
 using Shared.Models.Welfare;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -7,7 +7,7 @@ using QuestPDF.Infrastructure;
 using Shared.Models.Reports;
 using Client.Handlers;
 
-namespace Client.Pages.Reports.Templates.Welfare;
+namespace Server.Pages.Reports.Templates.Welfare;
 
 public class SalaryReport(SalaryReportData? Model) : IDocument
 {

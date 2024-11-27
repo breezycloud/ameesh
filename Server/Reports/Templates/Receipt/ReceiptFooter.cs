@@ -3,7 +3,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 using Shared.Models.Reports;
 
-namespace Client.Pages.Reports.Templates.Receipt
+namespace Server.Pages.Reports.Templates.Receipt
 {
     public class FooterContent(ReportFooter footer) : IComponent
     {

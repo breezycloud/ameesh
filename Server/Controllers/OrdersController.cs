@@ -1,5 +1,6 @@
 ﻿using System.Reflection.Metadata;
 using EFCore.BulkExtensions;
+using QuestPDF.Fluent;
 using HyLook.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Server.Context;
+using Server.Pages.Reports.Templates.Sales;
 using Shared.Enums;
 using Shared.Helpers;
 using Shared.Models;
@@ -171,7 +173,9 @@ public class OrdersController : ControllerBase
             //saleItem.Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString();
             Report.SaleItems.Add(saleItem);
         }
-        return Report;
+        var report = new SalesReport(Report);
+        var pdf = report.GeneratePdf();
+        return File(pdf, "application/pdf", "your_pdf_filename.pdf");
     }
 
     [HttpGet("paymentstatus/{id}")]

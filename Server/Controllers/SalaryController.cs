@@ -11,6 +11,8 @@ using Shared.Enums;
 using Shared.Helpers;
 using Shared.Models.Users;
 using Shared.Models.Welfare;
+using QuestPDF.Fluent;
+using Server.Pages.Reports.Templates.Welfare;
 
 namespace Server.Controllers;
 
@@ -117,8 +119,12 @@ public class SalaryController : ControllerBase
                                         Total= x.Total
                                       })                                      
                                       .ToListAsync();
-        return data!.OrderByDescending(x => x.Total).ToList();
+        data = data!.OrderByDescending(x => x.Total).ToList();
+        var salaryData = new SalaryReportData(criteria, data!);
+        var report = new SalaryReport(salaryData);
+        var pdf = report.GeneratePdf();
 
+        return File(pdf, "application/pdf");
     }
 
     // GET: api/Salary

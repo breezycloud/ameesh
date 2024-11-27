@@ -1,7 +1,5 @@
 ﻿using ApexCharts;
-using Client.Pages.Reports.Templates.Product;
 using Microsoft.JSInterop;
-using QuestPDF.Fluent;
 using Shared.Helpers;
 using Shared.Models.Products;
 using Shared.Models.Reports;
@@ -63,7 +61,7 @@ public interface IProductService
     public Task<int> GetTotalStoreExpiryProducts(Guid id);
     public Task GetProductsList();
     Task StockAudit(Guid id);
-    public IAsyncEnumerable<List<ProductItems>>? GetProductsListAsync();
+    public Task<byte[]>? GetProductsListAsync();
 }
 
 public class ProductService : IProductService
@@ -77,44 +75,25 @@ public class ProductService : IProductService
     }
 
     public async Task GetProductsList()
-    {
-        var model = new ProductReportTemplate { StoreName = "Ameesh Luxury" };
-        var result = GetProductsListAsync().GetAsyncEnumerator();
-        while (await result.MoveNextAsync())
-        {
-            var data = result.Current;
-
-            await Parallel.ForEachAsync(data, async (item, token) =>
-            {
-                // do somethings
-                model.Items.Add(item);
-                await Task.Delay(0);
-            });
-        }
-
+    {        
+        var content = await GetProductsListAsync();        
         try
-        {
-            var doc = new ProductReport(model);
-            var content = doc.GeneratePdf();
+        {            
             await _js.InvokeAsync<object>("exportFile", "Products.pdf", Convert.ToBase64String(content));
         }
         catch (Exception ex)
         {
             Console.WriteLine("failed to generate report {0}", ex.Message);
-
         }
-
     }
 
 
     public async Task StockAudit(Guid id)
     {        
-        var response = await _client.CreateClient("AppUrl").GetFromJsonAsync<UserSoldProduct?>($"api/orderitems/stockoutreport/{id}");
+        var response = await _client.CreateClient("AppUrl").GetByteArrayAsync($"api/orderitems/stockoutreport/{id}");
         try
-        {
-            var doc = new StockAuditReport(response);
-            var content = doc.GeneratePdf();
-            await _js.InvokeAsync<object>("exportFile", "Stock Audit.pdf", Convert.ToBase64String(content));
+        {            
+            await _js.InvokeAsync<object>("exportFile", "Stock Audit.pdf", Convert.ToBase64String(response));
         }
         catch (Exception ex)
         {
@@ -126,9 +105,9 @@ public class ProductService : IProductService
 
 
 
-    public IAsyncEnumerable<List<ProductItems>?>? GetProductsListAsync()
+    public async Task<byte[]>? GetProductsListAsync()
     {
-        return _client.CreateClient("AppUrl").GetFromJsonAsAsyncEnumerable<List<ProductItems>?>("api/products/productlist");
+        return await _client.CreateClient("AppUrl").GetByteArrayAsync("api/products/productlist");
     }
 
     public async Task<List<string>?> GetItemsName(CancellationToken token)

@@ -1,7 +1,5 @@
 using System.Net.Http.Json;
-using Client.Pages.Reports.Templates.Welfare;
 using Microsoft.JSInterop;
-using QuestPDF.Fluent;
 using Shared.Helpers;
 using Shared.Models.Users;
 using Shared.Models.Welfare;
@@ -163,15 +161,8 @@ public class SalaryService(IHttpClientFactory _client, IJSRuntime _js) : ISalary
             if (!response.IsSuccessStatusCode)
                 return;
             
-            var data = await response.Content.ReadFromJsonAsync<List<SalaryReportDto>?>();
-            var salaryData = new SalaryReportData(criteria, data!);
-            var report = new SalaryReport(salaryData);
-            content = report.GeneratePdf();
-            if (content != null)
-            {
-                await _js.InvokeAsync<object>("exportFile", $"{criteria!.Month!.Value}/{criteria!.Year!.Value} Salary Report.pdf", Convert.ToBase64String(content));                
-            }
-
+            content = await response.Content.ReadAsByteArrayAsync();
+            await _js.InvokeAsync<object>("exportFile", $"{criteria!.Month!.Value}/{criteria!.Year!.Value} Salary Report.pdf", Convert.ToBase64String(content));
         }
         catch (System.Exception)
         {

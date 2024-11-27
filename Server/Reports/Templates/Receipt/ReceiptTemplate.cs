@@ -5,7 +5,7 @@ using Shared.Helpers;
 using Shared.Models.Orders;
 using Shared.Models.Reports;
 
-namespace Client.Pages.Reports.Templates.Receipt;
+namespace Server.Pages.Reports.Templates.Receipt;
 
 public class ReceiptTemplate(ReportData? model)
 {

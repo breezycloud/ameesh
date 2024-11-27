@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Client.Handlers;
 
-class StringConverter
+public class StringConverter
 {
     public static string ConvertToTitleCase(string value)
     {

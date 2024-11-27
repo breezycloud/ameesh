@@ -10,9 +10,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Setup dotnet
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.*'
+        dotnet-version: '9.0.*'
 
     - name: Install WASM workloads
       run: dotnet workload install wasm-tools

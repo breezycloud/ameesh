@@ -6,7 +6,7 @@ using Shared.Models.Orders;
 using Shared.Models.Reports;
 using Client.Layout.AppUI;
 
-namespace Client.Pages.Reports.Templates.Receipt
+namespace Server.Pages.Reports.Templates.Receipt
 {
     
     public class ReportContent(ReportData Model) : IComponent

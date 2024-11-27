@@ -1,8 +1,4 @@
-﻿using Client.Pages.Reports;
-using Client.Pages.Reports.Templates.Receipt;
-using Client.Pages.Reports.Templates.Sales;
-using Microsoft.JSInterop;
-using QuestPDF.Fluent;
+﻿using Microsoft.JSInterop;
 using Shared.Helpers;
 using Shared.Models.Orders;
 using Shared.Models.Reports;
