@@ -34,8 +34,28 @@ public class SeedData
                 AddExpenseTypes(db);
                 ImportCustomers(services);
             }
+            //RemoveQuantities(services);
             //AddExpenseTypes(db);
             //ImportCustomers(services);
+        }
+    }
+
+    private static void RemoveQuantities(IServiceProvider services)
+    {
+        var factory = services.GetRequiredService<IServiceScopeFactory>();
+        using var scope = factory.CreateScope();
+        using var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var products = db.Products.Where(x => x.Stocks.Count > 1).ToList();
+        var count = products.Count;
+        Console.WriteLine("{0} products with multiple stocks", count);
+        int index = 1;
+        foreach (var product in products)
+        {
+            Console.WriteLine("{0} of {1} products with multiple stocks", index, count);
+            product.Stocks.RemoveAt(0);
+            db.Products.Update(product);
+            db.SaveChanges();
+            index++;
         }
     }
 

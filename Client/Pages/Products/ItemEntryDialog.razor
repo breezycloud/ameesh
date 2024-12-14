@@ -390,11 +390,7 @@
                     Product!.Item = null;
                     Product!.CreatedDate = CurrentDateTime;
                     Product!.ModifiedDate = CurrentDateTime;
-                    if (AddToStore)
-                        MoveToShop(stock);
-                    else
-                        Product!.Stocks.Add(stock);
-                    
+                    MoveToShop(stock, AddToStore);                    
                     response = await ProductService.AddProduct(Product);
                     if (response)
                     {
@@ -438,24 +434,40 @@
             Product!.Dispensary.Clear();
         }
     }
-    private void MoveToShop(Stock stock)
+    private void MoveToShop(Stock stock, bool ToShop = true)
     {
-        Product!.Dispensary.Add(new Stock
+        Product!.Dispensary = [];
+        Product!.Stocks = [];
+        if (ToShop)
         {
-            id = stock!.id,
-            Date = stock!.Date,
-            Quantity = stock!.Quantity,
-            BuyPrice = stock!.BuyPrice,
-            ExpiryDate = stock!.ExpiryDate
-        });
-        Product!.Stocks.Add(new Stock
+            Product!.Dispensary.Add(new Stock
+            {
+                id = stock!.id,
+                Date = stock!.Date,
+                Quantity = stock!.Quantity,
+                BuyPrice = stock!.BuyPrice,
+                ExpiryDate = stock!.ExpiryDate
+            });
+            Product!.Stocks.Add(new Stock
+            {
+                id = stock!.id,
+                Date = stock!.Date,
+                Quantity = 0,
+                BuyPrice = stock!.BuyPrice,
+                ExpiryDate = stock!.ExpiryDate
+            });
+        }
+        else
         {
-            id = stock!.id,
-            Date = stock!.Date,
-            Quantity = 0,
-            BuyPrice = stock!.BuyPrice,
-            ExpiryDate = stock!.ExpiryDate
-        });
+            Product!.Stocks.Add(new Stock
+            {
+                id = stock!.id,
+                Date = stock!.Date,
+                Quantity = stock!.Quantity,
+                BuyPrice = stock!.BuyPrice,
+                ExpiryDate = stock!.ExpiryDate
+            });            
+        }          
     }
     async void ClearControls()
     {
