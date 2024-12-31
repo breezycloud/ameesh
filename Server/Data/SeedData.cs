@@ -18,7 +18,7 @@ namespace Server.Data;
 
 public class SeedData
 {
-    private static DateTime Now = DateTime.Now;
+    private static DateTime Now = DateTime.UtcNow;
     public static void EnsureSeeded(IServiceProvider services, bool IsDev)
     {
         var factory = services.GetRequiredService<IServiceScopeFactory>();
@@ -34,10 +34,113 @@ public class SeedData
                 AddExpenseTypes(db);
                 ImportCustomers(services);
             }
+            //ImportData(services);
             //RemoveQuantities(services);
             //AddExpenseTypes(db);
             //ImportCustomers(services);
         }
+    }
+
+
+    public async static void ImportData(IServiceProvider service)
+    {
+        var file = await File.ReadAllBytesAsync("/home/nerdyamin/Downloads/tables.json");
+        if (file is null)
+            Console.WriteLine("File not found!");
+        
+        using var stream = File.OpenRead("/home/nerdyamin/Downloads/tables.json");
+        stream.Position = 0;        
+        
+        var options = new JsonSerializerOptions()
+        {
+            NumberHandling = JsonNumberHandling.AllowReadingFromString
+        };
+        var date = DateTime.UtcNow;
+        var data = await JsonSerializer.DeserializeAsync<ProductData[]?>(stream, options);
+        var categories = data!.AsParallel().GroupBy(x => x.Category!.Trim()).Select(c => new Category
+        {
+            Id = Guid.NewGuid(),
+            CategoryName = c.Key,
+            CreatedDate = date
+        });        
+        var brand = new Brand
+        {
+            Id = Guid.NewGuid(),
+            BrandName = "Shop 2",
+            CreatedDate = date
+        };
+        var store = new Store
+        {
+            Id = Guid.NewGuid(),
+            BranchName = "Ameesh Luxury II",
+            CreatedDate = date,
+            PhoneNo1 = "08033000000"
+        };
+        var factory = service.GetRequiredService<IServiceScopeFactory>();
+        using var scope = factory.CreateScope();
+        using var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var fabricID = db.Categories.Where(x => EF.Functions.ILike(x.CategoryName!, $"%fabric%")).FirstOrDefault()?.Id;
+        await db.Stores.AddAsync(store);
+        await db.Brands.AddAsync(brand);
+
+        var otherCategories = categories.Where(x => !x.CategoryName!.Contains("fabric", StringComparison.OrdinalIgnoreCase)).ToList();
+        foreach (var category in otherCategories)
+            Console.WriteLine("Other categories {0} {1}", category.Id, category.CategoryName);
+
+        Console.WriteLine("Categories {0}", fabricID);                
+        
+        await db.Categories.AddRangeAsync(otherCategories);
+
+        foreach(var category in categories)
+        {
+            foreach (var item in data!.Where(x => x.Category!.Trim() == category.CategoryName))
+            {                
+
+                var StoreItem = new Item
+                {
+                    Id = Guid.NewGuid(),
+                    ProductName = item.Name?.Trim(),
+                    BrandID   = brand.Id,
+                    CategoryID = category.CategoryName!.Contains("fabric", StringComparison.OrdinalIgnoreCase) ? 
+                        fabricID!.Value : category.Id,
+                    CreatedDate = date,
+                    Category = null,
+                    Brand = null            
+                };                
+                var SellPrice = decimal.Parse(item.Sell);
+                var CostPrice = decimal.Parse(item.Cost);
+                var MarkupAmount = SellPrice - CostPrice;
+                var Product = new Product
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = StoreItem.Id,
+                    StoreId = store.Id,
+                    SellPrice = SellPrice,
+                    MarkupAmount = MarkupAmount,
+                    Item = null,
+                    Store = null,                    
+                    Stocks =
+                    [
+                        new Stock 
+                        {
+                            id = Guid.NewGuid(),
+                            Date = date,
+                            Quantity = (decimal)item.Quantity,
+                            BuyPrice = CostPrice,                            
+                        }
+                    ]                    
+                };
+                Console.WriteLine($"Item {StoreItem.Id} {StoreItem.ProductName} {StoreItem.BrandID} {StoreItem.CategoryID}");
+                Console.WriteLine($"Product {Product.Id} {Product.SellPrice} {Product.StoreId}");
+
+                await db.Items.AddAsync(StoreItem);
+                await db.Products.AddAsync(Product);
+
+            }
+        }        
+
+        await db.SaveChangesAsync();
     }
 
     private static void RemoveQuantities(IServiceProvider services)
@@ -126,8 +229,8 @@ public class SeedData
                 PhoneNo = "09023920202",
                 ContactAddress = "123, online",
                 Regular = true,
-                CreatedDate = DateTime.Now,
-                ModifiedDate = DateTime.Now
+                CreatedDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow
             });
             db.SaveChanges();
         }
@@ -171,7 +274,7 @@ public class SeedData
             }
         };
 
-        var _ExpiryDate = DateTime.Now.AddDays(90);
+        var _ExpiryDate = DateTime.UtcNow.AddDays(90);
         var products = new List<Product>()
         {
             new Product
@@ -224,8 +327,8 @@ public class SeedData
                 FirstName = "System",
                 LastName = "Administrator",
                 Role = UserRole.Master,
-                CreatedDate = DateTime.Now,
-                ModifiedDate = DateTime.Now,
+                CreatedDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
                 UserCredential = new UserCredential
                 {
                     Id = Guid.NewGuid(),
@@ -247,8 +350,8 @@ public class SeedData
             //     Role = UserRole.Manager,
             //     IsActive = true,
             //     IsNew = false,
-            //     CreatedDate = DateTime.Now,
-            //     ModifiedDate = DateTime.Now,
+            //     CreatedDate = DateTime.UtcNow,
+            //     ModifiedDate = DateTime.UtcNow,
             // },
             // new User
             // {
@@ -261,8 +364,8 @@ public class SeedData
             //     Role = UserRole.Pharmacy,
             //     IsActive = true,
             //     IsNew = false,
-            //     CreatedDate = DateTime.Now,
-            //     ModifiedDate = DateTime.Now,
+            //     CreatedDate = DateTime.UtcNow,
+            //     ModifiedDate = DateTime.UtcNow,
             // },
             // new User
             // {
@@ -275,8 +378,8 @@ public class SeedData
             //     Role = UserRole.Lab,
             //     IsActive = true,
             //     IsNew = false,
-            //     CreatedDate = DateTime.Now,
-            //     ModifiedDate = DateTime.Now,
+            //     CreatedDate = DateTime.UtcNow,
+            //     ModifiedDate = DateTime.UtcNow,
             // },
             // new User
             // {
@@ -289,8 +392,8 @@ public class SeedData
             //     Role = UserRole.Cashier,
             //     IsActive = true,
             //     IsNew = false,
-            //     CreatedDate = DateTime.Now,
-            //     ModifiedDate = DateTime.Now,
+            //     CreatedDate = DateTime.UtcNow,
+            //     ModifiedDate = DateTime.UtcNow,
             // },
             // new User
             // {
@@ -303,8 +406,8 @@ public class SeedData
             //     Role = UserRole.Store,
             //     IsActive = true,
             //     IsNew = false,
-            //     CreatedDate = DateTime.Now,
-            //     ModifiedDate = DateTime.Now,
+            //     CreatedDate = DateTime.UtcNow,
+            //     ModifiedDate = DateTime.UtcNow,
             // },
             // new User
             // {
@@ -317,8 +420,8 @@ public class SeedData
             //     Role = UserRole.Dispenser,
             //     IsActive = true,
             //     IsNew = false,
-            //     CreatedDate = DateTime.Now,
-            //     ModifiedDate = DateTime.Now,
+            //     CreatedDate = DateTime.UtcNow,
+            //     ModifiedDate = DateTime.UtcNow,
             // }
         };
         // var referers = new List<Referer>()

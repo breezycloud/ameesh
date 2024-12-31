@@ -18,7 +18,7 @@ public class Store
     [Required(ErrorMessage = "Phone No is required")]
     public string? PhoneNo1 { get; set; }
     public string? PhoneNo2 { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedDate { get; set; }
     public virtual ICollection<Order> Orders { get; set; } = [];
 

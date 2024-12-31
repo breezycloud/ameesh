@@ -20,13 +20,13 @@ public class SalaryAdvance
     }
     [Key]
     public Guid Id { get; set; }
-    public int Month { get; set; } = DateTime.Now.Month;
-    public int Year { get; set; } = DateTime.Now.Year;    
+    public int Month { get; set; } = DateTime.UtcNow.Month;
+    public int Year { get; set; } = DateTime.UtcNow.Year;    
     public Guid UserId { get; set; }    
     [Column(TypeName = "decimal(18, 2)")]
     public decimal Amount { get; set; }
     public string? Comment { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? ModifiedDate { get; set; }
     [ForeignKey(nameof(UserId))]
     public virtual User? User { get; set; }

@@ -22,11 +22,11 @@ public class Salary
     [Key]
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
-    public int Month { get; set; } = DateTime.Now.Month;
-    public int Year { get; set; } = DateTime.Now.Year;
+    public int Month { get; set; } = DateTime.UtcNow.Month;
+    public int Year { get; set; } = DateTime.UtcNow.Year;
     [Column(TypeName = "decimal(18,2)")]
     public decimal? Amount { get; set; }    
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? ModifiedDate { get; set; }
     [Column(TypeName = "decimal(18, 2)")]
     public decimal Bonus => User?.SalaryBonus.OrderByDescending(x => x.Month).ThenByDescending(x=> x.Year).Sum(x => x.Amount) ?? 0;

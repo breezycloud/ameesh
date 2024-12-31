@@ -140,7 +140,7 @@
 		{                        			 
 			if (!IsEdit)
             {
-                Data.CreatedDate = DateTime.Now;
+                Data.CreatedDate = DateTime.UtcNow;
                 if (Type == WelfareType.Salary)
                     response = await SalaryService.AddAsync(new Salary(Data));
                 else if (Type == WelfareType.Bonus)
@@ -153,7 +153,7 @@
             }				
 			else
             {
-                Data.ModifiedDate = DateTime.Now;
+                Data.ModifiedDate = DateTime.UtcNow;
                 if (Type == WelfareType.Salary)
                     response = await SalaryService.EditAsync(new Salary(Data));
                 else if (Type == WelfareType.Bonus)

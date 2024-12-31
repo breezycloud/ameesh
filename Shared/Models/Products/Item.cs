@@ -19,7 +19,7 @@ public class Item
     public string? ProductName { get; set; }
     public string? Description { get; set; } = "";
     public string? Barcode { get; set; } = "";    
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedDate { get; set; }
     [ForeignKey("CategoryID")]
     public virtual Category? Category { get; set; } = new Category();

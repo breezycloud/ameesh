@@ -22,7 +22,7 @@ public class BulkRestockDispensary
     public Guid ItemId { get; set; }
     public Guid StoreId { get; set; }
     public Guid StockId { get; set; }
-    public DateTime Date { get; set; } = DateTime.Now;
+    public DateTime Date { get; set; } = DateTime.UtcNow;
     public string? ProductName { get; set; }
     public decimal Price { get; set; }
     public decimal _Dispensary { get; set; }
@@ -33,7 +33,7 @@ public class BulkRestockDispensary
     public DateTime? ExpiryDate { get; set; }
     //public decimal QtyOnHand => Dispensary.Sum(x => x.Quantity!.Value) - OrderItems.Where(x => x.Status != OrderStatus.Canceled).Sum(x => x.Quantity);
     public decimal? NewQuantity { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedDate { get; set; }    
 }
 

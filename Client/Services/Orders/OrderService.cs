@@ -298,8 +298,8 @@ public class OrderService : IOrderService
 
     public string GenerateReceiptNo()
     {
-        long ticks = DateTime.Now.Ticks;
-        var now = DateTime.Now;
+        long ticks = DateTime.UtcNow.Ticks;
+        var now = DateTime.UtcNow;
         string uniqueid = Guid.NewGuid().ToString().Substring(0, 8);
         var receiptNo = $"{now:HHmmss}";
         var number = receiptNo.Insert(receiptNo.Length - 2, uniqueid);

@@ -13,7 +13,7 @@ namespace Shared.Models.Products;
 public class Stock
 {
     public Guid id { get; set; } = Guid.NewGuid();
-    public DateTime Date { get; set; } = DateTime.Now;
+    public DateTime Date { get; set; } = DateTime.UtcNow;
     [Required(ErrorMessage = "Quantity is required")]    
     [Column(TypeName = "decimal(18, 1)")]
     public decimal? Quantity { get; set; }

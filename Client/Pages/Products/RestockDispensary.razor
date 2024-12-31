@@ -68,7 +68,7 @@ else
 					<PropertyColumn Property="x => x.ExpiryDate" Format="dd/MM/yyyy" Title="Expiry Date" />
 					<TemplateColumn Context="ctx">
 						<CellTemplate>
-							<MudText Typo="Typo.body2">@(ctx.Item.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).TotalDays) days to expire</MudText>
+							<MudText Typo="Typo.body2">@(ctx.Item.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).TotalDays) days to expire</MudText>
 							@* 							else
 							{
 								<MudButton Size="Size.Small" OnClick="() => AddDispensary(context.Item, ctx.Item)">Restock Dispensary</MudButton>

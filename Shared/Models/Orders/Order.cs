@@ -56,7 +56,7 @@ public class Order
     public DeliveryAddress? Address { get; set; } = new();
     [Column(TypeName = "jsonb")]
     public List<ThirdPartyItem> ThirdPartyItems { get; set; } = [];
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedDate { get; set; }
     public virtual ICollection<ProductOrderItem> ProductOrders { get; set; } = [];
     public virtual ICollection<ReturnedProduct> ReturnedProducts { get; set; } = [];

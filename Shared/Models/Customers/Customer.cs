@@ -33,6 +33,6 @@ public class Customer
     public decimal StoreCredit { get; set; }
     public virtual List<Order> Orders { get; set; } = new();
     public virtual List<OrderReferer> Referrals { get; set; } = new();
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedDate { get; set; }
 }

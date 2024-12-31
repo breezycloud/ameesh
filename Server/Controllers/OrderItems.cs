@@ -31,7 +31,7 @@ public class OrderItems : ControllerBase
     [HttpGet("stockoutreport/{id}")]
     public async Task<ActionResult<UserSoldProduct>> GetStockOut(Guid id)
     {
-        var date = DateOnly.FromDateTime(DateTime.Now);
+        var date = DateOnly.FromDateTime(DateTime.UtcNow);
         var products = _context.OrderItems.AsNoTracking().AsSplitQuery().Include(x => x.Order).Include(x => x.ProductData).Where(x => x.Order!.UserId == id && x.Order.OrderDate == date).AsEnumerable().AsParallel().GroupBy(x => x.ProductId).Select(x => new SoldProducts
         {
             Id = x.Key,
@@ -44,14 +44,14 @@ public class OrderItems : ControllerBase
         if (!products.Any())
             return new UserSoldProduct
             {
-                ReportDate = DateTime.Now,
+                ReportDate = DateTime.UtcNow,
                 User = User!.ToString(),
                 Products = []
             };
 
         var data = new UserSoldProduct
         {
-            ReportDate = DateTime.Now,
+            ReportDate = DateTime.UtcNow,
             User = User!.ToString(),
             Products = products
         };

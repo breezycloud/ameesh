@@ -149,7 +149,7 @@ public class ProductsController : ControllerBase
 
         foreach ( var product in products)
         {
-            var stock = product.Stocks.Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).FirstOrDefault();
+            var stock = product.Stocks.Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90).FirstOrDefault();
             if (stock is null)
                 continue;
 
@@ -166,7 +166,7 @@ public class ProductsController : ControllerBase
         return new GridDataResponse<ExpiryProductData>
         {
             Data = expiryProducts,
-            TotalCount = products.SelectMany(x => x.Stocks).Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Count()
+            TotalCount = products.SelectMany(x => x.Stocks).Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90).Count()
         };
 
     }
@@ -297,16 +297,16 @@ public class ProductsController : ControllerBase
                                               .OrderBy(x => x.CreatedDate)
                                               .AsParallel()
                                               .AsEnumerable()
-                                              .Where(x => x.Dispensary.Any(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90))
+                                              .Where(x => x.Dispensary.Any(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90))
                                               .Skip(parameter.Page)
                                               .Take(parameter.PageSize)
                                               .ToList();
-                response.TotalCount = _context.Products.AsParallel().SelectMany(x => x.Dispensary).Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Count();
+                response.TotalCount = _context.Products.AsParallel().SelectMany(x => x.Dispensary).Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90).Count();
                 foreach (var product in products.AsParallel())
                 {
-                    if (product.Dispensary.AsParallel().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Any())
+                    if (product.Dispensary.AsParallel().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90).Any())
                     {
-                        var expired = product.Dispensary.AsParallel().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90);
+                        var expired = product.Dispensary.AsParallel().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90);
                         response!.Data!.Add(new ProductByStore
                         {
                             Id = product.Id,
@@ -337,16 +337,16 @@ public class ProductsController : ControllerBase
                                               .OrderBy(x => x.CreatedDate)
                                               .AsParallel()
                                               .AsEnumerable()
-                                              .Where(x => x.Stocks.Any(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90))
+                                              .Where(x => x.Stocks.Any(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90))
                                               .Skip(parameter.Page)
                                               .Take(parameter.PageSize)
                                               .ToList();
-                response.TotalCount = _context.Products.AsParallel().SelectMany(x => x.Stocks).Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Count();
+                response.TotalCount = _context.Products.AsParallel().SelectMany(x => x.Stocks).Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90).Count();
                 foreach (var product in products.AsParallel())
                 {
-                    if (product.Stocks.AsParallel().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Any())
+                    if (product.Stocks.AsParallel().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90).Any())
                     {
-                        var expired = product.Stocks.AsParallel().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90);
+                        var expired = product.Stocks.AsParallel().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90);
                         response!.Data!.Add(new ProductByStore
                         {
                             Id = product.Id,
@@ -383,12 +383,12 @@ public class ProductsController : ControllerBase
     [HttpGet("dispensaryexpiryproducts/{id}")]
     public async Task<int> GetTotalDispensaryExpiryProducts(Guid id)
     {
-        return _context.Products.AsNoTracking().AsParallel().Where(x => x.StoreId == id).SelectMany(x => x.Dispensary).AsEnumerable().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Count();
+        return _context.Products.AsNoTracking().AsParallel().Where(x => x.StoreId == id).SelectMany(x => x.Dispensary).AsEnumerable().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90).Count();
     }
     [HttpGet("storeexpiryproducts/{id}")]
     public async Task<int> GetTotalStoreExpiryProducts(Guid id)
     {
-        return _context.Products.AsNoTracking().AsParallel().Where(x => x.StoreId == id).SelectMany(x => x.Stocks).AsEnumerable().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).Count();
+        return _context.Products.AsNoTracking().AsParallel().Where(x => x.StoreId == id).SelectMany(x => x.Stocks).AsEnumerable().Where(x => x.ExpiryDate.HasValue && x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90).Count();
     }
 
     [HttpPost("bulkstorerestock")]

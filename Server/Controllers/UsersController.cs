@@ -36,8 +36,8 @@ public class UsersController : ControllerBase
     [HttpGet("staffonly")]
     public async Task<ActionResult<IEnumerable<StaffDto>?>> GetStaffNotPaid()
     {
-        var month = DateTime.Now.Month;
-        var year = DateTime.Now.Year;        
+        var month = DateTime.UtcNow.Month;
+        var year = DateTime.UtcNow.Year;        
         return await _context.Users.AsNoTracking().Where(u => u.Role != UserRole.Master).Select(s => new StaffDto
         {
             Id = s.Id,
@@ -205,7 +205,7 @@ public class UsersController : ControllerBase
             null,
             null,
             claim,
-            expires: user.Role == UserRole.Admin || user.Role == UserRole.Master ? DateTime.Now.AddDays(180) : DateTime.Now.AddDays(1),
+            expires: user.Role == UserRole.Admin || user.Role == UserRole.Master ? DateTime.UtcNow.AddDays(180) : DateTime.UtcNow.AddDays(1),
             signingCredentials: new SigningCredentials(new SymmetricSecurityKey(Encoding.ASCII.GetBytes(key)),
             SecurityAlgorithms.HmacSha512Signature));
 

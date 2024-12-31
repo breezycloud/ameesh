@@ -34,7 +34,7 @@ public class ReturnService(IHttpClientFactory _client) : IReturnService
         {
             payload.Product = null;
             payload.Order = null;
-            payload.ModifiedDate = DateTime.Now;
+            payload.ModifiedDate = DateTime.UtcNow;
             var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/returns/paid", payload);
             response.EnsureSuccessStatusCode();
             return response.IsSuccessStatusCode;

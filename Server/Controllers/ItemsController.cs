@@ -20,7 +20,33 @@ public class ItemsController(AppDbContext context, ILogger<ItemsController> logg
         GridDataResponse<Item>? response = new();
         if (parameter.FilterId is null)
         {
-            response!.Data = await _context.Items.AsNoTracking()
+            if (!string.IsNullOrEmpty(parameter.SearchTerm))
+            {
+                var pattern = $"%{parameter.SearchTerm}%";
+                response!.Data = await _context.Items.AsNoTracking()
+                                                    .AsSplitQuery()
+                                                    .Include(x => x.Category)
+                                                    .Include(x => x.Brand)
+                                                    .Where(x => EF.Functions.ILike(x.ProductName!, pattern) 
+                                                    || EF.Functions.ILike(x.Barcode!, pattern)
+                                                    || EF.Functions.ILike(x.Category!.CategoryName!, pattern)
+                                                    || EF.Functions.ILike(x.Brand!.BrandName!, pattern))
+                                                    .OrderByDescending(o => o.CreatedDate)
+                                                    .Skip(parameter.Page)
+                                                    .Take(parameter.PageSize)
+                                                    .ToListAsync(cancellationToken);
+                response.TotalCount = await _context.Items.AsNoTracking()
+                                                    .AsSplitQuery()
+                                                    .Include(x => x.Category)
+                                                    .Include(x => x.Brand)
+                                                    .Where(x => EF.Functions.ILike(x.ProductName!, pattern) 
+                                                    || EF.Functions.ILike(x.Barcode!, pattern)
+                                                    || EF.Functions.ILike(x.Category!.CategoryName!, pattern)
+                                                    || EF.Functions.ILike(x.Brand!.BrandName!, pattern)).CountAsync();
+            }
+            else
+            {
+                response!.Data = await _context.Items.AsNoTracking()
                                 .AsSplitQuery()
                                 .Include(x => x.Category)
                                 .Include(x => x.Brand)
@@ -28,7 +54,8 @@ public class ItemsController(AppDbContext context, ILogger<ItemsController> logg
                                 .Skip(parameter.Page)
                                 .Take(parameter.PageSize)
                                 .ToListAsync(cancellationToken);
-            response.TotalCount = await _context.Items.CountAsync();
+                response.TotalCount = await _context.Items.CountAsync();
+            }            
         }
         else
         {

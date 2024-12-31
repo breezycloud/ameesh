@@ -22,7 +22,7 @@ public class User
     [Required(ErrorMessage = "Last Name is required")]
     public string? LastName { get; set; }    
     public UserRole Role { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? ModifiedDate { get; set; }
     [ForeignKey(nameof(StoreId))]
     public virtual Store? Store { get; set; }    

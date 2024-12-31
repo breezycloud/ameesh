@@ -13,7 +13,7 @@ public class AutoLogoutService
     // public event EventHandler? OnLogout;
     // public void LogOut() => OnLogout?.Invoke(this, EventArgs.Empty);
     public int DefaultTimer = 10;
-    private DateTime startTime = DateTime.Now.AddMinutes(5);
+    private DateTime startTime = DateTime.UtcNow.AddMinutes(5);
     System.Timers.Timer? myTimer;
     public void StartLogoutTimer()
     {

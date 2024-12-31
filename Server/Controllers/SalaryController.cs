@@ -71,8 +71,8 @@ public class SalaryController : ControllerBase
     [HttpGet("notpaid")]
     public async Task<ActionResult<IEnumerable<StaffDto>?>> GetStaffNotPaid()
     {
-        var month = DateTime.Now.Month;
-        var year = DateTime.Now.Year;
+        var month = DateTime.UtcNow.Month;
+        var year = DateTime.UtcNow.Year;
         var salaries = await _context.Salaries.AsNoTracking().Where(x => x.Month == month && x.Year == year).ToArrayAsync();
         return _context.Users.AsNoTracking().AsEnumerable().AsParallel().Where(u => u.Role != UserRole.Master && !salaries.Any(s => u.Id == s.UserId)).Select(s => new StaffDto
         {

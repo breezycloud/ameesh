@@ -42,9 +42,9 @@
     private string Criteria = "Date";
     private PaymentStatus Status = PaymentStatus.Unpaid;
     private MudDateRangePicker? _picker;
-    private DateTime? StartDate = DateTime.Now;
-    private DateTime? EndDate = DateTime.Now;
-    private DateRange _dateRange = new DateRange(DateTime.Now.Date, DateTime.Now.AddDays(7).Date);
+    private DateTime? StartDate = DateTime.UtcNow;
+    private DateTime? EndDate = DateTime.UtcNow;
+    private DateRange _dateRange = new DateRange(DateTime.UtcNow.Date, DateTime.UtcNow.AddDays(7).Date);
 
     private string? SelectedOption = "Store";
 

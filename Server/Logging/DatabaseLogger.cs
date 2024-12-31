@@ -43,7 +43,7 @@ public class DatabaseLogger : ILogger
             LogMessage log = new();
             log.Message = $"{logLevel} {exception?.Message} {exception?.StackTrace}";            
             log.Source = "Server";
-            log.CreatedAt = DateTime.Now;
+            log.CreatedAt = DateTime.UtcNow;
 
 
             using var context = _contextFactory.CreateDbContext();

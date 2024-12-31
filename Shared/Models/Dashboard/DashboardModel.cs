@@ -36,7 +36,7 @@ namespace Shared.Models.Dashboard
         public Order? GroupedOrder = new();
         public GroupedEarnings[]? GroupedEarnings { get; set; } = [];
         public bool IsBusy { get; set; }
-        public DateTime? Date { get; set; } = DateTime.Now;
+        public DateTime? Date { get; set; } = DateTime.UtcNow;
         public SummaryByCashier[] SummaryByCashiers { get; set; } = [];
         public SummaryByPaymentMode[] SummaryByPaymentModes {get; set; } = [];
     }
@@ -117,7 +117,7 @@ namespace Shared.Models.Dashboard
 
     public class DashboardFilter
     {
-        public DateOnly? Date { get; set; } = DateOnly.FromDateTime(DateTime.Now);
+        public DateOnly? Date { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
     }
 
     public class SummaryByCashier

@@ -15,7 +15,7 @@ public class UserCredential
     public string? HashedPassword { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsNew { get; set; } = true;
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? ModifiedDate { get; set; }
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }

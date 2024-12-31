@@ -10,7 +10,7 @@ public class ReturnedProduct
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid OrderId { get; set; }
     public Guid ProductId { get; set; }
-    public DateTime Date { get; set; } = DateTime.Now;
+    public DateTime Date { get; set; } = DateTime.UtcNow;
     [Required(ErrorMessage = "Quantity is required")]
     [Column(TypeName = "decimal(18,2)")]
     public decimal? Quantity { get; set; }

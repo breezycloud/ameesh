@@ -27,7 +27,7 @@ public class SyncController : ControllerBase
     [HttpPost("push")]
     public async Task<ActionResult> Post(BackupFilter filter) 
     {
-        _logger.LogInformation("Synchronization Started at {0}", DateTime.Now.TimeOfDay);
+        _logger.LogInformation("Synchronization Started at {0}", DateTime.UtcNow.TimeOfDay);
         double percentage = 0;
         try
         {
@@ -92,7 +92,7 @@ public class SyncController : ControllerBase
             await _hub.Clients.All.SendAsync("SyncProgress", new SyncProgress(percentage, "Synchronization failed"));
             return BadRequest(ex.Message);
         }        
-        _logger.LogInformation("Synchronization Stopped at {0}", DateTime.Now.TimeOfDay);
+        _logger.LogInformation("Synchronization Stopped at {0}", DateTime.UtcNow.TimeOfDay);
         return Ok();
     }
 
@@ -119,24 +119,24 @@ public class SyncController : ControllerBase
 
     private async Task UpdateLastUpdate(NpgsqlConnection sourceConn, NpgsqlConnection targetConn)
     {
-        _logger.LogInformation("Updating last backup timestamp at {0}", DateTime.Now.TimeOfDay);
+        _logger.LogInformation("Updating last backup timestamp at {0}", DateTime.UtcNow.TimeOfDay);
         var field = "\"LastUpdate\"";
         var tableName = "\"Backups\""; // No need to quote table names in this context
 
-        var lastModified = DateTime.Now;
+        var lastModified = DateTime.UtcNow;
         // Use parameterized queries
         var sql = $@"
             INSERT INTO {tableName} ({field}) VALUES (@LastUpdated)";
         
 
         // Update source
-        _logger.LogInformation("Updating source backup timestamp at {0}", DateTime.Now.TimeOfDay);
+        _logger.LogInformation("Updating source backup timestamp at {0}", DateTime.UtcNow.TimeOfDay);
         using var sourceCmd = new NpgsqlCommand(sql, sourceConn);
         sourceCmd.Parameters.AddWithValue($"@LastUpdated", NpgsqlTypes.NpgsqlDbType.Timestamp, lastModified);
         await sourceCmd.ExecuteNonQueryAsync();
 
         // Update target
-        _logger.LogInformation("Updating target backup timestamp at {0}", DateTime.Now.TimeOfDay);
+        _logger.LogInformation("Updating target backup timestamp at {0}", DateTime.UtcNow.TimeOfDay);
         using var targetCmd = new NpgsqlCommand(sql, targetConn);
         targetCmd.Parameters.AddWithValue("@LastUpdated", NpgsqlTypes.NpgsqlDbType.Timestamp, lastModified);
         await targetCmd.ExecuteNonQueryAsync();

@@ -67,7 +67,7 @@
         }
         try
         {
-            Data!.Date = DateTime.Now;
+            Data!.Date = DateTime.UtcNow;
             Data!.OrderId = Product!.OrderId;
             Data.ProductId = Product!.ProductId;
             Data!.Cost = Product!.Cost;

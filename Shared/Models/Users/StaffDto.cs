@@ -19,7 +19,7 @@ public class StaffDto
     public string? FirstName { get; set; }    
     public string? LastName { get; set; }    
     public UserRole? Role { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? ModifiedDate { get; set; }    
     public override string ToString() => $"{FirstName} {LastName}";
 }

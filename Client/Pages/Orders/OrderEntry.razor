@@ -46,7 +46,7 @@ else
                     </MudItem>
                 </AuthorizeView>                                
                 <MudItem xs="12" sm="6">
-                    <MudTextField T="string" Margin="Margin.Dense" ReadOnly Variant="Variant.Outlined" Label="Date" Value="@(DateTime.Now.ToString("dd/MM/yyyy"))" Format="dd/MM/yyyy" />
+                    <MudTextField T="string" Margin="Margin.Dense" ReadOnly Variant="Variant.Outlined" Label="Date" Value="@(DateTime.UtcNow.ToString("dd/MM/yyyy"))" Format="dd/MM/yyyy" />
                 </MudItem>
                  <AuthorizeView Roles="Admin, Master, Manager">
                      <Authorized>
@@ -730,7 +730,7 @@ else
         Order? order = null;
         try
         {            
-            var currentDateTime = DateTime.Now;  
+            var currentDateTime = DateTime.UtcNow;  
             order = new Order()
             {
                 Id = OrderID,
@@ -833,7 +833,7 @@ else
         {
             bills = new List<SuspendBills>();
         }
-        var bill = new SuspendBills(Rows, DateTime.Now);
+        var bill = new SuspendBills(Rows, DateTime.UtcNow);
         bills!.Add(bill);
         await localStorage.SetItemAsync<List<SuspendBills>?>("cart", bills);
         await hub!.SendAsync("RemoveProductQuantity", Store!.Id, Rows);

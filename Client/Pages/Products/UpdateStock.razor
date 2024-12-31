@@ -142,7 +142,7 @@
         bool response = false;
         try
         {
-            Product!.ModifiedDate = DateTime.Now;
+            Product!.ModifiedDate = DateTime.UtcNow;
             Product.Stocks.RemoveAt(0);
             Product.Stocks.Add(Stock);
             response = await ItemService.EditProduct(Product!);

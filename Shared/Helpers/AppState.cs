@@ -9,7 +9,7 @@ using Shared.Enums;
 namespace Shared.Models;
 public class AppState
 {
-    public DateTime CurrentDateTime { get; set; } = DateTime.Now;
+    public DateTime CurrentDateTime { get; set; } = DateTime.UtcNow;
     public event EventHandler? OnUpdateLayout;
     public void UpdateLayout() => OnUpdateLayout?.Invoke(this, EventArgs.Empty);
     public event EventHandler? OnCheckOut;

@@ -30,7 +30,7 @@ public class Product
     public decimal QuantityCancelled => OrderItems.Where(x => x.Status == OrderStatus.Canceled).Sum(x => x.Quantity);    
     public decimal StoreQuantity => Stocks.Where(x => x.Quantity > 0).Sum(x => x.Quantity).GetValueOrDefault();
     public int ReorderLevel { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedDate { get; set; }
     [Column(TypeName = "jsonb")]
     public virtual List<Stock> Dispensary { get; set; } = new();

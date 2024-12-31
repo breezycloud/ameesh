@@ -13,7 +13,7 @@ public class ExpenseType
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required]
     public string? Expense { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedDate { get; set; }
     public ICollection<Expense> Expenses {  get; set; }  = new List<Expense>();
 }

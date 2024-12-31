@@ -18,5 +18,5 @@ public class ExpiryProductData
     public decimal SellPrice { get; set; }
     public decimal Quantity { get; set; }
     public DateTime ExpiryDate { get; set; }
-    public int DaysToExpire => ExpiryDate!.Date.Subtract(DateTime.Now.Date).Days;
+    public int DaysToExpire => ExpiryDate!.Date.Subtract(DateTime.UtcNow.Date).Days;
 }

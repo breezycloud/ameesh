@@ -311,37 +311,40 @@
             return;
         }
 
-        else if (stock!.Quantity is null)
+        if (!IsEdit)
         {
-            SnackBar.Add("Enter quantity to proceed", Severity.Warning);
-            AppState.IsProcessing = false;
-            return;
-        }
-        else if (stock!.BuyPrice is null || stock!.BuyPrice < 0 )
-        {
-            SnackBar.Add("Buy price is required", Severity.Warning);
-            AppState.IsProcessing = false;
-            return;
-        }
-        else if (Product!.SellPrice is null || Product!.SellPrice < 0)
-        {
-            SnackBar.Add("Sell price is required", Severity.Warning);
-            AppState.IsProcessing = false;
-            return;
-        }
+            if (stock!.Quantity is null)
+            {
+                SnackBar.Add("Enter quantity to proceed", Severity.Warning);
+                AppState.IsProcessing = false;
+                return;
+            }
+            else if (stock!.BuyPrice is null || stock!.BuyPrice < 0 )
+            {
+                SnackBar.Add("Buy price is required", Severity.Warning);
+                AppState.IsProcessing = false;
+                return;
+            }
+            else if (Product!.SellPrice is null || Product!.SellPrice < 0)
+            {
+                SnackBar.Add("Sell price is required", Severity.Warning);
+                AppState.IsProcessing = false;
+                return;
+            }
+        }        
         @* else if (stock!.ExpiryDate is null)
         {
             SnackBar.Add("Enter expiry date to proceed", Severity.Warning);
             AppState.IsProcessing = false;
             return;
         }
-        else if (stock!.ExpiryDate <= DateTime.Now)
+        else if (stock!.ExpiryDate <= DateTime.UtcNow)
         {
             SnackBar.Add("Enter expiry date to proceed", Severity.Warning);
             AppState.IsProcessing = false;
             return;
         }         *@
-        else if (Item!.BrandID == Guid.Empty)
+        if (Item!.BrandID == Guid.Empty)
         {
             SnackBar.Add("Brand is required", Severity.Warning);
             AppState.IsProcessing = false;
@@ -370,7 +373,7 @@
         CancellationToken token = new CancellationTokenSource().Token;
         try
         {
-            var CurrentDateTime = DateTime.Now;
+            var CurrentDateTime = DateTime.UtcNow;
             Item!.ProductName = StringConverter.ConvertToTitleCase(Item!.ProductName!);
             Item!.Description = string.IsNullOrEmpty(Item!.Description) ? "" : StringConverter.ConvertToTitleCase(Item!.Description);
             Item!.CreatedDate = CurrentDateTime;
@@ -401,11 +404,14 @@
             else
             {
                 Item!.Category = null;
+                Item!.Brand = null;
                 await ProductService.EditItem(Item!);
             }
             ClearControls();
             SnackBar.Add($"Item successfully saved!", Severity.Success);            
             await hub!.SendAsync("UpdateItems");
+            if (!IsEdit)
+                Close();
             _ = GetItemNames(token);
         }
         catch (System.Exception ex)
@@ -475,8 +481,8 @@
         Item.Id = Guid.NewGuid();
         Product!.MarkupAmount =0;
         Product!.MarkupPercentage =0;
-        CategoryChanged(Category);
-        BrandChanged(Brand);   
+        CategoryChanged(Category!);
+        BrandChanged(Brand!);   
         stock!.ExpiryDate = null;     
         await js.InvokeVoidAsync("setFocusToTextBox", "prodName");
     }

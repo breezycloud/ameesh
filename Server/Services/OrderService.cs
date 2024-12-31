@@ -115,14 +115,14 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
     public async Task<int> GetTotalDispensaryExpiryProducts(Guid id)
     {
         _logger.LogInformation("Checking dispensary expiry products");
-        int dispensary = await _context.Products.Where(x => x.StoreId == id).SelectMany(x => x.Dispensary).Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).CountAsync();
+        int dispensary = await _context.Products.Where(x => x.StoreId == id).SelectMany(x => x.Dispensary).Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90).CountAsync();
         return dispensary;
     }
     
     public async Task<int> GetTotalStoreExpiryProducts(Guid id)
     {
         _logger.LogInformation("Checking store expiry products");
-        int store = await _context.Products.Where(x => x.StoreId == id).SelectMany(x => x.Dispensary).Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).Days <= 90).CountAsync();
+        int store = await _context.Products.Where(x => x.StoreId == id).SelectMany(x => x.Dispensary).Where(x => x.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).Days <= 90).CountAsync();
         return store;
     }
     public async Task CancelOrder(CancellationToken token)
@@ -139,12 +139,12 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
             _logger.LogInformation("No orders to cancel...");
             return;
         }
-        var items = OrdersToCancel.Where(x => x.Balance > 0 && DateTime.Now.Subtract(x.CreatedDate).Hours >= 1).Select(x => new
+        var items = OrdersToCancel.Where(x => x.Balance > 0 && DateTime.UtcNow.Subtract(x.CreatedDate).Hours >= 1).Select(x => new
         {
             id = x.Id,
             storeId = x.StoreId,
             items = x.ProductOrders.Select(t => new { productId = t.ProductId, stockId = t.StockId, qty = t.Quantity }).ToList(),
-            remainingTime = DateTime.Now.Subtract(x.CreatedDate).Hours
+            remainingTime = DateTime.UtcNow.Subtract(x.CreatedDate).Hours
         }).ToList();
         _logger.LogInformation("{0} orders found...", items.Count);
         foreach (var item in items)

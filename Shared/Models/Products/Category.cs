@@ -15,7 +15,7 @@ public class Category
     [Required(ErrorMessage = "Name is required")]
     public string? CategoryName { get; set; }
     public string? Description { get; set; } = "";
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedDate { get; set; }
     public virtual List<Product> Products { get; set; } = new();
 }

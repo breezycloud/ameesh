@@ -7,8 +7,8 @@ public class WelfareData
 {
     public Guid Id { get; set; }    
     public Guid? UserId {get; set; } = null;
-    public int Month { get; set; } = DateTime.Now.Month;
-    public int Year { get; set; } = DateTime.Now.Year;
+    public int Month { get; set; } = DateTime.UtcNow.Month;
+    public int Year { get; set; } = DateTime.UtcNow.Year;
     public WelfareType Type { get; set; }
     public string? StaffName { get; set; }
     [Column(TypeName = "decimal(18,2)")]

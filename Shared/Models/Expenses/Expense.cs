@@ -26,7 +26,7 @@ public class Expense
     [Required(ErrorMessage = "Amount is required")]
     public decimal? Amount { get; set; }
     public PaymentMode PaymentMode { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedDate { get; set; }
     [ForeignKey(nameof(StoreId))]
     public Store? Store { get; set; }

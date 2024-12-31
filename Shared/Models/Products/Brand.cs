@@ -14,6 +14,6 @@ public class Brand
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required(ErrorMessage = "Name is required")]
     public string? BrandName { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime ModifiedDate { get; set; }
 }

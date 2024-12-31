@@ -210,7 +210,7 @@ public class OrdersController : ControllerBase
     [HttpPost("dispatch")]
     public async Task<ActionResult> DispatchOrder(CompleteBill bill)
     {
-        var date = DateOnly.FromDateTime(DateTime.Now);
+        var date = DateOnly.FromDateTime(DateTime.UtcNow);
         try
         {
             var order = await _context.Orders.FindAsync(bill.OrderId);
@@ -219,7 +219,7 @@ public class OrdersController : ControllerBase
 
             order!.Dispatched = true;
             order!.Address!.DispatchedDate = date;
-            order!.ModifiedDate = DateTime.Now;
+            order!.ModifiedDate = DateTime.UtcNow;
             _context.Entry(order).State = EntityState.Modified;
             await _context.SaveChangesAsync();
         }
@@ -233,7 +233,7 @@ public class OrdersController : ControllerBase
     [HttpPost("delivered")]
     public async Task<ActionResult> DeliverOrder(CompleteBill bill)
     {
-        var date = DateOnly.FromDateTime(DateTime.Now);
+        var date = DateOnly.FromDateTime(DateTime.UtcNow);
         try
         {
             var order = await _context.Orders.FindAsync(bill.OrderId);
@@ -242,7 +242,7 @@ public class OrdersController : ControllerBase
 
             order!.Delivered = true;
             order!.Address!.DeliveryDate = date;
-            order!.ModifiedDate = DateTime.Now;
+            order!.ModifiedDate = DateTime.UtcNow;
             _context.Entry(order).State = EntityState.Modified;
             await _context.SaveChangesAsync();
         }
@@ -266,7 +266,7 @@ public class OrdersController : ControllerBase
                 id = x.Id,
                 storeId = x.StoreId,
                 items = x.ProductOrders.Select(t => new { productId = t.ProductId, stockId = t.StockId, qty = t.Quantity }).ToList(),
-                remainingTime = DateTime.Now.Subtract(x.CreatedDate).Hours
+                remainingTime = DateTime.UtcNow.Subtract(x.CreatedDate).Hours
             };
             foreach (var row in item.items)
             {

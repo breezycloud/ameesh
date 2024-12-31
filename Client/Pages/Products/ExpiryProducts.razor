@@ -92,13 +92,13 @@ else
 					<PropertyColumn Property="x => x.ExpiryDate" Format="dd/MM/yyyy" Title="Expiry Date" />
 					<TemplateColumn Context="ctx">
 						<CellTemplate>
-							@if (ctx.Item.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).TotalDays <= 0)
+							@if (ctx.Item.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).TotalDays <= 0)
 							{
-								<MudText>Expired @(Math.Abs(ctx.Item.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).TotalDays)) day(s) ago</MudText>
+								<MudText>Expired @(Math.Abs(ctx.Item.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).TotalDays)) day(s) ago</MudText>
 							}
 							else
 							{
-								<MudText>@(ctx.Item.ExpiryDate!.Value!.Date.Subtract(DateTime.Now.Date).TotalDays) days to expire</MudText>
+								<MudText>@(ctx.Item.ExpiryDate!.Value!.Date.Subtract(DateTime.UtcNow.Date).TotalDays) days to expire</MudText>
 							}							
 						</CellTemplate>
 					</TemplateColumn>
@@ -248,14 +248,14 @@ else
 		var row = RestockedItem.Find(x => x.Id == item.Id);
 		if (row is null)
 		{
-			item.Date = DateTime.Now;
+			item.Date = DateTime.UtcNow;
 			RestockedItem.Add(item);
 		}
 		else if (row.NewQuantity == 0 || row.NewQuantity is null)
 			RestockedItem.Remove(item);
 		else
 		{
-			item.Date = DateTime.Now;
+			item.Date = DateTime.UtcNow;
 			row.Date = item.Date;
 			row.NewQuantity = item.NewQuantity;
 		}

@@ -150,7 +150,7 @@
         }
         try
         {
-            DateTime Now = DateTime.Now;
+            DateTime Now = DateTime.UtcNow;
             bool result = false;
             Guid OrderID = Guid.NewGuid();
             string LastReceiptNo = OrderService.GenerateReceiptNo();
@@ -162,7 +162,7 @@
                 UserId = UserID,
                 CustomerId = customer!.Id,
                 Discount = Discount,
-                OrderDate = DateOnly.FromDateTime(DateTime.Now),
+                OrderDate = DateOnly.FromDateTime(DateTime.UtcNow),
                 StoreId = StoreID,
                 Status = OrderStatus.Completed,
                 ProductOrders = new List<ProductOrderItem>()

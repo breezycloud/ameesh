@@ -135,7 +135,7 @@ else
         {
             Item!.ProductName = StringConverter.ConvertToTitleCase(Item!.ProductName!);
             Item!.Description = string.IsNullOrEmpty(Item!.Description) ? "" : StringConverter.ConvertToTitleCase(Item!.Description);
-            Item!.ModifiedDate = DateTime.Now;
+            Item!.ModifiedDate = DateTime.UtcNow;
             if (!IsEdit)
             {
                 Item!.Id = Guid.NewGuid();
