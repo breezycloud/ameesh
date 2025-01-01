@@ -2,7 +2,7 @@
 @page "/customer/{id:guid}"
 @using Client.Pages.Orders
 @inject ICustomerService Service
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin, Master, Manager")]
 
 <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexStart" Class="pa-2">
      <MudTooltip Text="Back" Duration="2000" Placement="Placement.Top">

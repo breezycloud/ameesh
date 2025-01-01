@@ -11,5 +11,6 @@ public enum UserRole
     Master,
     Admin,
     Cashier,
+    Manager,
     Store    
 }

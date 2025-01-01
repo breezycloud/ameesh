@@ -98,7 +98,7 @@
 			await _gridComponent!.ReloadServerData();
 		});
 		var access = await localStorage.GetItemAsync<string?>("access");
-		if (access == "Admin" || access == "Master")
+		if (access == "Admin" || access == "Master" || access == "Manager")
 		{
 			stores = await StoreService.GetStores();
 			if (stores.Length > 1)

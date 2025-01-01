@@ -70,7 +70,7 @@
                         <MudText Color="Color.Error">Expenses</MudText>
                     </div>
                 </MudListItem>
-            </MudList>
+            </MudList>            
             <MudList Clickable="true" Class="relative">
                 <MudListItem OnClick="@(() => Nav("salary-welfare", "expense"))">
                     <div class="d-flex">
@@ -87,6 +87,38 @@
         <MudButton Href="/Stores" Color="Color.Inherit" Class="@LayoutService?.GetActiveLinkClass("stores")" Variant="Variant.Text">Stores</MudButton>
         <MudButton Href="/users" Color="Color.Inherit" Class="@LayoutService?.GetActiveLinkClass("users")" Variant="Variant.Text">Users</MudButton>
         <MudButton OnClick="@(() => Dialog.Show<SyncDialog>(""))" Color="Color.Inherit" Variant="Variant.Text">Sync</MudButton>
+    </AuthorizeView>
+    <AuthorizeView Roles="Manager">
+        <MudButton Href="/dashboard" Color="Color.Inherit" Class="@LayoutService?.GetActiveLinkClass("dashboard")" Variant="Variant.Text">Dashboard</MudButton>
+        <MudButton Href="/customers" Color="Color.Inherit" Class="@LayoutService?.GetActiveLinkClass("customers")" Variant="Variant.Text">Customers</MudButton>
+        <MudMenu @ref="_menuSales" Color="Color.Inherit" Variant="Variant.Text" Class="mx-1 px-3" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Billings" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+            <MudList Clickable="true">
+                <MudListItem OnClick="@(() => Nav("orders", "sales"))">
+                    <div class="d-flex">
+                        <MudText Color="Color.Secondary">Billings</MudText>
+                    </div>
+                </MudListItem>
+                <MudListItem OnClick="@(() => Dialog.Show<SalesReport>(""))">
+                    <div class="d-flex">
+                        <MudText Color="Color.Primary">Reports</MudText>
+                    </div>
+                </MudListItem>
+            </MudList>
+        </MudMenu>             
+        <MudMenu @ref="_menuExpenses" Color="Color.Inherit" Variant="Variant.Text" Class="mx-1 px-3" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Salary & Expenses" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+            <MudList Clickable="true">
+                <MudListItem OnClick="@(() => Nav("expensetypes", "expense"))">
+                    <div class="d-flex">
+                        <MudText Color="Color.Primary">Expense Types</MudText>
+                    </div>
+                </MudListItem>
+                <MudListItem OnClick="@(() => Nav("expenses", "expense"))">
+                    <div class="d-flex">
+                        <MudText Color="Color.Error">Expenses</MudText>
+                    </div>
+                </MudListItem>
+            </MudList>                        
+        </MudMenu>
     </AuthorizeView>
     <AuthorizeView Roles="Cashier">
         <MudButton Href="/orders" Color="Color.Inherit" Class="@LayoutService!.GetActiveLinkClass("orders")" Variant="Variant.Text">Billing</MudButton>

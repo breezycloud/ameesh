@@ -30,39 +30,39 @@ else
              <MudText Typo="Typo.h5">Manage Order</MudText>
          </MudStack>
     </MudHidden>    
-    <MudGrid Spacing="1">
-          <AuthorizeView Roles="Admin, Master">
-            <Authorized>
-                 <MudItem xs="12" Class="d-flex row align-center justify-end">
-                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.Center">
-                        @if (Data!.Balance == 0 && !Data!.PaymentConfirmed)
-                        {
-                            <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
-                                Label="@(AppState.IsBusy ? "Processing" : "Confirm")" Style="width:120px;"
-                                OnClick="() => CompleteOrder()" Color="Color.Primary"
-                                StartIcon="@Icons.Material.Filled.Verified"
-                                DisableElevation="true" />
-                        } 
-                        @if (Data!.HasDelievery && !Data!.Dispatched)
-                        {
-                            <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
-                                Label="@(AppState.IsBusy ? "Processing" : "Dispatch")" Style="width:120px;"
-                                OnClick="() => Dispatch()" Color="Color.Dark"
-                                StartIcon="@Icons.Material.Filled.DeliveryDining"
-                                DisableElevation="true" />
-                        }
-                        @if (Data!.Dispatched && !Data!.Delivered)
-                        {
-                            <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
-                                Label="@(AppState.IsBusy ? "Processing" : "Delivered")" Style="width:120px;"
-                                OnClick="() => Deliver()" Color="Color.Success"
-                                StartIcon="@Icons.Material.Filled.DeliveryDining"
-                                DisableElevation="true" />
-                        }
-                    </MudStack>            
-                </MudItem>                  
-            </Authorized>
-        </AuthorizeView> 
+    <MudGrid Spacing="1">          
+                <MudItem xs="12" Class="d-flex row align-center justify-end">
+                <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.Center">
+                    <AuthorizeView Roles="Admin, Master">
+                        <Authorized>
+                            @if (Data!.Balance == 0 && !Data!.PaymentConfirmed)
+                            {
+                                <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
+                                    Label="@(AppState.IsBusy ? "Processing" : "Confirm")" Style="width:120px;"
+                                    OnClick="() => CompleteOrder()" Color="Color.Primary"
+                                    StartIcon="@Icons.Material.Filled.Verified"
+                                    DisableElevation="true" />
+                            }
+                        </Authorized>
+                    </AuthorizeView> 
+                    @if (Data!.HasDelievery && !Data!.Dispatched)
+                    {
+                        <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
+                            Label="@(AppState.IsBusy ? "Processing" : "Dispatch")" Style="width:120px;"
+                            OnClick="() => Dispatch()" Color="Color.Dark"
+                            StartIcon="@Icons.Material.Filled.DeliveryDining"
+                            DisableElevation="true" />
+                    }
+                    @if (Data!.Dispatched && !Data!.Delivered)
+                    {
+                        <MudFab Size="Size.Small" Disabled="AppState.IsBusy"
+                            Label="@(AppState.IsBusy ? "Processing" : "Delivered")" Style="width:120px;"
+                            OnClick="() => Deliver()" Color="Color.Success"
+                            StartIcon="@Icons.Material.Filled.DeliveryDining"
+                            DisableElevation="true" />
+                    }
+                </MudStack>            
+            </MudItem>
         <MudItem xs="12" sm="6">
             <MudTextField Label="Receipt #" Variant="Variant.Outlined" ReadOnly Value="Data!.ReceiptNo" />
             </MudItem>

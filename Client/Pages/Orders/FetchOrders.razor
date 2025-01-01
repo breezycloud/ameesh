@@ -78,7 +78,7 @@ else
             AppState.SelectedOption = "Store";
         UserID = await localStorage.GetItemAsync<Guid>("uid");
         var access = await localStorage.GetItemAsync<string?>("access");
-        if (access == "Admin" || access == "Master")
+        if (access == "Admin" || access == "Master" || access == "Manager")
         {
             stores = await StoreService.GetStores();
             Store = stores!.LastOrDefault();

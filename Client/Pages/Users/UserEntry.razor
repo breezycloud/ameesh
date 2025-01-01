@@ -142,6 +142,21 @@
 			}		
 			Data!.UserCredential!.UserId = Data!.Id;			
 		}
+		if (Data!.Role == UserRole.Cashier || Data!.Role == UserRole.Store)
+		{
+			if (StoreID == Guid.Empty)
+			{
+				SnackBar.Add("Store is required", Severity.Error);
+				return false;
+			}
+			else
+				Data!.StoreId = StoreID;
+		}
+		else
+		{						
+			Data!.StoreId = null;
+		}
+
 		return true;
 	}
 
@@ -164,13 +179,8 @@
 		
 		bool response = false;
 		try
-		{
-			if (Data!.Role == UserRole.Admin || Data!.Role == UserRole.Master)
-				Data!.StoreId = null;
-
-
-			Data!.StoreId = StoreID;
-
+		{			
+			
 			Data!.FirstName = StringConverter.ConvertToTitleCase(Data!.FirstName!);			
 			Data!.LastName = StringConverter.ConvertToTitleCase(Data!.LastName!);
 			Data!.Store = null;			

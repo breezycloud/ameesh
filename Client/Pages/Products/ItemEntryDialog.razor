@@ -145,7 +145,7 @@
         else
             Item = new Item();
         var access = await localStorage.GetItemAsync<string?>("access");
-        if (access == "Admin" || access == "Master")
+        if (access == "Admin" || access == "Master" || access == "Manager")
         {
             IsReadOnly = false;
         }

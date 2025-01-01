@@ -12,7 +12,7 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @using Shared.Enums
 @using Shared.Models.Welfare
-@attribute [Authorize (Roles = "Admin, Master, Cashier")]
+@attribute [Authorize (Roles = "Admin, Master, Cashier, Manager")]
 
 
 @if (AppState.IsBusy)
@@ -314,7 +314,7 @@ else
         UserID = await localStorage.GetItemAsync<Guid>("uid");
         var access = await localStorage.GetItemAsync<string?>("access");
         BtnCSS = "d-flex align-center justify-start";
-        if (access == "Admin" || access == "Master")
+        if (access == "Admin" || access == "Master" || access == "Manager")
         {
             branches = await StoreService.GetStores();
             if (branches.Length > 1)

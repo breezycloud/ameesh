@@ -51,6 +51,13 @@
                         <MudNavLink OnClick="@(() => Dialog.Show<SyncDialog>(""))">Sync</MudNavLink>
                     </MudNavMenu>                
                 </AuthorizeView>
+                <AuthorizeView Roles="Manager">
+                    <MudNavLink Href="/dashboard">Dashboard</MudNavLink>
+                    <MudNavLink Href="/customers">Customers</MudNavLink>
+                    <MudNavLink Href="/orders">Billings</MudNavLink>
+                    <MudNavLink OnClick="@(() => Dialog.Show<SalesReport>(""))">Sales Report</MudNavLink>
+                    <MudNavLink OnClick="@(() => Dialog.Show<StockReport>(""))">Stock Report</MudNavLink>                    
+                </AuthorizeView>
                 <AuthorizeView Roles="Cashier">
                     <MudNavLink Href="/orders">Billings</MudNavLink>
                     <MudNavLink OnClick="@(() => Dialog.Show<SalesReport>(""))">Sales Report</MudNavLink>
