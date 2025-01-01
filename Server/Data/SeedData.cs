@@ -34,6 +34,7 @@ public class SeedData
                 AddExpenseTypes(db);
                 ImportCustomers(services);
             }
+
             //ImportData(services);
             //RemoveQuantities(services);
             //AddExpenseTypes(db);
@@ -43,103 +44,29 @@ public class SeedData
 
 
     public async static void ImportData(IServiceProvider service)
-    {
-        var file = await File.ReadAllBytesAsync("/home/nerdyamin/Downloads/tables.json");
-        if (file is null)
-            Console.WriteLine("File not found!");
-        
-        using var stream = File.OpenRead("/home/nerdyamin/Downloads/tables.json");
-        stream.Position = 0;        
-        
-        var options = new JsonSerializerOptions()
-        {
-            NumberHandling = JsonNumberHandling.AllowReadingFromString
-        };
-        var date = DateTime.UtcNow;
-        var data = await JsonSerializer.DeserializeAsync<ProductData[]?>(stream, options);
-        var categories = data!.AsParallel().GroupBy(x => x.Category!.Trim()).Select(c => new Category
-        {
-            Id = Guid.NewGuid(),
-            CategoryName = c.Key,
-            CreatedDate = date
-        });        
-        var brand = new Brand
-        {
-            Id = Guid.NewGuid(),
-            BrandName = "Shop 2",
-            CreatedDate = date
-        };
-        var store = new Store
-        {
-            Id = Guid.NewGuid(),
-            BranchName = "Ameesh Luxury II",
-            CreatedDate = date,
-            PhoneNo1 = "08033000000"
-        };
+    {        
         var factory = service.GetRequiredService<IServiceScopeFactory>();
         using var scope = factory.CreateScope();
-        using var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        using var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();        
 
-        var fabricID = db.Categories.Where(x => EF.Functions.ILike(x.CategoryName!, $"%fabric%")).FirstOrDefault()?.Id;
-        await db.Stores.AddAsync(store);
-        await db.Brands.AddAsync(brand);
-
-        var otherCategories = categories.Where(x => !x.CategoryName!.Contains("fabric", StringComparison.OrdinalIgnoreCase)).ToList();
-        foreach (var category in otherCategories)
-            Console.WriteLine("Other categories {0} {1}", category.Id, category.CategoryName);
-
-        Console.WriteLine("Categories {0}", fabricID);                
-        
-        await db.Categories.AddRangeAsync(otherCategories);
-
-        foreach(var category in categories)
+        var storeId = Guid.Parse("3fe4ff1c-319b-475a-a4b5-f850256a6c27");
+        var products = db.Products.Where(x => x.StoreId == storeId).ToList();
+        var count = products.Count;
+        Console.WriteLine("{0} products found", count);
+        foreach (var product in products)
         {
-            foreach (var item in data!.Where(x => x.Category!.Trim() == category.CategoryName))
-            {                
-
-                var StoreItem = new Item
-                {
-                    Id = Guid.NewGuid(),
-                    ProductName = item.Name?.Trim(),
-                    BrandID   = brand.Id,
-                    CategoryID = category.CategoryName!.Contains("fabric", StringComparison.OrdinalIgnoreCase) ? 
-                        fabricID!.Value : category.Id,
-                    CreatedDate = date,
-                    Category = null,
-                    Brand = null            
-                };                
-                var SellPrice = decimal.Parse(item.Sell);
-                var CostPrice = decimal.Parse(item.Cost);
-                var MarkupAmount = SellPrice - CostPrice;
-                var Product = new Product
-                {
-                    Id = Guid.NewGuid(),
-                    ItemId = StoreItem.Id,
-                    StoreId = store.Id,
-                    SellPrice = SellPrice,
-                    MarkupAmount = MarkupAmount,
-                    Item = null,
-                    Store = null,                    
-                    Stocks =
-                    [
-                        new Stock 
-                        {
-                            id = Guid.NewGuid(),
-                            Date = date,
-                            Quantity = (decimal)item.Quantity,
-                            BuyPrice = CostPrice,                            
-                        }
-                    ]                    
-                };
-                Console.WriteLine($"Item {StoreItem.Id} {StoreItem.ProductName} {StoreItem.BrandID} {StoreItem.CategoryID}");
-                Console.WriteLine($"Product {Product.Id} {Product.SellPrice} {Product.StoreId}");
-
-                await db.Items.AddAsync(StoreItem);
-                await db.Products.AddAsync(Product);
-
-            }
-        }        
-
+            var stock = product.Stocks.First();
+            product.Dispensary.Add(new Stock
+            {
+                id = stock.id,                
+                Quantity = stock.Quantity,
+                BuyPrice = stock.BuyPrice,
+                ExpiryDate = null
+            });
+            product.Stocks.First().Quantity = 0;
+            db.Products.Update(product);
+            db.SaveChanges();
+        }
         await db.SaveChangesAsync();
     }
 

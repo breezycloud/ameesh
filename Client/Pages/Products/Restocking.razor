@@ -50,10 +50,12 @@ else
 
 	protected override async Task OnParametersSetAsync()
 	{
-		hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithStatefulReconnect().Build();
-		var mode = await localStorage.GetItemAsync<bool?>("mode");
-		if (mode is not null || mode!.Value)
-			await hub.StartAsync();
+		@* var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+        builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+        hub = builder.Build();
+        var internetfound = await js.InvokeAsync<bool>("checkinternet");
+        if (internetfound)
+            await hub.StartAsync();                       *@
 
 	}
 

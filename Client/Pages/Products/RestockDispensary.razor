@@ -102,15 +102,12 @@ else
 	protected override async Task OnInitializedAsync()
 	{
 		AppState.IsBusy = true;
-		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs"), option =>
-		{
-			option.AccessTokenProvider = () => Task.FromResult(AppState.Token)!;
-		}).WithStatefulReconnect();
-		builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
-		hub = builder.Build();
-		var mode = await localStorage.GetItemAsync<bool?>("mode");
-		if (mode is not null || mode!.Value)
-			await hub.StartAsync();
+		var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
+        builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
+        hub = builder.Build();
+        var internetfound = await js.InvokeAsync<bool>("checkinternet");
+        if (internetfound)
+            await hub.StartAsync();                      
 		hub.On("UpdateProducts", async () =>
 		{
 			await _gridComponent!.ReloadServerData();
@@ -119,7 +116,7 @@ else
 		if (access == "Admin" || access == "Master")
 		{
 			stores = await StoreService.GetStores();
-			Store = stores!.LastOrDefault();
+			Store = stores!.OrderBy(x => x.CreatedDate).FirstOrDefault();
 			AppState!.StoreID = Store!.Id;
 		}
 		else
@@ -139,10 +136,11 @@ else
 		}
 	}
 
-	void StoreChanged(Guid id)
+	async void StoreChanged(Guid id)
 	{
 		Store = stores!.FirstOrDefault(x => x.Id == id);
 		AppState!.StoreID = Store!.Id;
+		await _gridComponent.ReloadServerData();
 	}
 
 	async Task AddDispensary(ProductByStore product, Stock stock)
@@ -164,7 +162,7 @@ else
 	{
 		try
 		{
-			var parameter = new PaginationParameter { Page = request.Page * request.PageSize, PageSize = request.PageSize, SearchTerm = AppState._searchString };
+			var parameter = new PaginationParameter { FilterId = AppState.StoreID, Page = request.Page * request.PageSize, PageSize = request.PageSize, SearchTerm = AppState._searchString };
 			var response = await ProductService.GetPagedProducts(parameter);
 			return new GridData<ProductByStore>()
 			{

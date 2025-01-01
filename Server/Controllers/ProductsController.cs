@@ -33,7 +33,7 @@ public class ProductsController : ControllerBase
 	public async Task<ActionResult<GridDataResponse<ProductByStore>?>> PagedProducts(PaginationParameter parameter, CancellationToken cancellationToken)
 	{
         GridDataResponse<ProductByStore>? response = new();
-		if (parameter.SearchTerm is null)
+		if (string.IsNullOrEmpty(parameter.SearchTerm))
 		{
             response!.Data = await _context.Products.AsNoTracking()
                                                     .AsSplitQuery()
