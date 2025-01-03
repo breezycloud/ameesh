@@ -30,14 +30,22 @@
 }
 else
 {
-	<div class="pt-2" style="width:250px">
-		<MudSelect T="Guid" Dense="true" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" Strict="true" Label="Search By Store" Value="@StoreID" ValueChanged="StoreChanged" Variant="Variant.Outlined">
-			@foreach (var branch in stores!)
-			{
-				<MudSelectItem Value="@branch.Id">@branch.BranchName</MudSelectItem>
-			}
-		</MudSelect>
-	</div>
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+		<div class="pt-2" style="width:250px">
+			<MudSelect T="Guid" Dense="true" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" Strict="true" Label="Search By Store" Value="@StoreID" ValueChanged="StoreChanged" Variant="Variant.Outlined">
+				@foreach (var branch in stores!)
+				{
+					<MudSelectItem Value="@branch.Id">@branch.BranchName</MudSelectItem>
+				}
+			</MudSelect>
+		</div>
+		@if(Filter)
+		{
+			<MudTooltip Text="Refresh" Duration="2000" Placement="Placement.Top">
+				<MudButton StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Secondary" OnClick="@(() => ClearFilter())" Size="Size.Small">Refresh</MudButton>
+			</MudTooltip>
+		}		
+	</MudStack>	
 	<MudDataGrid T="User"
 				 Items="Users"
 				 RowClick="@HandleSelectedDataItemChanged"
@@ -94,7 +102,8 @@ else
 	private User? user = new();
 	private MudDataGrid<User>? _gridComponent;
 	private User[]? Users = [];
-
+	private User[]? UsersBk = [];
+	private bool Filter = false;
 	private Guid StoreID;
 	private Store? Store; private Store[]? stores = [];
 	private HubConnection? hub;
@@ -109,10 +118,7 @@ else
 		hub = builder.Build();
 		await hub.StartAsync();
 		stores = await StoreService.GetStores();
-		if (stores.Length > 1)
-			Store = stores!.LastOrDefault();
-		else
-			Store = stores!.FirstOrDefault();
+		Store = stores.OrderBy(x => x.CreatedDate)!.FirstOrDefault();
 		StoreID = Store!.Id;
 		hub.On("UpdateUsers", async () =>
 		{
@@ -124,13 +130,14 @@ else
 	}
 	async Task GetUsers()
 	{		
-		Users = await Service.GetUsers(StoreID);								
+		Users = UsersBk = await Service.GetUsers(StoreID);
 	}
 	async void StoreChanged(Guid id)
 	{
 		Store = stores!.FirstOrDefault(x => x.Id == id);
 		StoreID = Store!.Id;
-		await GetUsers();
+		Users = UsersBk.Where(x => x.StoreId == StoreID).ToArray();
+		Filter = true;
 		StateHasChanged();
 	}
 
@@ -161,6 +168,12 @@ else
 				["IsEdit"] = true,
 			};
 		await Dialog.ShowAsync<UserEntry>("", parameters);
+	}
+
+	private async Task ClearFilter()
+	{
+		await hub.SendAsync("UpdateUsers");
+		Filter = false;
 	}
 
 	private async Task RevokeAccount(UserCredential credential)

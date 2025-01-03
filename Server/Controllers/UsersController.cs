@@ -93,7 +93,7 @@ public class UsersController : ControllerBase
     [HttpGet("byStore/{StoreID}")]
     public async Task<ActionResult<IEnumerable<User>>> GetUsersByStore(Guid StoreID)
     {
-        return await _context.Users.AsNoTracking().AsSplitQuery().Include(x => x.UserCredential).Where(x => x.StoreId == StoreID).ToListAsync();
+        return await _context.Users.AsNoTracking().AsSplitQuery().Include(x => x.UserCredential).Where(x => x.Role != UserRole.Master).ToListAsync();
     }
 
     [HttpGet("username/{username}")]

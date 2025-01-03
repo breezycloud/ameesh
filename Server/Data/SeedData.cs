@@ -34,7 +34,6 @@ public class SeedData
                 AddExpenseTypes(db);
                 ImportCustomers(services);
             }
-
             //ImportData(services);
             //RemoveQuantities(services);
             //AddExpenseTypes(db);
