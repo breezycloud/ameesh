@@ -643,11 +643,13 @@ public class OrdersController : ControllerBase
 		{
 			return NotFound();
 		}
-		var category = await _context.Orders.AsNoTracking()
+		var order = await _context.Orders.AsNoTracking()
                                       .AsSplitQuery()
                                       .Include(x => x.User)
                                       .Include(x => x.Customer)
                                       .Include(x => x.ProductOrders)
+                                      .ThenInclude(x => x.ProductData)
+                                      .ThenInclude(x => x!.Store)
                                       .Include(x => x.User)
                                       .Include(x => x.Store)
                                       .Include(x => x.Payments)
@@ -656,7 +658,7 @@ public class OrdersController : ControllerBase
                                       .ThenInclude(x => x.Product)
                                       .ThenInclude(x => x!.Item)
                                       .SingleOrDefaultAsync(x => x.Id == id);
-		return category;
+		return order;
 	}
     
     [HttpGet("byreceiptno")]

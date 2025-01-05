@@ -517,6 +517,7 @@ public class ProductsController : ControllerBase
                                               .Select(p=> new ProductsAvailable
                                               { 
                                                   Id = p.Id,
+                                                  StoreId = p.StoreId,
                                                   Barcode = p.Item!.Barcode,
                                                   ProductName = p.Item!.ProductName,
                                                   SellPrice = p.SellPrice,

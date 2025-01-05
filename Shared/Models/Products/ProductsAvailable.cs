@@ -10,6 +10,7 @@ namespace Shared.Models.Products;
 public class ProductsAvailable
 {
     public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
     public string? Brand { get; set; }
     public string? Barcode { get; set; }
     public string? ProductName { get; set; }

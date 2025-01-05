@@ -728,6 +728,7 @@ else
         }
 
         Order? order = null;
+        var IsMultiStore = MultiStore();
         try
         {            
             var currentDateTime = DateTime.UtcNow;  
@@ -739,7 +740,7 @@ else
                 CustomerId = string.IsNullOrEmpty(customer!.CustomerName) ? null : customer!.Id,
                 Discount = cart!.Discount,
                 OrderDate = DateOnly.FromDateTime(currentDateTime),
-                StoreId = MainStore,
+                StoreId = IsMultiStore,
                 DeliveryAmt = cart.DeliveryAmt,
                 Address = this.Address,
                 Note = cart.Note,
@@ -755,7 +756,7 @@ else
             {
                 ["Order"] = order,
                 ["customer"] = customer,
-                ["Store"] = Store,
+                ["Store"] = branches!.FirstOrDefault(x => x.Id == IsMultiStore),
                 ["IsEdit"] = false,
                 ["Regular"] = customer!.Regular,
                 ["AmountDue"] = order.Balance,
@@ -776,6 +777,15 @@ else
     private void JustClear(object sender, EventArgs e)
     {
         ClearOrderItem();
+    }
+
+    private Guid MultiStore()
+    {
+        var StoreValues = Rows!.GroupBy(x => x.Product!.StoreId).Count();
+        return StoreValues > 1 ? 
+            branches!.OrderByDescending(x => x.CreatedDate)!.LastOrDefault()!.Id :
+            Rows!.Select(x => x.Product!.StoreId).FirstOrDefault();
+
     }
 
     async void ClearOrderItem()

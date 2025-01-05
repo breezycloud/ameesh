@@ -69,7 +69,11 @@ else
         if (access == "Admin" || access == "Master" || access == "Manager")
         {
             stores = await StoreService.GetStores();
-            Store = stores!.LastOrDefault();
+            Guid? sid = await localStorage.GetItemAsync<Guid?>("branch");
+            if (sid is null) 
+                Store = stores!.LastOrDefault();                
+            else                     
+                Store = stores!.FirstOrDefault(x => x.Id == sid.Value);
             AppState!.StoreID = Store!.Id;
         }
         else
@@ -84,7 +88,7 @@ else
         nav.NavigateTo("order");
     }
 
-    void StoreChanged(Guid id)
+    async void StoreChanged(Guid id)
     {
         Store = stores!.FirstOrDefault(x => x.Id == id);
         AppState!.StoreID = Store!.Id;
@@ -92,6 +96,7 @@ else
         {
             OrdersComponent.StoreChanged();
         }
+        await localStorage.SetItemAsync("branch", AppState.StoreID);
         StateHasChanged();
     }
 
