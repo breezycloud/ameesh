@@ -73,31 +73,31 @@
                     }
                 </MudStack>
             </CellTemplate>
-        </TemplateColumn>  
-        <AuthorizeView Roles="Admin, Master" Context="auth">
-            <Authorized>							
-                <TemplateColumn>
-                    <CellTemplate>
-                        @if (context.Item.PaymentStatus == "Awaiting")
-                        {
-                            <MudButton Disabled="AppState.IsProcessing" Color="Color.Success" OnClick="() => Complete(context.Item.Id)" Size="Size.Small">Confirm</MudButton>
-                        }
-                        @if (context.Item.HasDelievery && !context.Item.Dispatched)
-                        {
-                            <MudButton Disabled="AppState.IsProcessing" Color="Color.Info" OnClick="() => Dispatch(context.Item.Id)" Size="Size.Small">Dispatch</MudButton>
-                        }
-                        @if (context.Item.Dispatched && !context.Item.Delivered)
-                        {
-                            <MudButton Disabled="AppState.IsProcessing" StartIcon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" OnClick="() => Delivered(context.Item.Id)" Size="Size.Small">
-                                Delivered
-                            </MudButton>
-                        }
-                        <MudButton Disabled="AppState.IsProcessing" Color="Color.Dark" OnClick="() => Print(context.Item.Id)" Size="Size.Small">Print</MudButton>
-                        <MudButton Disabled="AppState.IsProcessing" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
-                    </CellTemplate>
-                </TemplateColumn>
-            </Authorized>
-        </AuthorizeView>      
+        </TemplateColumn>          
+            <TemplateColumn>
+                <CellTemplate>
+                    <AuthorizeView Roles="Admin, Master" Context="auth">
+                        <Authorized>
+                            @if (context.Item.PaymentStatus == "Awaiting")
+                            {
+                                <MudButton Disabled="AppState.IsProcessing" Color="Color.Success" OnClick="() => Complete(context.Item.Id)" Size="Size.Small">Confirm</MudButton>
+                            }
+                        </Authorized>
+                    </AuthorizeView>                     
+                    @if (context.Item.HasDelievery && !context.Item.Dispatched)
+                    {
+                        <MudButton Disabled="AppState.IsProcessing" Color="Color.Info" OnClick="() => Dispatch(context.Item.Id)" Size="Size.Small">Dispatch</MudButton>
+                    }
+                    @if (context.Item.Dispatched && !context.Item.Delivered)
+                    {
+                        <MudButton Disabled="AppState.IsProcessing" StartIcon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" OnClick="() => Delivered(context.Item.Id)" Size="Size.Small">
+                            Delivered
+                        </MudButton>
+                    }
+                    <MudButton Disabled="AppState.IsProcessing" Color="Color.Dark" OnClick="() => Print(context.Item.Id)" Size="Size.Small">Print</MudButton>
+                    <MudButton Disabled="AppState.IsProcessing" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+                </CellTemplate>
+            </TemplateColumn>     
     </Columns>
     <NoRecordsContent>
         <MudText Typo="Typo.h6">No records found</MudText>
