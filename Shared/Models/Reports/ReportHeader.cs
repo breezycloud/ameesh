@@ -4,7 +4,7 @@ using Shared.Models.Users;
 namespace Shared.Models.Reports;
 public class ReportHeader
 {
-    public Store? Store { get; set; }
+    public Store? Store { get; set; } = null;
     public byte[]? Logo { get; set; }
     public string? Title { get; set; }
 }

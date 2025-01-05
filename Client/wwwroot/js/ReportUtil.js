@@ -6,4 +6,4 @@
     document.body.appendChild(link); // Needed for Firefox
     link.click();
     document.body.removeChild(link);
-}       
+}

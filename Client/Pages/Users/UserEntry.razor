@@ -1,6 +1,7 @@
 ﻿@using Client.Handlers
 @using Shared.Enums
 @inject IUserService Service
+@using MudBlazor.Extensions
 @attribute [Authorize(Roles = "Admin, Master, PharmacyManager")]
 
 <EditForm Model="@Data" OnValidSubmit="Save">
@@ -23,7 +24,7 @@
 						{
 							@foreach (UserRole role in Roles!)
 							{
-								<MudSelectItem Value="@role">@role</MudSelectItem>
+								<MudSelectItem Value="@role">@role.ToDescriptionString()</MudSelectItem>
 							}
 						}	
 						else

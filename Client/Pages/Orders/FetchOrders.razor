@@ -13,24 +13,12 @@ else
     <MudHidden Breakpoint="Breakpoint.MdAndUp" Invert>
         <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-4">
              <MudText Typo="Typo.h5">Manage Billings</MudText>
-             @* <AuthorizeView Roles="Admin, Master, Manager">
-                 <MudToggleGroup T="string" Style="width: 300px;" Value="AppState.SelectedOption" ValueChanged="OptionChanged" Outline Delimiters Dense Rounded CheckMark FixedContent>
-                    <MudToggleItem Value="@("Store")" />
-                    <MudToggleItem Value="@("Lab")" />
-                 </MudToggleGroup>
-            </AuthorizeView> *@
          </MudStack>
      </MudHidden>
 
     <MudHidden Breakpoint="Breakpoint.MdAndUp">
         <MudStack AlignItems="AlignItems.Start" Class="pt-4" Spacing="1">
             <MudText Typo="Typo.h5">Manage Billings</MudText>
-            @* <AuthorizeView Roles="Admin, Master, Manager">
-                <MudToggleGroup T="string" Style="width: 300px;" Value="AppState.SelectedOption" ValueChanged="OptionChanged" Outline Delimiters Dense Rounded CheckMark FixedContent>
-                 <MudToggleItem Value="@("Store")" />
-                 <MudToggleItem Value="@("Lab")" />
-             </MudToggleGroup>
-         </AuthorizeView> *@
         </MudStack>
     </MudHidden>    
      <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-2 pb-2">

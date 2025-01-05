@@ -37,6 +37,8 @@ public interface IOrderService
     Task<ReportData?> GetReceipt(string Type, ReportData report);
     Task GetReceiptBase64String(string Type, ReportData report);
     Task PrintReceipt(string Type, ReportData report);
+    Task PrintReceipt(ReportData report);
+    Task GetReceipt(Guid id);
     Task GetBillQrCode(Guid id, string Type, string ReceiptNo);
     Task PrintBill(string ReceiptNo);
     Task<(Guid storeId, byte[]? buffer)> PrintDocument(Guid storeId, Guid id, string Type, string ReceiptNo);
@@ -437,6 +439,17 @@ public class OrderService : IOrderService
     public async Task PrintReceipt(string Type, ReportData report)
     {
         await _js.InvokeVoidAsync("XPrinter.Print", Type, report);
+    }
+    public async Task GetReceipt(Guid id)
+    {
+        var response = await _client.CreateClient("AppUrl").GetByteArrayAsync($"api/orders/receipt/{id}");        
+        await _js.InvokeVoidAsync("exportFile", $"{DateTime.UtcNow.Ticks} Receipt.pdf", Convert.ToBase64String(response));
+    }
+    public async Task PrintReceipt(ReportData report)
+    {
+        using var response = await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/receipt", report);    
+        var contents = await response.Content.ReadAsByteArrayAsync();
+        await _js.InvokeVoidAsync("exportFile", $"{DateTime.UtcNow.Ticks} Receipt.pdf", Convert.ToBase64String(contents));
     }
     public async Task<bool> GetPaymentStatus(Guid id)
     {

@@ -80,19 +80,20 @@
                     <CellTemplate>
                         @if (context.Item.PaymentStatus == "Awaiting")
                         {
-                            <MudButton Color="Color.Success" OnClick="() => Complete(context.Item.Id)" Size="Size.Small">Confirm</MudButton>
+                            <MudButton Disabled="AppState.IsProcessing" Color="Color.Success" OnClick="() => Complete(context.Item.Id)" Size="Size.Small">Confirm</MudButton>
                         }
                         @if (context.Item.HasDelievery && !context.Item.Dispatched)
                         {
-                            <MudButton Color="Color.Info" OnClick="() => Dispatch(context.Item.Id)" Size="Size.Small">Dispatch</MudButton>
+                            <MudButton Disabled="AppState.IsProcessing" Color="Color.Info" OnClick="() => Dispatch(context.Item.Id)" Size="Size.Small">Dispatch</MudButton>
                         }
                         @if (context.Item.Dispatched && !context.Item.Delivered)
                         {
-                            <MudButton StartIcon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" OnClick="() => Delivered(context.Item.Id)" Size="Size.Small">
+                            <MudButton Disabled="AppState.IsProcessing" StartIcon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" OnClick="() => Delivered(context.Item.Id)" Size="Size.Small">
                                 Delivered
                             </MudButton>
                         }
-                        <MudButton Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+                        <MudButton Disabled="AppState.IsProcessing" Color="Color.Dark" OnClick="() => Print(context.Item.Id)" Size="Size.Small">Print</MudButton>
+                        <MudButton Disabled="AppState.IsProcessing" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
                     </CellTemplate>
                 </TemplateColumn>
             </Authorized>
@@ -209,6 +210,7 @@
     {
         OnExpand(item.Item.Id);
     }
+    
 
     private Func<OrderWithData, string> _cellStyleFunc => x =>
     {
@@ -227,9 +229,9 @@
 
     private async Task PrintSlip(string receipt)
     {
-        bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
-        if (connected)
-            await OrderService.PrintBill(receipt!);
+        AppState.IsProcessing = true;
+        await Task.Delay(100);        
+        AppState.IsProcessing = false;
     }
 
     async Task ClearFilters()
@@ -259,12 +261,10 @@
         await _gridComponent!.ReloadServerData();
     }
 
-    async Task Print(Guid id)
+    private async Task Print(Guid id)
     {
         AppState.IsProcessing = true;
-        // var report = await OrderService.GetReportData(id);
-        // await OrderService.GetReceipt(report);
-        await Task.Delay(100);
+        await OrderService.GetReceipt(id);        
         AppState.IsProcessing = false;
     }
 

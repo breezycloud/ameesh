@@ -1,27 +1,22 @@
 using Microsoft.AspNetCore.ResponseCompression;
 using Server.Context;
 using System.Text;
-using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Npgsql;
 using Microsoft.IdentityModel.Tokens;
 using Server.Data;
 using Server.Hubs;
-using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc;
-using Pharmacy.Server.BackgroundJob;
 using Server.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Server.Logging;
-using Microsoft.AspNetCore.Http.Connections;
-using Microsoft.Extensions.DependencyInjection;
-using Server.Config;
 using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
 QuestPDF.Settings.License = LicenseType.Community;
+// QuestPDF.Settings.EnableDebugging = true;
 
 NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson();
 // Add services to the container.

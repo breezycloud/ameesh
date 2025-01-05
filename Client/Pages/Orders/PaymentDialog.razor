@@ -118,7 +118,7 @@
 
     private async Task Save()
     {
-        AppState.IsProcessing = true;
+        AppState.IsProcessing = true;        
         if (Payment!.PaymentMode == PaymentMode.Credit)
         {
             var result = await Dialog.ShowMessageBox("Confirmation",
@@ -180,27 +180,39 @@
         {
             Console.WriteLine(ex);
             if (!success)
+            {
                 SnackBar.Add("Operation failed!", Severity.Error);
+                AppState.IsProcessing = false;
+                return;
+            }                
         }
         finally
         {
             AppState!.ReportDataModel = new ReportData { Branch = Store, ReportType = "Store", Customer = customer };
             AppState!.ReportDataModel.Order = Order;
             AppState!.ReportDataModel.Cashier = await localStorage.GetItemAsync<string>("uname");
-            bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
-            if (success)
+            bool IsMobile = await js.InvokeAsync<bool>("XPrinter.IsMobile");
+            if (IsMobile)
             {
-                if (connected)
-                    await OrderService.PrintReceipt("Store", AppState!.ReportDataModel!);
-                SnackBar.Add("Transaction Successfull", Severity.Success);
-                if(!IsEdit)
-                    AppState.ClearOrderItems();
+                await OrderService.PrintReceipt(AppState!.ReportDataModel!);
             }
+            else
+            {
+                bool connected = await js.InvokeAsync<bool>("XPrinter.Initialize");
+                if (success)
+                {
+                    if (connected)
+                        await OrderService.PrintReceipt("Store", AppState!.ReportDataModel!);
+                }
+            }
+            if(!IsEdit)
+                AppState.ClearOrderItems();
             await hub!.SendAsync("UpdateOrder");
             await hub!.SendAsync("RefreshOrderTimer");
             await hub!.SendAsync("UpdateOrder");
             Cancel();
         }
+        SnackBar.Add("Transaction Successfull", Severity.Success);
         AppState.IsProcessing = false;
     }
 

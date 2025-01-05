@@ -1,6 +1,8 @@
 ﻿using System.Net.Http.Json;
 using Shared.Helpers;
 using Shared.Models.Expenses;
+using Microsoft.JSInterop;
+
 
 namespace Client.Services.Expenses;
 
@@ -18,9 +20,26 @@ public interface IExpenseService
     Task<Expense?> GetExpense(Guid id);
     Task<Expense[]?> GetExpenses();
     Task<GridDataResponse<Expense>?> GetPagedExpenses(PaginationParameter parameter);
+
+    Task ExpenseReport(ExpenseReportFilter filter);
 }
-public class ExpenseService(IHttpClientFactory client) : IExpenseService
+public class ExpenseService(IHttpClientFactory client, IJSRuntime _js) : IExpenseService
 {
+    public async Task ExpenseReport(ExpenseReportFilter filter)
+    {
+        try
+        {
+            var response = await client.CreateClient("AppUrl").PostAsJsonAsync("api/expenses/report", filter);
+            response.EnsureSuccessStatusCode();
+            var stream = await response.Content.ReadAsByteArrayAsync();
+            await _js.InvokeVoidAsync("exportFile", $"{DateTime.UtcNow.Ticks} ExpenseReport.pdf", Convert.ToBase64String(stream));
+        }
+        catch (System.Exception)
+        {
+            
+            throw;
+        }
+    }
     public async Task<bool> DeleteExpense(Guid id)
     {
         try

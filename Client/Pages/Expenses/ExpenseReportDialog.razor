@@ -1,0 +1,120 @@
+@using Client.Handlers
+@using Client.Services.Expenses
+@using Shared.Enums
+@using Shared.Models.Expenses
+@attribute [Authorize]
+@inject IExpenseService Service
+
+@implements IAsyncDisposable
+
+<EditForm Model="@Criteria" OnValidSubmit="Get">
+	<DataAnnotationsValidator/>
+	<MudDialog>
+		<TitleContent>
+			<MudText Typo="Typo.h6">Expense Report</MudText>
+		</TitleContent>
+		<DialogContent>
+            @if (AppState.IsBusy)
+            {
+                <MudProgressLinear Class="rounded-lg" Indeterminate Color="Color.Primary" Size="Size.Small"/>
+            }
+            else
+            {                
+                <MudAutocomplete T="ExpenseType" Label="Expenses" Value="EType"
+                        SearchFunc="SearchExpense" DebounceInterval="300" ValueChanged="ExpenseChanged"
+                        ShowProgressIndicator="true" Dense AnchorOrigin="Origin.BottomCenter"
+                        Variant="Variant.Outlined" Immediate="true" ResetValueOnEmptyText Margin="Margin.Dense"
+                        ToStringFunc="@(e => e == null ? null : $"{e.Expense.ToString()}")"/>
+
+                <div class="d-flex flex-row align-center justify-center">
+                    <MudRadioGroup T="string" Value="Criteria.type" ValueChanged="FilterChanged">
+                        <MudRadio Size="Size.Small" Value="@("Date")">Date</MudRadio>
+                        <MudRadio Size="Size.Small" Value="@("Range")">Range</MudRadio>
+                    </MudRadioGroup>
+                </div>
+                <MudDatePicker @bind-Date="Criteria!.from" PickerVariant="PickerVariant.Dialog"
+                               Label="@(Criteria!.type == "Date" ? "Date" : "Start Date")" DisableToolbar="true" />
+                @if (Criteria.type == "Range")
+                {
+                    <MudDatePicker @bind-Date="Criteria!.to" PickerVariant="PickerVariant.Dialog"
+                                   Label="End Date" DisableToolbar="true" />
+                }                
+            }                
+		</DialogContent>
+		<DialogActions>
+			<MudButton OnClick="Close">Close</MudButton>
+			<MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+					   Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Get Report")</MudButton>
+		</DialogActions>
+	</MudDialog>	
+</EditForm>
+
+@code {
+	[CascadingParameter]
+	public MudDialogInstance? DialogInstance { get; set; }
+    private ExpenseType[]? Expenses = [];
+    private ExpenseType? EType { get; set; } = null;
+    private ExpenseReportFilter? Criteria = new();
+    private DateTime? StartDate = DateTime.UtcNow;
+    private DateTime? EndDate = DateTime.UtcNow;
+    private bool IsAll = false;    
+    void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+    
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.IsBusy = true;
+        await Task.Delay(1000);
+        AppState.IsBusy = false;
+    }    
+
+    private async Task<IEnumerable<ExpenseType>?> SearchExpense(string expense)
+    {
+        if (!Expenses!.Any())
+            Expenses = await Service.GetExpenseTypes();
+
+        if (string.IsNullOrEmpty(expense))
+            return Expenses!;
+
+        return Expenses!.Where(x => x!.Expense!.Contains(expense, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ExpenseChanged(ExpenseType expense)
+    {
+        Criteria.id = expense.Id;
+        EType = expense;
+        StateHasChanged();
+    }
+
+    void FilterChanged(string option)
+    {
+        Criteria!.type = option;
+        StateHasChanged();
+    }    
+    private async Task Get()
+    {
+        AppState.IsProcessing = true;        
+        if (Criteria.type == "Date")
+        {            
+            Criteria.to = null;
+        }
+        else if (Criteria.type == "Range" && Criteria!.to is null)
+        {
+            SnackBar.Add("End Date is required", Severity.Error);
+            AppState.IsProcessing = false;
+            return;
+        }
+        
+        if (EType is null)
+            Criteria.id = null;
+        else
+            Criteria.id = EType.Id;
+
+        await Service.ExpenseReport(Criteria!);
+        AppState.IsProcessing = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+
+    }
+}

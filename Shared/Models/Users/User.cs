@@ -26,7 +26,7 @@ public class User
     public DateTime? ModifiedDate { get; set; }
     [ForeignKey(nameof(StoreId))]
     public virtual Store? Store { get; set; }    
-    public virtual UserCredential? UserCredential { get; set; }
+    public virtual UserCredential? UserCredential { get; set; } = null;
     public virtual List<Salary> Salaries { get; set; } = [];
     public virtual List<SalaryAdvance> SalaryAdvances { get; set; } = [];
     public virtual List<SalaryBonus> SalaryBonus { get; set; } = [];

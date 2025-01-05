@@ -14,6 +14,7 @@ using Shared.Helpers;
 using Shared.Models;
 using Shared.Models.Orders;
 using Shared.Models.Reports;
+using Server.Pages.Reports.Templates.Receipt;
 
 namespace Server.Controllers;
 
@@ -719,6 +720,37 @@ public class OrdersController : ControllerBase
         result += 1;
 
         return result;
+    }
+
+    [HttpPost("receipt")]
+    public async Task<IActionResult> GetReceipt(ReportData reportData)
+    {
+        var document = new ReceiptTemplate(reportData);
+        var bytes = await document.Create();
+        return File(bytes, "application/pdf");
+    }
+
+    [HttpGet("receipt/{id}")]
+    public async Task<IActionResult> GetReceipt(Guid id)
+    {
+        var reportData = await _context.Orders.AsNoTracking().AsSplitQuery()
+                                              .Include(x => x.ProductOrders)                                              
+                                              .Include(x => x.Customer)
+                                              .Include(x => x.Store)
+                                              .Include(x => x.Payments)
+                                              .Include(x => x.User)
+                                              .ThenInclude(x => x.UserCredential)
+                                              .Where(x => x.Id == id)
+                                              .Select(x => new ReportData
+                                              {
+                                                Branch = x.Store,
+                                                Customer = x.Customer,
+                                                Order = x,
+                                                Cashier = x.User.UserCredential.Username,
+                                              }).FirstOrDefaultAsync();
+        var document = new ReceiptTemplate(reportData);
+        var bytes = await document.Create();
+        return File(bytes, "application/pdf");
     }
     
     [HttpGet("validateorderid/{id}")]

@@ -28,6 +28,9 @@ var encoder;
 var lblPrinter;
 var lblEncoder;
 window.XPrinter = {
+    IsMobile: function () {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    },    
     Initialize: async function () {
        try {
             if (device == null) {

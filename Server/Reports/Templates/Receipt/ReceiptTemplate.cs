@@ -22,9 +22,9 @@ public class ReceiptTemplate(ReportData? model)
                     page.Size(9f, 14f, Unit.Centimetre);
                     page.Margin(5);
 
-                    page.Header().Component(new HeaderContent(Model!.ReportHeader!));                    
-                    page.Content().Section("Content").Component(new ReportContent(Model));                    
-                    page.Footer().Component(new FooterContent(Model!.ReportFooter!));
+                    page.Header().Component(new HeaderContent(Model!));                    
+                    page.Content().Section("Content").Component(new ReportContent(Model!));
+                    page.Footer().Component(new FooterContent(Model!.Order!.Id!));
 
                 });
             }).GeneratePdf();
@@ -41,9 +41,9 @@ public class ReceiptTemplate(ReportData? model)
                 page.Size(9f, 14f, Unit.Centimetre);
                 page.Margin(5);
 
-                page.Header().Component(new HeaderContent(Model!.ReportHeader!));                    
-                page.Content().Section("Content").Component(new ReportContent(Model));                    
-                page.Footer().Component(new FooterContent(Model!.ReportFooter!));
+                page.Header().Component(new HeaderContent(Model!));                    
+                page.Content().Section("Content").Component(new ReportContent(Model!));
+                page.Footer().Component(new FooterContent(Model!.Order!.Id));
 
             });
         }).GenerateImages();
