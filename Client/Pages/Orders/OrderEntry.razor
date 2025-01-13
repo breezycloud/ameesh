@@ -729,6 +729,7 @@ else
 
         Order? order = null;
         var IsMultiStore = MultiStore();
+        
         try
         {            
             var currentDateTime = DateTime.UtcNow;  
@@ -782,10 +783,11 @@ else
     private Guid MultiStore()
     {
         var StoreValues = Rows!.GroupBy(x => x.Product!.StoreId).Count();
-        return StoreValues > 1 ? 
+        var StoreId = StoreValues > 1 ? 
             branches!.OrderByDescending(x => x.CreatedDate)!.LastOrDefault()!.Id :
             Rows!.Select(x => x.Product!.StoreId).FirstOrDefault();
 
+        return StoreId == Guid.Empty ? MainStore : StoreId;
     }
 
     async void ClearOrderItem()
