@@ -41,7 +41,6 @@ public class SeedData
         }
     }
 
-
     public async static void ImportData(IServiceProvider service)
     {        
         var factory = service.GetRequiredService<IServiceScopeFactory>();

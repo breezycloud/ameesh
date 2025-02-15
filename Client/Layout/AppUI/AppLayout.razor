@@ -55,8 +55,14 @@
                     <MudNavLink Href="/dashboard">Dashboard</MudNavLink>
                     <MudNavLink Href="/customers">Customers</MudNavLink>
                     <MudNavLink Href="/orders">Billings</MudNavLink>
-                    <MudNavLink OnClick="@(() => Dialog.Show<SalesReport>(""))">Sales Report</MudNavLink>
-                    <MudNavLink OnClick="@(() => Dialog.Show<StockReport>(""))">Stock Report</MudNavLink>                    
+                    <MudNavGroup Title="Expenses" ExpandIcon="@Icons.Material.Filled.ExpandMore">
+                        <MudNavLink Href="/expensetypes">Expense Type</MudNavLink>
+                        <MudNavLink Href="/expenses">Expenses</MudNavLink>
+                    </MudNavGroup>
+                    <MudNavGroup Title="Reports" ExpandIcon="@Icons.Material.Filled.ExpandMore">
+                        <MudNavLink OnClick="@(() => Dialog.Show<SalesReport>(""))">Sales</MudNavLink>
+                        <MudNavLink OnClick="@(() => Dialog.Show<StockReport>(""))">Stock</MudNavLink>
+                    </MudNavGroup>                    
                 </AuthorizeView>
                 <AuthorizeView Roles="Cashier">
                     <MudNavLink Href="/orders">Billings</MudNavLink>
