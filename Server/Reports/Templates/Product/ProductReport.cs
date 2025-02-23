@@ -69,6 +69,18 @@ public class ProductReport(ProductReportTemplate? template) : IDocument
                 row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumTotalCostPrice:N2}").FontSize(10);
                 row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumProjection:N2}").FontSize(10);
             });
+            column.Item().AlignRight().Row(row =>
+            {
+                row.RelativeItem().Element(Style).Text("").FontSize(14);
+                row.RelativeItem().Element(Style).Text("").FontSize(14);
+                row.RelativeItem().Element(Style).Text("").FontSize(14);
+                row.RelativeItem().Element(Style).Text("").FontSize(14);
+                row.RelativeItem().Element(Style).Text("").FontSize(14);
+                row.RelativeItem().Element(Style).Text("").FontSize(14);
+                row.RelativeItem().Element(Style).Text("").FontSize(14);
+                row.RelativeItem().Element(Style).Text("Expected Profit").FontSize(13).FontColor(Colors.Green.Lighten2);
+                row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumProjection - template!.SumTotalCostPrice:N2}").FontSize(13).FontColor(Colors.Green.Lighten2);
+            });
 
             static IContainer Style(IContainer container)
             {
