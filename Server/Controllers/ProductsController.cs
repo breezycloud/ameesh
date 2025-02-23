@@ -259,7 +259,7 @@ public class ProductsController : ControllerBase
             }
             else
             {
-                product!.Stocks.Where(x => x.id == restocking.StoreID)!.First()!.Quantity += restocking!.NewQty!.Value;
+                product!.Stocks.Where(x => x.id == restocking.StockID)!.First()!.Quantity += restocking!.NewQty!.Value;
             }
             _context.Entry(product).State = EntityState.Modified;
             await _context.SaveChangesAsync();
@@ -446,24 +446,37 @@ public class ProductsController : ControllerBase
 
         for (var i = 0; i <= Math.Ceiling(totalCount / Convert.ToDecimal(DefaultPageSize)); i++)
         {
-            yield return await _context.Products.Include(item => item.Item)
+            var data = await _context.Products.Include(item => item.Item)
                                 .ThenInclude(b => b.Brand)
                                 .Include(item => item.Item)
                                 .ThenInclude(category => category!.Category)
                                 .OrderBy(x => x.Item!.ProductName)
-                                //.OrderByDescending(d => d.CreatedDate)
                                 .Skip((i) * DefaultPageSize)
                                 .Take(DefaultPageSize)
-                                .Select(x => new ProductItems
-                                {
-                                    BrandName = x.Item!.Brand!.BrandName,
-                                    CategoryName = x.Item!.Category!.CategoryName,
-                                    ProductName = x.Item!.ProductName,
-                                    //CostPrice = x.Stocks.FirstOrDefault()!.BuyPrice.GetValueOrDefault(),
-                                    SellPrice = x.SellPrice.GetValueOrDefault(),
-                                    DispensaryQuantity = x.DispensaryQuantity,
-                                    StoreQuantity = x.StoreQuantity,
-                                }).ToListAsync();
+                                .ToListAsync();
+
+            foreach (var product in data)
+            {
+                if (product.Total <= 0)                
+                    continue;
+
+                foreach (var stock in product.Stocks)
+                {
+                    yield return new List<ProductItems>()
+                    {
+                        new ProductItems
+                        {
+                            BrandName = product.Item!.Brand!.BrandName,
+                            CategoryName = product.Item!.Category!.CategoryName,
+                            ProductName = product.Item!.ProductName,
+                            CostPrice = stock.BuyPrice.GetValueOrDefault(),
+                            SellPrice = product.SellPrice.GetValueOrDefault(),
+                            DispensaryQuantity = product.DispensaryQuantity,
+                            StoreQuantity = stock.Quantity.GetValueOrDefault(),
+                        }
+                    };
+                }
+            }
         }        
     }
 

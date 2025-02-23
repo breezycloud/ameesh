@@ -39,7 +39,7 @@ public class ProductReport(ProductReportTemplate? template) : IDocument
         {
             row.RelativeItem().Column(column =>
             {
-                column.Item().Text($"").Style(titleStyle);
+                column.Item().Text(template?.StoreName).Style(titleStyle);
 
                 column.Item().Text(text =>
                 {
@@ -64,8 +64,9 @@ public class ProductReport(ProductReportTemplate? template) : IDocument
                 row.RelativeItem().Element(Style).Text("").FontSize(14);
                 row.RelativeItem().Element(Style).Text($"{template!.SumDispensaryQty:N0}").FontSize(10);
                 row.RelativeItem().Element(Style).Text($"{template!.SumStoreQty:N0}").FontSize(10);
-                row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumCostPrice:N2}").FontSize(10);
+                row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumCostPrice:N2}").FontSize(10);                
                 row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumSellPrice:N2}").FontSize(10);
+                row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumTotalCostPrice:N2}").FontSize(10);
                 row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumProjection:N2}").FontSize(10);
             });
 
@@ -87,10 +88,11 @@ public class ProductReport(ProductReportTemplate? template) : IDocument
                 columns.RelativeColumn(1.2f);
                 columns.RelativeColumn(1.2f);
                 columns.RelativeColumn(1.2f);
-                columns.RelativeColumn();                
-                columns.RelativeColumn();                
                 columns.RelativeColumn();
-                columns.RelativeColumn();                
+                columns.RelativeColumn();
+                columns.RelativeColumn();
+                columns.RelativeColumn();
+                columns.RelativeColumn();
             });
 
             // step 2
@@ -101,9 +103,10 @@ public class ProductReport(ProductReportTemplate? template) : IDocument
                 header.Cell().Element(CellStyle).Text("Product Name");
                 header.Cell().Element(CellStyle).Text("Dispensary");
                 header.Cell().Element(CellStyle).Text("Store");               
-                header.Cell().Element(CellStyle).AlignRight().Text("Cost Price");
+                header.Cell().Element(CellStyle).AlignRight().Text("Cost Price");                
                 header.Cell().Element(CellStyle).AlignRight().Text("Sell Price");
-                header.Cell().Element(CellStyle).AlignRight().Text("Projection");
+                header.Cell().Element(CellStyle).AlignRight().Text("Total Cost Price");
+                header.Cell().Element(CellStyle).AlignRight().Text("Total Sell Price");
 
                 static IContainer CellStyle(IContainer container)
                 {
@@ -112,7 +115,8 @@ public class ProductReport(ProductReportTemplate? template) : IDocument
             });
 
             // step 3
-            foreach (var item in template!.Items)
+            var data = template!.Items.AsParallel().Where(x => x.Projection > 0).ToList();
+            foreach (var item in data)
             {
                 table.Cell().Element(CellStyle).Text(text =>
                 {
@@ -122,8 +126,9 @@ public class ProductReport(ProductReportTemplate? template) : IDocument
                 table.Cell().Element(CellStyle).Text(item.ProductName).FontSize(9);
                 table.Cell().Element(CellStyle).Text(item.DispensaryQuantity.ToString()).FontSize(9);
                 table.Cell().Element(CellStyle).Text(item.StoreQuantity.ToString()).FontSize(9);
-                table.Cell().Element(CellStyle).AlignRight().Text($"{item.CostPrice:N2}").FontSize(9);
+                table.Cell().Element(CellStyle).AlignRight().Text($"{item.CostPrice:N2}").FontSize(9);                
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.SellPrice:N2}").FontSize(9);
+                table.Cell().Element(CellStyle).AlignRight().Text($"{item.TotalCostPrice:N2}").FontSize(9);
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.Projection:N2}").FontSize(9);
 
                 static IContainer CellStyle(IContainer container)

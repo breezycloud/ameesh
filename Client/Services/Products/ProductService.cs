@@ -460,7 +460,6 @@ public class ProductService : IProductService
         }
         catch (Exception)
         {
-
             throw;
         }
     }

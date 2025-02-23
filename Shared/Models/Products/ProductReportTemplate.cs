@@ -14,6 +14,7 @@ public class ProductReportTemplate
     public decimal SumStoreQty => Items.Sum(x => x.StoreQuantity);
     public decimal SumCostPrice => Items.Sum(x => x.CostPrice);
     public decimal SumSellPrice => Items.Sum(x => x.SellPrice);
+    public decimal SumTotalCostPrice => Items.Sum(x => x.TotalCostPrice);
     public decimal SumProjection => Items.Sum(x => x.Projection);
 }
 
@@ -26,5 +27,6 @@ public class ProductItems
     public decimal SellPrice { get; set; }
     public decimal DispensaryQuantity { get; set; }
     public decimal StoreQuantity { get; set; }
+    public decimal TotalCostPrice => (DispensaryQuantity + StoreQuantity) * CostPrice;
     public decimal Projection => (DispensaryQuantity + StoreQuantity) * SellPrice;
 }
