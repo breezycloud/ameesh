@@ -625,6 +625,48 @@ public class ProductsController : ControllerBase
         return Ok();
 	}
 
+    [HttpPost("stocks")]
+	public async Task<ActionResult<Stock>> PostStock([FromQuery] string option, Guid id, List<StockDto> stocks)
+	{
+		if (_context.Products == null)
+		{
+			return Problem("Entity set 'AppDbContext.Products'  is null.");
+		}
+		var product = await _context.Products.FindAsync(id);
+        if (product is null)
+            return BadRequest();
+
+        foreach (var stock in stocks)
+        {
+            if (stock.Option == "Store")
+            {
+                product!.Stocks.Add(new Stock
+                {
+                    id = stock!.id,
+                    Date = stock!.Date,
+                    Quantity = 0,
+                    BuyPrice = stock!.BuyPrice,
+                    ExpiryDate = stock!.ExpiryDate
+                });
+            }
+            if (stock.Option == "Dispensary")
+            {
+                product!.Dispensary.Add(new Stock
+                {
+                    id = stock!.id,
+                    Date = stock!.Date,
+                    Quantity = stock!.Quantity,
+                    BuyPrice = stock!.BuyPrice,
+                    ExpiryDate = stock!.ExpiryDate
+                });
+            }
+        }        
+        _context.Entry(product).State = EntityState.Modified;
+		await _context.SaveChangesAsync();
+
+        return Ok();
+	}
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {

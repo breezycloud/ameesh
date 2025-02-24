@@ -10,7 +10,7 @@
             <MudText Typo="Typo.h6">Stock @(Option)</MudText>
         </TitleContent>
         <DialogContent>
-            <MudGrid Spacing="2">
+            <MudGrid Spacing="1">
                 <MudItem xs="12">
                     <MudTextField @bind-Value="ProductName" Label="Product" Variant="Variant.Outlined" ReadOnly  />
                 </MudItem>
@@ -24,6 +24,12 @@
                                 <MudSelectItem T="Stock" Value="@e">@($"Qty left {e.Quantity}")</MudSelectItem>
                             }
                         </MudSelect>
+                    </MudItem>
+                }
+                else
+                {
+                    <MudItem xs="12">
+                        <MudCheckBox Size="Size.Small" @bind-Value="AddToStore" UnCheckedColor="Color.Dark" Color="Color.Primary">Move to Shop</MudCheckBox>
                     </MudItem>
                 }
                 <MudItem xs="12" sm="6">
@@ -76,6 +82,7 @@
     [Parameter]
     public List<Stock>? Stocks { get; set; } = new();
 
+    private bool AddToStore { get; set; } = true;
     private bool IsReadOnly = false;
     private decimal? NewQty;
     private DateTime? _ExpDate;
@@ -102,7 +109,7 @@
 
     void Close() => DialogInstance?.Close(DialogResult.Ok(true));
 
-
+    
     private async Task Save()
     {
         AppState.IsProcessing = true;
@@ -134,8 +141,18 @@
                 result = await ItemService.AddStock(ProductId, "Dispensary", stock);
             }   
             else
-            {
-                result = await ItemService.AddStock(ProductId, "Store", Stock);
+            {                
+                if (AddToStore)
+                {
+                    var stock1 = new StockDto(Stock.id, Stock.Date, Stock.Quantity, Stock.BuyPrice, Stock.ExpiryDate, "Dispensary");
+                    var stock2 = stock1 with { Quantity = 0, Option = "Store" };
+                    var stocks = new List<StockDto> { stock1, stock2 };
+                    result = await ItemService.AddStock(ProductId, "Store", stocks);
+                }
+                else
+                {
+                    result = await ItemService.AddStock(ProductId, "Store", Stock);
+                }
             }
             if (!result)
             {

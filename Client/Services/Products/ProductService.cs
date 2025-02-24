@@ -54,6 +54,7 @@ public interface IProductService
     Task<List<string>?> GetItemsName(CancellationToken token);
     Task<bool> AddStock(RestockingModel restocking);
     Task<bool> AddStock(Guid id, string Option, Stock stock);
+    Task<bool> AddStock(Guid id, string Option, List<StockDto> stocks);
     Task<bool> EditStock(Guid id, Stock stock);
     Task<GridDataResponse<ExpiryProductData>?> GetExpiryProducts(Guid StoreID, PaginationParameter parameter);
     public Task<int> GetTotalExpiryProducts(Guid id);
@@ -469,6 +470,19 @@ public class ProductService : IProductService
         try
         {
             var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/products/stock?option={Option}&id={id}", stock);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+    public async Task<bool> AddStock(Guid id, string Option, List<StockDto> stocks)
+    {
+        try
+        {
+            var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/products/stocks?option={Option}&id={id}", stocks);
             return response.IsSuccessStatusCode;
         }
         catch (Exception)

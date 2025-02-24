@@ -22,3 +22,5 @@ public class Stock
     public DateTime? ExpiryDate { get; set; }
 }
 
+public record StockDto(Guid id, DateTime Date, decimal? Quantity, decimal? BuyPrice, DateTime? ExpiryDate, string? Option);
+
