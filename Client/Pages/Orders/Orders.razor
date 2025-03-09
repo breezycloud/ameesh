@@ -5,17 +5,27 @@
 @inject IJSRuntime js
 @implements IAsyncDisposable
 
-<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexEnd">
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Wrap="Wrap.Wrap">
+    <MudChipSet SelectedChipChanged="PaymentStatusChanged">
+        <MudChip Text="Unpaid" Size="Size.Small" Color="Color.Error">Unpaid</MudChip>
+        <MudChip Text="Awaiting" Size="Size.Small" Color="Color.Warning">Awaiting</MudChip>
+        <MudChip Text="Paid" Size="Size.Small" Color="Color.Success">Paid</MudChip>
+    </MudChipSet>
     <MudCheckBox T="bool" Value="AppState.HasThirdItem" ValueChanged="ThirdItemChanged"  Size="Size.Small">
         Has Third Party Items ?
     </MudCheckBox>
-   @if (!string.IsNullOrEmpty(AppState._searchString) || AppState.HasThirdItem)
+   @if (!string.IsNullOrEmpty(AppState._searchString) || AppState.HasThirdItem || !string.IsNullOrEmpty(PaymentStatus))
    {
         <MudTooltip Duration="1000" Text="Clear filter" Placement="Placement.Top">
             <MudIconButton OnClick="ClearFilters" Color="Color.Error" Icon="@Icons.Material.Filled.Clear" Size="Size.Small">
             </MudIconButton>
         </MudTooltip>
    }
+   <MudTooltip Duration="1000" Text="Thirdparty Sales report" Placement="Placement.Top">
+        <MudButton OnClick="Export" Color="Color.Info" StartIcon="@Icons.Material.Filled.Print" Size="Size.Small">
+            Export ThirdParty
+        </MudButton>
+    </MudTooltip>
 </MudStack>
 <MudDataGrid T="OrderWithData"
              @ref="_gridComponent"             
@@ -24,7 +34,7 @@
              @bind-SelectedDataItem="data"
              Dense             
              Outlined>
-    <ToolBarContent>
+    <ToolBarContent>        
         <MudSpacer />
         <MudTextField T="string" Value="AppState._searchString" ValueChanged="@(s => OnSearch(s))" Placeholder="Search by receipt no, customer name, delivery state" Immediate="false"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
@@ -113,6 +123,7 @@
     private string searchString = "";
     private string? timer = "";
     private HubConnection? hub;
+    private string? PaymentStatus = "";
     
     protected override async Task OnInitializedAsync()
     {
@@ -127,6 +138,13 @@
     public async void StoreChanged()
     {
         await _gridComponent!.ReloadServerData();
+    }
+
+    private async void PaymentStatusChanged(MudChip chip)
+    {
+        PaymentStatus = chip.Text;
+        await _gridComponent!.ReloadServerData();
+        StateHasChanged();
     }
 
     private async Task Dispatch(Guid id)
@@ -201,7 +219,7 @@
         var response = await OrderService.GetOrderByStore(AppState.SelectedOption!, parameter);
         return new GridData<OrderWithData>()
         {
-            Items = response!.Data!.OrderByDescending(x => x.ModifiedDate)!,
+            Items = string.IsNullOrEmpty(PaymentStatus) ? response!.Data!.OrderByDescending(x => x.ModifiedDate)! : response!.Data!.Where(x => x.PaymentStatus == PaymentStatus).OrderByDescending(x => x.ModifiedDate)!,
             TotalItems = response.TotalCount
         };
     }
@@ -237,6 +255,7 @@
     async Task ClearFilters()
     {
         AppState._searchString = string.Empty;
+        PaymentStatus = string.Empty;
         AppState.HasThirdItem = false;
         await ReloadServerData();
     }
@@ -326,6 +345,15 @@
         AppState.HasThirdItem = value;
         await _gridComponent!.ReloadServerData();
         StateHasChanged();
+    }
+
+    public async Task Export()
+    {
+        var parameter = new DialogParameters
+        {
+            ["StoreID"] = AppState.StoreID
+        };
+        await Dialog.ShowAsync<ExportDialog>("Thirdparty Sale Report", parameter);   
     }
     
     public async ValueTask DisposeAsync()

@@ -21,5 +21,13 @@ public class ReportFilter
     public Guid UserID { get; set; }
     public DateTime? StartDate { get; set; }   
     public DateTime? EndDate { get; set; }
+}
 
+public class ExportFilter 
+{
+    [Required]
+    public string? Criteria { get; set; } = "Range";    
+    public Guid StoreID { get; set; }
+    public DateTime? StartDate { get; set; }   
+    public DateTime? EndDate { get; set; }    
 }

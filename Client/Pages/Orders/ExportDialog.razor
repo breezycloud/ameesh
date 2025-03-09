@@ -1,0 +1,91 @@
+@using Shared.Enums
+@inject IOrderService OrderService
+
+<EditForm Model="reportFilter" OnValidSubmit="GetReport">
+    <DataAnnotationsValidator/>
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">Export Report</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudStack Spacing="5" AlignItems="AlignItems.Center" Justify="Justify.Center" Wrap="Wrap.Wrap">                
+                @* <MudRadioGroup T="string" Value="reportFilter!.Criteria" ValueChanged="FilterChanged">
+                    <MudRadio Size="Size.Small" Value="@("Date")">Date</MudRadio>
+                    <MudRadio Size="Size.Small" Value="@("Range")">Range</MudRadio>
+                </MudRadioGroup> *@
+                <MudDatePicker @bind-Date="StartDate" PickerVariant="PickerVariant.Dialog"
+                               Label="@(reportFilter!.Criteria == "Date" ? "Date" : "Start Date")" DisableToolbar="true" />
+                @if (reportFilter!.Criteria == "Range")
+                {
+                    <MudDatePicker @bind-Date="EndDate" PickerVariant="PickerVariant.Dialog"
+                                   Label="End Date" DisableToolbar="true" />
+                }                
+            </MudStack>        
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Close">Close</MudButton>
+            <MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                       Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Process")</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+@code {
+    [CascadingParameter]
+    public MudDialogInstance? DialogInstance { get; set; }
+    ExportFilter? reportFilter = new();
+    private string Criteria = "Date";
+
+    [Parameter]
+    public Guid StoreID { get; set; }
+
+    private DateTime? StartDate = DateTime.UtcNow;
+    private DateTime? EndDate = DateTime.UtcNow;
+    private DateRange _dateRange = new DateRange(DateTime.UtcNow.Date, DateTime.UtcNow.AddDays(7).Date);            
+
+    void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+    void FilterChanged(string option)
+    {
+        reportFilter!.Criteria = option;
+        StateHasChanged();
+    }    
+
+    private async Task GetReport()
+    {
+        AppState.IsProcessing = true;                
+        reportFilter!.StoreID = StoreID;
+        if (reportFilter!.Criteria == "Date")
+        {
+            if (StartDate is null)
+            {
+                SnackBar.Add("Select date to proceed", Severity.Warning);
+                AppState.IsProcessing = false;
+                return;
+            }
+            reportFilter!.StartDate = StartDate;
+        }
+        else
+        {
+            if (StartDate is null || EndDate is null)
+            {
+                SnackBar.Add("Select start or end date to proceed", Severity.Warning);
+                AppState.IsProcessing = false;
+                return;
+            }            
+            reportFilter!.StartDate = StartDate;
+            reportFilter!.EndDate = EndDate;
+        }
+        try
+        {
+            await OrderService.ExportThirdParty(reportFilter!, AppState.GetCancellationToken());            
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        finally
+        {
+            AppState.IsProcessing = false;
+        }
+    }
+}

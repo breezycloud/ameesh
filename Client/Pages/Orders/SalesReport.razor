@@ -13,14 +13,10 @@
             <MudStack Spacing="5" AlignItems="AlignItems.Center" Justify="Justify.Center" Wrap="Wrap.Wrap">
                 <AuthorizeView Roles="Admin, Master, Manager" Context="auth">
                     <Authorized>
-                        @* <MudToggleGroup T="string" Style="width: 300px;" @bind-Value="reportFilter!.Type" Outline Delimiters Dense Rounded CheckMark FixedContent>
-                            <MudToggleItem Value="@("Store")" />
-                            <MudToggleItem Value="@("Lab")" />                
-                        </MudToggleGroup> *@
                         <MudAutocomplete AnchorOrigin="Origin.BottomCenter" Dense="true" Label="Branch" T="Store"
                                  @bind-Value="Store" SearchFunc="@Search" ShowProgressIndicator="true"
                                  Variant="Variant.Outlined" Immediate="true" ResetValueOnEmptyText Margin="Margin.Dense"
-                                 ToStringFunc="@(e => e == null ? null : $"{e.BranchName}")" />
+                                 ToStringFunc="@(e => e == null ? null : $"{e.BranchName}")" />                        
                         <MudRadioGroup @bind-Value="reportFilter!.Option">
                             <MudRadio Value="@("All")" Color="Color.Primary">All</MudRadio>
                             <MudRadio Value="@("User")" Color="Color.Secondary">Per User</MudRadio>                    

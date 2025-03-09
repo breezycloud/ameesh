@@ -254,6 +254,7 @@ public class OrdersController : ControllerBase
         return Ok();
     }
 
+
     [HttpPost("complete")]
     public async Task<ActionResult> CompleteOrder(Order x)
     {
@@ -291,6 +292,41 @@ public class OrdersController : ControllerBase
         return Ok();
     }
 
+    [HttpPost("export")]
+    public async Task<IActionResult> CompleteOrder(ExportFilter f)
+    {
+        try
+        {                        
+            var store = await _context.Stores.AsNoTracking().FirstOrDefaultAsync(x => x.Id == f.StoreID);
+            var templateData = new ThirdpartySalesReportTemplate
+            {
+                StoreName = store!.BranchName,
+                BranchAddress = store.BranchAddress,
+                Criteria = f.Criteria,
+                StartDate = f.StartDate!.Value.ToString("dd/MM/yyyy"),
+                EndDate = f.EndDate!.Value.ToString("dd/MM/yyyy"),
+                SalesReport = _context.Orders.AsNoTracking().Include(x => x.Customer).AsParallel()
+                .Where(g => g.CreatedDate.Date >= f.StartDate!.Value.Date && g.CreatedDate.Date <= f.EndDate!.Value.Date && g.ThirdPartyItems.Any() && g.StoreId == store.Id)
+                .AsEnumerable()
+                .Select(item => new ThirdpartySalesReport
+                {
+                    ReceiptNo = item.ReceiptNo,
+                    Customer = item.Customer!.CustomerName,
+                    SaleItems = item.ThirdPartyItems.Where(x => x.Quantity > 0).ToList()
+                }).ToList()
+            };
+            // return Ok(templateData);
+            var doc = new SalesWithThirdParty(templateData);
+            var content = doc.GeneratePdf();
+            return File(content, "application/pdf", "Thirdparty.pdf");
+        }
+        catch (System.Exception ex)
+        {
+            return BadRequest(ex);
+        }        
+        return Ok();
+    }
+
 	[HttpPost("paged")]
 	public async Task<ActionResult<GridDataResponse<OrderWithData>?>> PagedOrders(PaginationParameter parameter, CancellationToken cancellationToken)
 	{
@@ -310,7 +346,7 @@ public class OrdersController : ControllerBase
                                             .AsEnumerable()
                                             .AsParallel()
                                             .Where(x => x.StoreId == parameter.FilterId
-                                            && x.Customer!.CustomerName!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) || 
+                                            && x.Customer!.CustomerName!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) ||                                             
                                             x.ReceiptNo!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) ||
                                             (parameter.HasThirdItems && x.ThirdPartyItems.Any()) ||
                                             ((x.Address is not null && !string.IsNullOrEmpty(x.Address!.State)) && x.Address!.State!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase)))
@@ -322,12 +358,7 @@ public class OrdersController : ControllerBase
                                                 Id = x.Id,
                                                 Date = x.OrderDate,
                                                 StoreName = x.Store!.BranchName,
-                                                CustomerName = x.Customer!.CustomerName,
-                                                IsHasDiscount = x.Customer!.HasDiscount,
-                                                OrderType = "Store",
-                                                ReceiptNo = x.ReceiptNo,
-                                                TotalAmount = x.TotalAmount,
-                                                PaymentStatus = x.GetPaymentStatus().ToString(),
+                                                CustomerName = x.Customer!.CustomerName, 
                                                 DeliveryStatus = x.GetDeliveryStatus(),
                                                 HasDelievery = x.HasDelievery,
                                                 Dispatched = x.Dispatched,
@@ -361,7 +392,7 @@ public class OrdersController : ControllerBase
                                             .ThenInclude(x => x.Cashier)
                                             .AsEnumerable()
                                             .AsParallel()
-                                            .Where(x =>  (parameter.HasThirdItems ? (x.StoreId == parameter.FilterId && x.ThirdPartyItems.Any()) : x.StoreId == parameter.FilterId))
+                                            .Where(x => (parameter.HasThirdItems ? (x.StoreId == parameter.FilterId && x.ThirdPartyItems.Any()) : x.StoreId == parameter.FilterId))
                                             .OrderByDescending(x => x.ModifiedDate)
                                             .Skip(parameter.Page)
                                             .Take(parameter.PageSize)

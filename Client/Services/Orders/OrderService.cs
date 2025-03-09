@@ -46,6 +46,7 @@ public interface IOrderService
     Task CancelOrder(Guid id);
     Task<bool> GetPaymentStatus(Guid id);
     Task<bool> Delete(Guid id);
+    Task ExportThirdParty(ExportFilter filter, CancellationToken token);
 }
 public class OrderService : IOrderService
 {
@@ -181,6 +182,21 @@ public class OrderService : IOrderService
 
             throw;
         }
+    }
+
+    public async Task ExportThirdParty(ExportFilter filter, CancellationToken token)
+    {
+        try
+        {
+            var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/orders/export", filter, token);
+            var content = await response.Content.ReadAsByteArrayAsync();
+            await _js.InvokeAsync<object>("exportFile", $"Thirdparty Order {filter.StartDate!.Value.ToShortDateString()}-{filter.EndDate!.Value.ToShortDateString()}.pdf", Convert.ToBase64String(content));
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }        
     }
 
     public async Task<bool> UpdateOrderItems(List<ProductOrderItem> items)
