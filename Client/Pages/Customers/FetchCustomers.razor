@@ -31,6 +31,13 @@
 }
 else
 {
+	<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Wrap="Wrap.Wrap">		
+		<MudTooltip Duration="1000" Text="Thirdparty Sales report" Placement="Placement.Top">
+			<MudButton OnClick="Export" Color="Color.Info" StartIcon="@Icons.Material.Filled.Print" Size="Size.Small">
+				Print Customers
+			</MudButton>
+		</MudTooltip>
+	</MudStack>
 	<MudDataGrid @ref="_gridComponent"
 				 T="CustomerData"
 				 ServerData="GetGridData"
@@ -107,6 +114,11 @@ else
 			AppState.IsBusy = false;
 		}
 	}
+
+	public async Task Export()
+    {
+        await Dialog.ShowAsync<PrintCustomers>("");
+    }
 
 	private async Task<GridData<CustomerData>> GetGridData(GridState<CustomerData> request)
 	{

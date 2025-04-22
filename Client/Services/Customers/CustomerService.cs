@@ -4,6 +4,7 @@ using Shared.Models.Locations;
 using System.Net.Http.Json;
 using System.Reflection;
 using Blazored.LocalStorage;
+using Microsoft.JSInterop;
 
 namespace Client.Services.Customers;
 
@@ -18,8 +19,9 @@ public interface ICustomerService
     Task<GridDataResponse<Customer>> GetPagedCustomers(PaginationParameter parameter);
     Task<GridDataResponse<CustomerData>> GetPagedCustomerData(PaginationParameter parameter);
     Task<StateLgaWard[]?> GetLocations();
+    Task PrintCustomers(CustomerFilter filter);
 }
-public class CustomerService(IHttpClientFactory _client, ILocalStorageService localStorage) : ICustomerService
+public class CustomerService(IHttpClientFactory _client, ILocalStorageService localStorage, IJSRuntime _js) : ICustomerService
 {
 
     public async Task<bool> AddCustomer(Customer model)
@@ -163,6 +165,25 @@ public class CustomerService(IHttpClientFactory _client, ILocalStorageService lo
         {
             
             throw;
+        }
+    }
+
+    public async Task PrintCustomers(CustomerFilter filter)
+    {
+        try
+        {
+            var request = _client.CreateClient("AppUrl").PostAsJsonAsync("api/customers/print", filter);
+            var response = await request;
+            if (response.IsSuccessStatusCode)
+            {
+                var fileName = response.Content.Headers.ContentDisposition?.FileName;
+                var content = await response.Content.ReadAsByteArrayAsync();
+                await _js.InvokeAsync<object>("exportFile", $"{fileName}.pdf", Convert.ToBase64String(content));
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error: " + ex.Message);
         }
     }
 }

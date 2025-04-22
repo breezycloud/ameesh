@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
 using Server.Context;
+using Server.Pages.Reports.Templates.Customers;
 using Shared.Helpers;
 using Shared.Models.Customers;
 using Shared.Models.Products;
@@ -20,6 +22,34 @@ public class CustomersController : ControllerBase
 	{
 		_context = context;
 		_logger = logger;
+	}
+
+	[HttpPost("print")]
+	public async Task<IActionResult> PrintCustomers(CustomerFilter filter)
+	{
+		if (filter == null)
+		{
+			return BadRequest("Filter is required!");
+		}
+
+		IQueryable<Customer> query = _context.Customers.AsNoTracking();
+
+		switch (filter.Type)
+		{
+			case "WithAddress":
+				query = query.Where(c => !string.IsNullOrEmpty(c.ContactAddress));
+				break;
+			case "WithoutAddress":
+				query = query.Where(c => string.IsNullOrEmpty(c.ContactAddress));
+				break;
+			default:
+				break;
+		}
+
+		var customers = await query.ToListAsync();
+		var doc = new CustomerReport(customers, filter.FilterType);
+		var content = doc.GeneratePdf();
+		return File(content, "application/pdf", $"Customer Report {DateTime.Now:yyyyMMddHHmmss}.pdf");
 	}
 
 	[HttpPost("paged")]

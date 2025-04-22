@@ -1,0 +1,35 @@
+@inject ICustomerService CustomerService
+
+<EditForm Model="Filter" OnValidSubmit="Print">   
+    <DataAnnotationsValidator /> 
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">Print Customers</MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudRadioGroup T="CustomerFilterType" @bind-Value="Filter.FilterType">  
+                <MudRadio Value="CustomerFilterType.All">All Customers</MudRadio>
+                <MudRadio Value="CustomerFilterType.WithAddress">Customers with Address</MudRadio>
+                <MudRadio Value="CustomerFilterType.WithoutAddress">Customers without Address</MudRadio>
+            </MudRadioGroup>            
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Close</MudButton>
+            <MudButton Disabled="AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                       Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Download")</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+ @code {
+    [CascadingParameter] public MudDialogInstance? DialogInstance { get; set; }
+    private CustomerFilter Filter { get; set; } = new CustomerFilter();
+    void Cancel() => DialogInstance!.Close(DialogResult.Ok(true));
+
+    async Task Print()
+    {
+        AppState.IsProcessing = true;
+        await CustomerService.PrintCustomers(Filter);
+        AppState.IsProcessing = false;
+    }
+}

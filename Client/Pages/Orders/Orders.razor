@@ -142,9 +142,28 @@
 
     private async void PaymentStatusChanged(MudChip chip)
     {
-        PaymentStatus = chip.Text;
-        await _gridComponent!.ReloadServerData();
-        StateHasChanged();
+        try
+        {
+            if (chip != null)
+            {
+                PaymentStatus = chip.Text;
+                await localStorage.SetItemAsync("PaymentStatus", PaymentStatus);
+            }
+            else
+            {
+                PaymentStatus = string.Empty;
+                await localStorage.RemoveItemAsync("PaymentStatus");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        finally
+        {
+            await _gridComponent!.ReloadServerData();
+        }
+        StateHasChanged();        
     }
 
     private async Task Dispatch(Guid id)
@@ -217,6 +236,10 @@
         if (!string.IsNullOrEmpty(AppState._searchString))
             parameter.SearchTerm = AppState._searchString;
         var response = await OrderService.GetOrderByStore(AppState.SelectedOption!, parameter);
+        var PayStatus = await localStorage.GetItemAsync<string>("PaymentStatus");
+        if (!string.IsNullOrEmpty(PayStatus))
+            PaymentStatus = PayStatus;
+        
         return new GridData<OrderWithData>()
         {
             Items = string.IsNullOrEmpty(PaymentStatus) ? response!.Data!.OrderByDescending(x => x.ModifiedDate)! : response!.Data!.Where(x => x.PaymentStatus == PaymentStatus).OrderByDescending(x => x.ModifiedDate)!,
@@ -255,7 +278,7 @@
     async Task ClearFilters()
     {
         AppState._searchString = string.Empty;
-        PaymentStatus = string.Empty;
+        PaymentStatus = string.Empty;        
         AppState.HasThirdItem = false;
         await ReloadServerData();
     }
