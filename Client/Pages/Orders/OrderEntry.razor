@@ -452,13 +452,9 @@ else
     {
         try
         {
-            Products = await ItemService.AvailableInDispensary(StoreID, token);
-
-            if (string.IsNullOrEmpty(value))
-                return Products!.AsParallel();
-
-            return Products!.AsParallel().Where(x => x.ProductName!.Contains(value, StringComparison.InvariantCultureIgnoreCase)
-                || x.Barcode!.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+            Products = await ItemService.AvailableInDispensary(StoreID, new ProductFilter(value), token);
+            return Products!;
+            
         }
         catch (System.Exception ex)
         {
@@ -828,7 +824,7 @@ else
     async Task GetProducts()
     {
         var cts = new CancellationTokenSource().Token;
-        Products = await ItemService.AvailableInDispensary(StoreID, cts);
+        Products = await ItemService.AvailableInDispensary(StoreID, new ProductFilter(string.Empty), cts);
     }
 
     void ClearCart() 

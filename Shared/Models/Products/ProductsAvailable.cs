@@ -19,3 +19,5 @@ public class ProductsAvailable
     public virtual List<Stock> Dispensary { get; set; } = new();
 }
 
+public record ProductFilter(string? ProductName);
+

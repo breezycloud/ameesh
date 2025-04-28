@@ -517,34 +517,34 @@ public class ProductsController : ControllerBase
     }
     
     // GET: api/Products/5
-    [HttpGet("AvailableInDispensary/{id}")]
-    public ActionResult<IEnumerable<ProductsAvailable>> AvailableInDispensary(Guid id, CancellationToken token)
+    [HttpPost("AvailableInDispensary")]
+    public async IAsyncEnumerable<ProductsAvailable> AvailableInDispensary(Guid id, ProductFilter filter, CancellationToken token)
     {
-        var products = _context.Products.AsNoTracking()
-                                              .AsSplitQuery()
-                                              .Include(x => x.Item)                                              
-                                              .AsEnumerable()
-                                              .AsParallel()
-                                              .Where(x => x.StoreId == id)
-                                              .OrderByDescending(x => x.ModifiedDate)
-                                              .Select(p=> new ProductsAvailable
-                                              { 
-                                                  Id = p.Id,
-                                                  StoreId = p.StoreId,
-                                                  Barcode = p.Item!.Barcode,
-                                                  ProductName = p.Item!.ProductName,
-                                                  SellPrice = p.SellPrice,
-                                                  Dispensary = p.Dispensary.Where(x => x.Quantity.GetValueOrDefault() > 0).ToList()
-                                              })
-                                              .WithCancellation(token)
-                                              .ToList();
+        IQueryable<Product> query = _context.Products.AsNoTracking()
+                                                      .AsSplitQuery()
+                                                      .Include(x => x.Item)
+                                                      .Where(x => x.StoreId == id);
 
-        if (products == null)
+        if (!string.IsNullOrEmpty(filter.ProductName))
         {
-            return NotFound();
+            string pattern = $"%{filter.ProductName}%";
+            query = query.Where(x => EF.Functions.ILike(x.Item!.ProductName, pattern));
         }
 
-        return products.AsParallel().Where(x => x.Dispensary.Any(d => d.Quantity.GetValueOrDefault() > 0));
+        await foreach (var product in query.Take(30).AsAsyncEnumerable().WithCancellation(token))
+        {
+            if (product.Dispensary.Any(x => x.Quantity.GetValueOrDefault() > 0))
+            {
+                yield return new ProductsAvailable
+                {
+                    Id = product.Id,
+                    Barcode = product.Item!.Barcode,
+                    ProductName = product.Item!.ProductName,
+                    SellPrice = product.SellPrice,
+                    Dispensary = product.Dispensary.Where(x => x.Quantity.GetValueOrDefault() > 0).ToList()
+                };
+            }
+        }
     }
 
     // PUT: api/Product/5

@@ -34,7 +34,7 @@ public interface IProductService
     Task<Product?> GetProductById(Guid id);
     Task<Product[]?> GetProducts();
     Task<Product[]?> GetProductsByStore(Guid storeId);
-    Task<ProductsAvailable[]?> AvailableInDispensary(Guid storeId, CancellationToken token);
+    Task<ProductsAvailable[]?> AvailableInDispensary(Guid storeId, ProductFilter filter, CancellationToken token);
     Task<Product[]?> GetExpiryProducts(Guid storeId, string storage);
     Task<GridDataResponse<ProductByStore>?> GetExpiryProductsByStore(Guid storeId, string storage, PaginationParameter parameter);
     Task<Product[]?> GetProductsByCategory(Guid categoryId);
@@ -349,9 +349,10 @@ public class ProductService : IProductService
     {
         return await _client.CreateClient("AppUrl").GetFromJsonAsync<Product[]?>($"api/products/byBranch/{storeId}");
     }
-    public async Task<ProductsAvailable[]?> AvailableInDispensary(Guid storeId, CancellationToken token)
+    public async Task<ProductsAvailable[]?> AvailableInDispensary(Guid storeId, ProductFilter filter, CancellationToken token)
     {
-        return await _client.CreateClient("AppUrl").GetFromJsonAsync<ProductsAvailable[]?>($"api/products/AvailableInDispensary/{storeId}", token);
+        using var request = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/products/AvailableInDispensary?id={storeId}", filter, token);
+        return await request.Content.ReadFromJsonAsync<ProductsAvailable[]?>();
     }
 
     public async Task<GridDataResponse<ProductByStore>?> GetExpiryProductsByStore(Guid storeId, string storage, PaginationParameter parameter)
