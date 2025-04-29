@@ -327,105 +327,91 @@ public class OrdersController : ControllerBase
         return Ok();
     }
 
-	[HttpPost("paged")]
-	public async Task<ActionResult<GridDataResponse<OrderWithData>?>> PagedOrders(PaginationParameter parameter, CancellationToken cancellationToken)
-	{
+    [HttpPost("paged")]
+    public async Task<ActionResult<GridDataResponse<OrderWithData>?>> PagedOrders(PaginationParameter parameter, CancellationToken cancellationToken)
+    {
         GridDataResponse<OrderWithData>? response = new();
+        var query = _context.Orders.AsNoTracking()
+                                   .AsSplitQuery()
+                                   .Include(x => x.User)
+                                   .Include(x => x.Customer)
+                                   .Include(x => x.Store)
+                                   .Include(x => x.ProductOrders)
+                                   .Include(x => x.Payments)
+                                   .ThenInclude(x => x.Cashier)
+                                   .Where(x => x.StoreId == parameter.FilterId);
 
         if (!string.IsNullOrEmpty(parameter.SearchTerm))
         {
-            var pattern = $"%{parameter.SearchTerm}%";
-            response!.Data = _context.Orders.AsNoTracking()
-                                            .AsSplitQuery()
-                                            .Include(x => x.User)                                            
-                                            .Include(x => x.Customer)
-                                            .Include(x => x.Store)
-                                            .Include(x => x.ProductOrders)
-                                            .Include(x => x.Payments)
-                                            .ThenInclude(x => x.Cashier)
-                                            .AsEnumerable()
-                                            .AsParallel()
-                                            .Where(x => x.StoreId == parameter.FilterId
-                                            && x.Customer!.CustomerName!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) ||                                             
-                                            x.ReceiptNo!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) ||
-                                            (parameter.HasThirdItems && x.ThirdPartyItems.Any()) ||
-                                            ((x.Address is not null && !string.IsNullOrEmpty(x.Address!.State)) && x.Address!.State!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase)))
-                                            .OrderByDescending(x => x.ModifiedDate)
-                                            .Skip(parameter.Page)
-                                            .Take(parameter.PageSize)
-                                            .Select(x => new OrderWithData
-                                            {
-                                                Id = x.Id,
-                                                Date = x.OrderDate,
-                                                StoreName = x.Store!.BranchName,
-                                                CustomerName = x.Customer!.CustomerName, 
-                                                DeliveryStatus = x.GetDeliveryStatus(),
-                                                HasDelievery = x.HasDelievery,
-                                                Dispatched = x.Dispatched,
-                                                Delivered = x.Delivered,
-                                                OrderStatus = x.Status,
-                                                Balance = x.Balance,
-                                                SubTotal = x.SubTotal,
-                                                HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
-                                                HasOrderItems = x.ProductOrders.Any(),
-                                                Discount = x.Discount,
-                                                Sale = x.User!.ToString(),
-                                                Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString(),
-                                                CreatedDate = x.CreatedDate,
-                                                ModifiedDate = x.ModifiedDate
-                                            }).ToList();
-            response!.TotalCount =  _context.Orders.Include(x => x.Customer).AsEnumerable().AsParallel().Where(x => x.StoreId == parameter.FilterId
-                                            && x.Customer!.CustomerName!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) || 
-                                            x.ReceiptNo!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase) ||
-                                            (parameter.HasThirdItems && x.ThirdPartyItems.Any()) ||
-                                            ((x.Address is not null && !string.IsNullOrEmpty(x.Address!.State)) && x.Address!.State!.Contains(parameter.SearchTerm, StringComparison.OrdinalIgnoreCase))).Count();
+            var pattern = parameter.SearchTerm.ToLower();
+            query = query.Where(x => x.Customer!.CustomerName!.ToLower().Contains(pattern) ||
+                                     x.ReceiptNo!.ToLower().Contains(pattern) ||
+                                     (parameter.HasThirdItems && x.ThirdPartyItems.Any()) ||
+                                     (x.Address != null && !string.IsNullOrEmpty(x.Address.State) && 
+                                     x.Address.State.ToLower().Contains(pattern)));
         }
-        else
+
+        if (!string.IsNullOrEmpty(parameter.PaymentStatus))
         {
-            response!.Data =  _context.Orders.AsNoTracking()
-                                            .AsSplitQuery()
-                                            .Include(x => x.User)                                            
-                                            .Include(x => x.Customer)
-                                            .Include(x => x.Store)
-                                            .Include(x => x.ProductOrders)
-                                            .Include(x => x.Payments)
-                                            .ThenInclude(x => x.Cashier)
-                                            .AsEnumerable()
-                                            .AsParallel()
-                                            .Where(x => (parameter.HasThirdItems ? (x.StoreId == parameter.FilterId && x.ThirdPartyItems.Any()) : x.StoreId == parameter.FilterId))
-                                            .OrderByDescending(x => x.ModifiedDate)
-                                            .Skip(parameter.Page)
-                                            .Take(parameter.PageSize)
-                                            .Select(x => new OrderWithData
-                                            {
-                                                Id = x.Id,
-                                                Date = x.OrderDate,
-                                                StoreName = x.Store!.BranchName,
-                                                CustomerName = x.Customer!.CustomerName,
-                                                IsHasDiscount = x.Customer!.HasDiscount,
-                                                OrderType = "Store",
-                                                ReceiptNo = x.ReceiptNo,
-                                                HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
-                                                HasOrderItems = x.ProductOrders.Any(),
-                                                TotalAmount = x.TotalAmount,
-                                                SubTotal = x.SubTotal,
-                                                PaymentStatus = x.GetPaymentStatus().ToString(),
-                                                DeliveryStatus = x.GetDeliveryStatus(),
-                                                HasDelievery = x.HasDelievery,
-                                                Dispatched = x.Dispatched,
-                                                Delivered = x.Delivered,
-                                                OrderStatus = x.Status,
-                                                Balance = x.Balance,
-                                                Discount = x.Discount,
-                                                Sale = x.User!.ToString(),
-                                                Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString(),
-                                                CreatedDate = x.CreatedDate,
-                                                ModifiedDate = x.ModifiedDate
-                                            }).ToList();
-            response!.TotalCount =  _context.Orders.AsEnumerable().AsParallel().Where(x =>  (parameter.HasThirdItems ? (x.StoreId == parameter.FilterId && x.ThirdPartyItems.Any()) : x.StoreId == parameter.FilterId)).Count();
-        }        
+            if (parameter.PaymentStatus == PaymentStatus.Awaiting.ToString())
+            {
+                query = query.Where(x => (x.ProductOrders.Sum(p => p.Quantity * p.Cost) + x.DeliveryAmt - x.Discount - x.Payments.Sum(p => p.Amount)) == 0 && !x.PaymentConfirmed);                
+            }
+            else if (parameter.PaymentStatus == PaymentStatus.Paid.ToString())
+            {
+                query = query.Where(x => (x.ProductOrders.Sum(p => p.Quantity * p.Cost) + x.DeliveryAmt - x.Discount - x.Payments.Sum(p => p.Amount)) == 0 && x.PaymentConfirmed);                
+            }
+            else
+            {
+                query = query.Where(x => (x.ProductOrders.Sum(p => p.Quantity * p.Cost)  + x.DeliveryAmt - x.Discount - x.Payments.Sum(p => p.Amount)) > 0);
+            }
+        }
+
+        if (parameter.HasThirdItems)
+        {
+            query = query.Where(x => x.ThirdPartyItems.Any());
+        }
+
+        response.TotalCount = await query.CountAsync(cancellationToken);
+
+        var pagedQuery = query.OrderByDescending(x => x.ModifiedDate)
+                              .Skip(parameter.Page)
+                              .Take(parameter.PageSize)
+                              .Select(x => new OrderWithData
+                              {
+                                  Id = x.Id,
+                                  Date = x.OrderDate,
+                                  StoreName = x.Store!.BranchName,
+                                  CustomerName = x.Customer!.CustomerName,
+                                  IsHasDiscount = x.Customer!.HasDiscount,
+                                  OrderType = "Store",
+                                  ReceiptNo = x.ReceiptNo,
+                                  HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
+                                  HasOrderItems = x.ProductOrders.Any(),
+                                  TotalAmount = x.TotalAmount,
+                                  SubTotal = x.SubTotal,
+                                  PaymentStatus = x.GetPaymentStatus().ToString(),
+                                  DeliveryStatus = x.GetDeliveryStatus(),
+                                  HasDelievery = x.HasDelievery,
+                                  Dispatched = x.Dispatched,
+                                  Delivered = x.Delivered,
+                                  OrderStatus = x.Status,
+                                  Balance = x.Balance,
+                                  Discount = x.Discount,
+                                  Sale = x.User!.ToString(),
+                                  Cashier = x.Payments.OrderByDescending(x => x.PaymentDate).FirstOrDefault()!.Cashier!.ToString(),
+                                  CreatedDate = x.CreatedDate,
+                                  ModifiedDate = x.ModifiedDate
+                              });
+
+        response.Data = new List<OrderWithData>();
+        await foreach (var order in pagedQuery.AsAsyncEnumerable().WithCancellation(cancellationToken))
+        {
+            response.Data.Add(order);
+        }
+
         return response;
-	}
+    }
     [HttpPost("cancelorders")]
     public async Task<ActionResult> CancelOrder(Guid id)
     {

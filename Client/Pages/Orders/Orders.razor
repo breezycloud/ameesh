@@ -235,14 +235,19 @@
         var parameter = new PaginationParameter { FilterId = AppState.StoreID, Page = request.Page * request.PageSize, PageSize = request.PageSize, HasThirdItems = AppState.HasThirdItem };
         if (!string.IsNullOrEmpty(AppState._searchString))
             parameter.SearchTerm = AppState._searchString;
-        var response = await OrderService.GetOrderByStore(AppState.SelectedOption!, parameter);
+        
         var PayStatus = await localStorage.GetItemAsync<string>("PaymentStatus");
         if (!string.IsNullOrEmpty(PayStatus))
+        {
+            parameter.PaymentStatus = PayStatus;
             PaymentStatus = PayStatus;
+        }            
+
+        var response = await OrderService.GetOrderByStore(AppState.SelectedOption!, parameter);        
         
         return new GridData<OrderWithData>()
         {
-            Items = string.IsNullOrEmpty(PaymentStatus) ? response!.Data!.OrderByDescending(x => x.ModifiedDate)! : response!.Data!.Where(x => x.PaymentStatus == PaymentStatus).OrderByDescending(x => x.ModifiedDate)!,
+            Items = !string.IsNullOrEmpty(PaymentStatus) && PaymentStatus != "Paid" ? response!.Data!.Where(x => x.PaymentStatus == PaymentStatus).ToList() : response!.Data!,
             TotalItems = response.TotalCount
         };
     }
@@ -280,6 +285,7 @@
         AppState._searchString = string.Empty;
         PaymentStatus = string.Empty;        
         AppState.HasThirdItem = false;
+        await localStorage.RemoveItemAsync("PaymentStatus");
         await ReloadServerData();
     }
     async Task ReloadServerData()
