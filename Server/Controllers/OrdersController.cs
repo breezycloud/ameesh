@@ -359,7 +359,7 @@ public class OrdersController : ControllerBase
             }
             else if (parameter.PaymentStatus == PaymentStatus.Paid.ToString())
             {
-                query = query.Where(x => (x.ProductOrders.Sum(p => p.Quantity * p.Cost) + x.DeliveryAmt - x.Discount - x.Payments.Sum(p => p.Amount)) == 0 && x.PaymentConfirmed);                
+                query = query.Where(x => x.PaymentConfirmed);                
             }
             else
             {
