@@ -87,6 +87,7 @@
             Customer.CustomerName = StringConverter.ConvertToTitleCase(Customer.CustomerName!);
             Customer!.ContactAddress = string.IsNullOrEmpty(Customer!.ContactAddress) ? 
             "" : StringConverter.ConvertToTitleCase(Customer.ContactAddress!);
+            Customer.Orders = [];
             if (!IsEdit)
             {
                 Customer.Id = Guid.NewGuid();

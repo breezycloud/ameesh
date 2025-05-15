@@ -145,14 +145,13 @@ public class CustomersController : ControllerBase
     // PUT: api/Customers/5
     // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
     [HttpPut("{id}")]
-	public async Task<IActionResult> PutCustomer(Guid id, Customer category)
+	public async Task<IActionResult> PutCustomer(Guid id, Customer customer)
 	{
-		if (id != category.Id)
-		{
+		if (id != customer.Id)
+		{			
 			return BadRequest();
-		}
-
-		_context.Entry(category).State = EntityState.Modified;
+		}		
+		_context.Entry(customer).State = EntityState.Modified;
 
 		try
 		{

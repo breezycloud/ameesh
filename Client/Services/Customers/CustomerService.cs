@@ -54,17 +54,17 @@ public class CustomerService(IHttpClientFactory _client, ILocalStorageService lo
         }
     }
 
-    public async Task<bool> EditCustomer(Customer model)
+    public async Task<bool> EditCustomer(Customer customer)
     {
         try
-        {
-            var request = _client.CreateClient("AppUrl").PutAsJsonAsync($"api/customers/{model.Id}", model);
+        {            
+            var request = _client.CreateClient("AppUrl").PutAsJsonAsync($"api/customers/{customer.Id}", customer);
             var response = await request;
             return response.IsSuccessStatusCode;
         }
         catch (Exception)
         {
-
+            _js.InvokeVoidAsync("console.log", customer);
             throw;
         }
     }

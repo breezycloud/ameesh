@@ -339,6 +339,7 @@ public class OrdersController : ControllerBase
                                    .Include(x => x.ProductOrders)
                                    .Include(x => x.Payments)
                                    .ThenInclude(x => x.Cashier)
+                                   .OrderByDescending(x => x.OrderDate)
                                    .Where(x => x.StoreId == parameter.FilterId);
 
         if (!string.IsNullOrEmpty(parameter.SearchTerm))
@@ -374,8 +375,7 @@ public class OrdersController : ControllerBase
 
         response.TotalCount = await query.CountAsync(cancellationToken);
 
-        var pagedQuery = query.OrderByDescending(x => x.ModifiedDate)
-                              .Skip(parameter.Page)
+        var pagedQuery = query.Skip(parameter.Page)
                               .Take(parameter.PageSize)
                               .Select(x => new OrderWithData
                               {
