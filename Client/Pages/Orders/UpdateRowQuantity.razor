@@ -5,7 +5,7 @@
             <MudText Typo="Typo.h6">Update Quantity</MudText>
         </TitleContent>
         <DialogContent>            
-             <MudNumericField T="decimal?" @bind-Value="Row!.NewQuantity" Label="New Quantity" Immediate AutoFocus Min="1" Max="@Row!.TotalQuantity"
+             <MudNumericField T="decimal?" @bind-Value="Row!.NewQuantity" Label="New Quantity" Immediate AutoFocus Min="0.5m" Max="@Row!.TotalQuantity"
                               Variant="Variant.Outlined" />
         </DialogContent>
         <DialogActions>
@@ -14,8 +14,8 @@
                         Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Update")</MudButton>
          </DialogActions>
      </MudDialog>
-
  </EditForm>
+
 
  @code {
     [CascadingParameter]
