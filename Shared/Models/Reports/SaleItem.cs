@@ -58,7 +58,7 @@ public class SaleItem
         if (IsHasDiscount && Balance > 0)
             remark = "F & F";
         else if (DiscountAboveLimit())
-            remark = "Exchange";
+            remark = "Discount";
         else if (HasReturns)
             remark = "Returns";
 

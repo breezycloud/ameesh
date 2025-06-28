@@ -16,6 +16,7 @@ public class ReportFilter
     public string? Type { get; set; } = "Store";
     [Required]
     public string? Criteria { get; set; } = "Date";
+    public bool IncludeThirdParty { get; set; }
     public string? ReportOption { get; set; }
     public Guid StoreID { get; set; }
     public Guid UserID { get; set; }

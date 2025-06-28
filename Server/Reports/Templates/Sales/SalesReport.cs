@@ -86,7 +86,7 @@ public class SalesReport(SalesReportTemplate? template) : IDocument
                 row.RelativeItem().Element(Style).AlignRight().Text($"{(template!.SumAmountPaid - template!.SumRefund):N2}").FontSize(9);
                 row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumProfit:N2}").FontSize(9);                
                 row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumBalance:N2}").FontSize(9);                
-                row.RelativeItem().Element(Style).Text("").FontSize(9);                
+                // row.RelativeItem().Element(Style).Text("").FontSize(9);                
             });
 
             static IContainer Style(IContainer container)
@@ -115,7 +115,7 @@ public class SalesReport(SalesReportTemplate? template) : IDocument
                 columns.RelativeColumn();
                 columns.RelativeColumn();
                 columns.RelativeColumn();
-                columns.RelativeColumn();
+                // columns.RelativeColumn();
             });
 
             // step 2
@@ -133,7 +133,7 @@ public class SalesReport(SalesReportTemplate? template) : IDocument
                 header.Cell().Element(CellStyle).AlignRight().Text("Net Amount").FontSize(9);
                 header.Cell().Element(CellStyle).AlignRight().Text("Profit").FontSize(9);
                 header.Cell().Element(CellStyle).AlignRight().Text("Balance").FontSize(9);
-                header.Cell().Element(CellStyle).AlignCenter().Text("Remarks").FontSize(9);
+                // header.Cell().Element(CellStyle).AlignCenter().Text("Remarks").FontSize(9);
 
                 static IContainer CellStyle(IContainer container)
                 {
@@ -142,7 +142,7 @@ public class SalesReport(SalesReportTemplate? template) : IDocument
             });
 
             // step 3
-            foreach (var item in template!.SaleItems)
+            foreach (var item in template!.SaleItems.DistinctBy(x=> x.ReceiptNo).OrderByDescending(x => x.Date))
             {
                 table.Cell().Element(CellStyle).Text(text =>
                 {
@@ -159,7 +159,7 @@ public class SalesReport(SalesReportTemplate? template) : IDocument
                 table.Cell().Element(CellStyle).AlignRight().Text($"{(item.AmountPaid - item.Refund):N2}").FontSize(8);
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.Profit:N2}").FontSize(8);
                 table.Cell().Element(CellStyle).AlignRight().Text($"{(item.Balance - item.Refund):N2}").FontSize(8);                
-                table.Cell().Element(CellStyle).AlignCenter().Text(item.GetRemark()).FontSize(8);
+                // table.Cell().Element(CellStyle).AlignCenter().Text(item.GetRemark()).FontSize(8);
                 //if (item.GetRemark().Contains("F & F"))
 
 

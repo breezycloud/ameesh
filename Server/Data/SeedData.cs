@@ -27,7 +27,7 @@ public class SeedData
         if (IsDev)
         {
             //db.Database.EnsureDeleted();
-            if (db.Database.EnsureCreated())    
+            if (db.Database.EnsureCreated())
             {
                 AddUsers(db);
                 AddCustomers(db);
@@ -38,6 +38,8 @@ public class SeedData
             //RemoveQuantities(services);
             //AddExpenseTypes(db);
             //ImportCustomers(services);
+
+            
         }
     }
 

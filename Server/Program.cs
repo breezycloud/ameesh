@@ -12,6 +12,7 @@ using Server.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Server.Logging;
 using QuestPDF.Infrastructure;
+using Pharmacy.Server.BackgroundJob;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,7 +37,7 @@ builder.Services.AddSession(options => options.IdleTimeout = TimeSpan.FromMinute
 
 string ConnectionString = string.Empty;
 #if DEBUG
-    ConnectionString = builder.Configuration.GetConnectionString("Local")!;
+    ConnectionString = builder.Configuration.GetConnectionString("Production")!;
 #else
     ConnectionString = builder.Configuration.GetConnectionString("Production");
 #endif
@@ -77,7 +78,7 @@ builder.Services.AddSignalR(options =>
     options.StatefulReconnectBufferSize = 1000;
 });
 
-//builder.Services.AddHostedService<ServerPeriodicJob>();
+builder.Services.AddHostedService<ServerPeriodicJob>();
 
 builder.Services.AddResponseCompression(opts =>
 {
@@ -90,7 +91,7 @@ builder.Services.AddSingleton<ILoggerProvider, ApplicationLoggerProvider>();
 
 
 var app = builder.Build();
-SeedData.EnsureSeeded(app.Services, true);
+//SeedData.EnsureSeeded(app.Services, true);
 
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions

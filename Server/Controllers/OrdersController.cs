@@ -15,6 +15,7 @@ using Shared.Models;
 using Shared.Models.Orders;
 using Shared.Models.Reports;
 using Server.Pages.Reports.Templates.Receipt;
+using Shared.Models.Products;
 
 namespace Server.Controllers;
 
@@ -36,115 +37,197 @@ public class OrdersController : ControllerBase
     [HttpPost("report")]
     public async Task<ActionResult<SalesReportTemplate>> Report(ReportFilter filter, CancellationToken cancellationToken)
     {
-        List<SaleItem> items = [];
-        var store = _context.Stores.AsParallel().FirstOrDefault(x => x.Id == filter.StoreID);
+        var store = await _context.Stores.AsNoTracking().FirstOrDefaultAsync(x => x.Id == filter.StoreID, cancellationToken);
         if (store is null)
-            return new SalesReportTemplate();
+            return new SalesReportTemplate
+            {
+                StoreName = "Invalid store",
+                BranchAddress = "Invalid store",
+                Criteria = filter.Criteria,
+                StartDate = filter.StartDate!.Value.ToString("dd/MM/yyyy"),
+                EndDate = filter!.EndDate is not null ? filter.EndDate!.Value.ToString("dd/MM/yyyy") : "",
+            };
 
-        List<Order> Orders = [];
+        IQueryable<Order> ordersQuery;
+        IQueryable<ProductOrderItem> itemsQuery;
+        List<SaleItem> thirdPartySales = [];
+        List<Order> data = [];
+        itemsQuery = _context.OrderItems.AsNoTracking()
+                                            .AsSplitQuery()
+                                            .Include(x => x.ProductData)
+                                            .ThenInclude(x => x!.Item)
+                                            .Where(x => x.ProductData!.StoreId == filter.StoreID);        
         if (filter.Criteria == "Date")
         {
             if (filter.Option == "All")
             {
-                Orders = _context.Orders.AsNoTracking()
-                                            .AsSplitQuery()
-                                            .Include(x => x.User)
-                                            .Include(x => x.Customer)                                            
-                                            .Include(x => x.ProductOrders)
-                                            .ThenInclude(x => x.ProductData)
-                                            .Include(x => x.ReturnedProducts.Where(d => d.Date.Date == filter!.StartDate.GetValueOrDefault().Date))
-                                            .Include(x => x.Payments)
-                                            .ThenInclude(x=>x.Cashier)
-                                            .AsParallel()
-                                            .AsEnumerable()
-                                            .Where(x =>  x.StoreId == filter.StoreID && x.OrderDate == DateOnly.FromDateTime(filter!.StartDate!.Value))
-                                            .OrderByDescending(x => x.ModifiedDate)
-                                            .ToList();
-            }             
-            else    
+
+                ordersQuery = itemsQuery.Include(x => x.Order)
+                                   .Include(x => x.Order!.User)
+                                    .Include(x => x.Order!.Customer)
+                                    .Include(x => x.Order!.Payments)
+                                    .ThenInclude(x => x.Cashier)
+                                    .Where(x => x.Order!.OrderDate == DateOnly.FromDateTime(filter!.StartDate!.Value))
+                                    .Select(x => new Order
+                                    {
+                                        Id = x.Order!.Id,
+                                        OrderDate = x.Order.OrderDate,
+                                        CustomerId = x.Order.CustomerId,
+                                        Customer = x.Order.Customer,
+                                        ReceiptNo = x.Order.ReceiptNo,
+                                        DeliveryAmt = x.Order.DeliveryAmt,
+                                        Discount = x.Order.Discount,
+                                        CreatedDate = x.Order.CreatedDate,
+                                        ModifiedDate = x.Order.ModifiedDate,
+                                        UserId = x.Order.UserId,
+                                        User = x.Order.User,
+                                        Payments = x.Order.Payments,
+                                        ProductOrders = x.Order.ProductOrders.ToList(),
+                                        ThirdPartyItems = x.Order.ThirdPartyItems.ToList(),
+                                        ReturnedProducts = x.Order.ReturnedProducts.ToList()
+                                    });
+            thirdPartySales = _context.Orders.AsNoTracking()
+                .Where(x => x.StoreId == filter.StoreID && x.ThirdPartyItems.Any()
+                && x.OrderDate == DateOnly.FromDateTime(filter!.StartDate!.Value))
+                .Include(x => x.Customer)
+                .Include(x => x.User)
+                .Include(x => x.Payments)
+                .ThenInclude(x => x.Cashier)
+                .AsSplitQuery()
+                .AsEnumerable()
+                .Select(x => new SaleItem
+                {
+                    Id = x.Id,
+                    Date = x.OrderDate,
+                    Option = "Store",
+                    Customer = x.Customer!.CustomerName,
+                    IsHasDiscount = x.Customer!.HasDiscount,
+                    ReceiptNo = x.ReceiptNo,
+                    AmountPaid = x.Payments.Sum(p => p.Amount),
+                    TotalAmount = x.TotalAmount,
+                    SubTotal = x.SubTotal,
+                    Balance = x.Balance,
+                    BuyPrice = x.ThirdPartyItems.Sum(x => x.Cost),
+                    SellPrice = x.ThirdPartyItems.Sum(x => x.Total),
+                    Profit = AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),
+                    Quantity = (int)x.ThirdPartyItems.Sum(x => x.Quantity),
+                    HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
+                    ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault())
+                }).ToList();
+
+            }
+            else
             {
-                Orders = _context.Payments.AsNoTracking()
-                                 .Include(x => x!.Order)
-                                 .ThenInclude(x => x!.Customer)
-                                 .Include(x => x.Order)
-                                 .ThenInclude(x => x!.ProductOrders)
-                                 .ThenInclude(x => x!.ProductData)
-                                 .Include(x => x!.Order)
-                                 .ThenInclude(x => x!.ReturnedProducts.Where(d => d.Date.Date == filter!.StartDate.GetValueOrDefault().Date))
-                                 .Include(x => x!.Order)                                 
-                                 .Include(x => x!.Order)                                 
-                                 .AsParallel()
-                                 .Where(x => x.UserId == filter!.UserID && x.PaymentDate.GetValueOrDefault().Date == filter!.StartDate!.Value.Date)
-                                 .AsEnumerable()
-                                 .Select(x => x!.Order)
-                                 .Where(x => x.Balance <= 0)
-                                 .OrderByDescending(x => x.ModifiedDate)
-                                 .ToList();                
+                ordersQuery = _context.Payments.AsNoTracking()
+                    .Include(x => x.Order)
+                    .ThenInclude(x => x.Customer)
+                    .Include(x => x.Order.ProductOrders)
+                    .AsSplitQuery()
+                    .Where(x => x.UserId == filter!.UserID && x.PaymentDate.GetValueOrDefault().Date == filter!.StartDate!.Value.Date)
+                    .Select(x => x.Order)
+                    .Where(x => x.Balance <= 0);
             }
         }
         else
         {
             if (filter.Option == "All")
             {
-                Orders = _context.Orders.AsNoTracking()
-                                .AsSplitQuery()
-                                .Include(x => x.User)
-                                .Include(x => x.Customer)
-                                .Include(x => x.ProductOrders)
-                                .ThenInclude(x => x.ProductData)
-                                .Include(x => x.ReturnedProducts.Where(d => d.Date.Date >= filter!.StartDate.GetValueOrDefault().Date && d.Date.Date >= filter!.EndDate.GetValueOrDefault().Date))
-                                .Include(x => x.Payments)
-                                .ThenInclude(x => x.Cashier)
-                                .AsParallel()
-                                .AsEnumerable()
-                                .Where(x => x.StoreId == filter.StoreID && x.OrderDate >= DateOnly.FromDateTime(filter!.StartDate!.Value) && x.OrderDate <= DateOnly.FromDateTime(filter!.EndDate!.Value))
-                                .OrderByDescending(x => x.ModifiedDate)
-                                .ToList();
-            }            
+                ordersQuery = itemsQuery.Include(x => x.Order)
+                                   .Include(x => x.Order!.User)
+                                    .Include(x => x.Order!.Customer)
+                                    .Include(x => x.Order!.Payments)
+                                    .ThenInclude(x => x.Cashier)
+                                    .Where(x => x.Order!.OrderDate >= DateOnly.FromDateTime(filter!.StartDate!.Value) && x.Order!.OrderDate <= DateOnly.FromDateTime(filter!.EndDate!.Value))
+                                    .Select(x => new Order
+                                    {
+                                        Id = x.Order!.Id,
+                                        OrderDate = x.Order.OrderDate,
+                                        CustomerId = x.Order.CustomerId,
+                                        Customer = x.Order.Customer,
+                                        ReceiptNo = x.Order.ReceiptNo,
+                                        DeliveryAmt = x.Order.DeliveryAmt,
+                                        Discount = x.Order.Discount,
+                                        CreatedDate = x.Order.CreatedDate,
+                                        ModifiedDate = x.Order.ModifiedDate,
+                                        UserId = x.Order.UserId,
+                                        User = x.Order.User,
+                                        Payments = x.Order.Payments,
+                                        ProductOrders = x.Order.ProductOrders.ToList(),
+                                        ThirdPartyItems = x.Order.ThirdPartyItems.ToList(),
+                                        ReturnedProducts = x.Order.ReturnedProducts.ToList()
+                                    });
+
+                thirdPartySales = _context.Orders.AsNoTracking()
+                .Where(x => x.StoreId == filter.StoreID && x.ThirdPartyItems.Any())
+                .Where(x => x.OrderDate >= DateOnly.FromDateTime(filter!.StartDate!.Value) && x.OrderDate <= DateOnly.FromDateTime(filter!.EndDate!.Value))
+                .Include(x => x.Customer)
+                .Include(x => x.User)
+                .Include(x => x.Payments)
+                .ThenInclude(x => x.Cashier)
+                .AsSplitQuery()
+                .AsEnumerable()
+                .Select(x => new SaleItem
+                {
+                    Id = x.Id,
+                    Date = x.OrderDate,
+                    Option = "Store",
+                    Customer = x.Customer!.CustomerName,
+                    IsHasDiscount = x.Customer!.HasDiscount,
+                    ReceiptNo = x.ReceiptNo,
+                    AmountPaid = x.Payments.Sum(p => p.Amount),
+                    TotalAmount = x.TotalAmount,
+                    SubTotal = x.SubTotal,
+                    Balance = x.Balance,
+                    BuyPrice = x.ThirdPartyItems.Sum(x => x.Cost),
+                    SellPrice = x.ThirdPartyItems.Sum(x => x.Total),
+                    Profit = AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),
+                    Quantity = (int)x.ThirdPartyItems.Sum(x => x.Quantity),
+                    HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
+                    ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault())
+                }).ToList();
+                // ordersQuery = _context.Orders.AsNoTracking()
+                //     .Include(x => x.User)
+                //     .Include(x => x.Customer)
+                //     .Include(x => x.Store)
+                //     .Include(x => x.ProductOrders)
+                //     .Include(x => x.Payments)
+                //     .ThenInclude(x => x.Cashier)
+                //     .AsSplitQuery()
+                //     .Where(x => x.StoreId == filter.StoreID && x.OrderDate >= DateOnly.FromDateTime(filter!.StartDate!.Value) && x.OrderDate <= DateOnly.FromDateTime(filter!.EndDate!.Value));
+            }
             else
             {
-                Orders = _context.Payments.AsNoTracking()
-                                 .Include(x => x!.Order)
-                                 .ThenInclude(x => x!.Customer)
-                                 .Include(x => x.Order)
-                                 .ThenInclude(x => x!.ProductOrders)
-                                 .ThenInclude(x => x!.ProductData)
-                                 .Include(x => x!.Order)
-                                 .ThenInclude(x => x!.ReturnedProducts.Where(d => d.Date.Date >= filter!.StartDate.GetValueOrDefault().Date && d.Date.Date >= filter!.EndDate.GetValueOrDefault().Date))
-                                 .Include(x => x!.Order)                                 
-                                 .Include(x => x!.Order)                                 
-                                 .AsParallel()
-                                 .Where(x => x.UserId == filter!.UserID && x.PaymentDate.GetValueOrDefault().Date >= filter!.StartDate!.Value.Date && x.PaymentDate.GetValueOrDefault().Date <= filter!.EndDate!.Value.Date)
-                                 .AsEnumerable()
-                                 .Select(x => x!.Order) 
-                                 .Where(x => x.Balance <= 0)
-                                 .OrderByDescending(x => x.ModifiedDate)
-                                 .ToList();
+                ordersQuery = _context.Payments.AsNoTracking()
+                    .Include(x => x.Order)
+                    .ThenInclude(x => x.Customer)
+                    .Include(x => x.Order.ProductOrders)
+                    .AsSplitQuery()
+                    .Where(x => x.UserId == filter!.UserID && x.PaymentDate.GetValueOrDefault().Date >= filter!.StartDate!.Value.Date && x.PaymentDate.GetValueOrDefault().Date <= filter!.EndDate!.Value.Date)
+                    .Select(x => x.Order)
+                    .Where(x => x.Balance <= 0);
             }
         }
-        if (!Orders.Any())
-            return new SalesReportTemplate
-            {
-                StoreName = store!.BranchName,
-                BranchAddress = store!.BranchAddress,
-                Criteria = filter.Criteria,
-                StartDate = filter.StartDate!.Value.ToString("dd/MM/yyyy"),
-                EndDate = filter!.EndDate is not null ? filter.EndDate!.Value.ToString("dd/MM/yyyy") : "",
-            };
 
+        var orders = await ordersQuery
+            .OrderByDescending(x => x.ModifiedDate)
+            .ToListAsync(cancellationToken);
         
+
         var Report = new SalesReportTemplate
         {
             StoreName = store!.BranchName,
             BranchAddress = store!.BranchAddress,
             Criteria = filter.Criteria,
             StartDate = filter.StartDate!.Value.ToString("dd/MM/yyyy"),
-            EndDate =  filter!.EndDate is not null ? filter.EndDate!.Value.ToString("dd/MM/yyyy") : "",
+            EndDate = filter!.EndDate is not null ? filter.EndDate!.Value.ToString("dd/MM/yyyy") : "",
         };
-         
-
-        foreach (var x in Orders.AsParallel())
+        if (!orders.Any())
         {
+            Report.SaleItems.AddRange(thirdPartySales);
+        }
+        foreach (var x in orders)
+        {
+            x.ThirdPartyItems = _context.Orders.AsEnumerable().Where(o => o.Id == x.Id && x.ThirdPartyItems.Any()).SelectMany(o => o.ThirdPartyItems).ToList();
             var saleItem = new SaleItem
             {
                 Id = x.Id,
@@ -154,24 +237,19 @@ public class OrdersController : ControllerBase
                 IsHasDiscount = x.Customer!.HasDiscount,
                 ReceiptNo = x.ReceiptNo,
                 AmountPaid = x.Payments.Sum(p => p.Amount),
-                // saleItem.Mode = x.Payments!.LastOrDefault()!.PaymentMode;
                 TotalAmount = x.TotalAmount,
                 SubTotal = x.SubTotal,
                 Balance = x.Balance,
                 BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice) + x.ThirdPartyItems.Sum(x => x.Cost),
                 SellPrice = x.ProductOrders.Sum(x => x.Cost) + x.ThirdPartyItems.Sum(x => x.Total),
-                Profit = AppState.CalculateProfit(x.ProductOrders) + AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),            
+                Profit = AppState.CalculateProfit(x.ProductOrders) + AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),
                 Quantity = x.ProductOrders.Sum(p => p.Quantity) + (int)x.ThirdPartyItems.Sum(x => x.Quantity),
                 HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
                 ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault()),
                 HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
                 Refund = x.ReturnedProducts.Sum(r => (decimal)r.Quantity! * r.Cost.GetValueOrDefault()),
                 Discount = x.Discount,
-                // Sale = x.User!.ToString(),
-                // Dispenser = x.DispensedBy!.ToString()
             };
-
-            //saleItem.Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString();
             Report.SaleItems.Add(saleItem);
         }
         var report = new SalesReport(Report);

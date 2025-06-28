@@ -76,17 +76,63 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
     public async Task RemovePaymentDiscrepancies(CancellationToken token)
     {
         _logger.LogInformation("Checking for payment discrepancies");
-        var akwai = await _context.Payments.Where(x => x.Amount < 0).AnyAsync(token);
-        if (!akwai)
+        var total = _context.Orders.Include(x => x.Payments).Where(x => x.PaymentConfirmed && !x.Payments.Any()).Count();
+        _logger.LogInformation("payment issues {0}", total);
+
+        // var discrepancies = _context.Orders.Include(x => x.Payments).AsSplitQuery().AsEnumerable().Where(x => x.Balance < 0);
+        // if (!discrepancies.Any())
+        // {
+        //     _logger.LogInformation("no payment discrepancy found");
+        //     return;
+        // }
+
+        // _logger.LogInformation("Payment discrepancy found");
+        // foreach (var order in discrepancies)
+        // {
+        //     _logger.LogInformation("Resolving payment discrepancy for order {0}", order.ReceiptNo);
+        //     var lastPayment = order.Payments.OrderByDescending(x => x.CreatedDate).FirstOrDefault();
+        //     if (lastPayment is null)
+        //         continue;
+
+        //     if (lastPayment.Amount > 0)
+        //     {
+        //         await _context.Payments.Where(x => x.Id == lastPayment.Id).ExecuteDeleteAsync(token);
+        //     }
+        // }
+        _logger.LogInformation("Payment issue(s) resolved");
+        
+    }
+
+    public async Task UpdateStock(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Checking for negative stock");
+        var stores = await _context.Stores.ToListAsync(cancellationToken);
+        foreach (var store in stores)
         {
-            _logger.LogInformation("no payment discrepancy found");
-            return;
+            _logger.LogInformation($"Checking for negative stock {store.BranchName}");
+            var products = _context.Products.Include(x => x.Item).AsEnumerable().Where(x => x.StoreId == store.Id && x.Dispensary.Any(d => d.Quantity < 0) || x.Stocks.Any(s => s.Quantity < 0)).ToList();
+            if (!products.Any())
+            {
+                _logger.LogInformation("No negative stock found");
+                return;
+            }
+            foreach (var product in products)
+            {
+                foreach (var stock in product.Dispensary.AsEnumerable().Where(x => x.Quantity < 0))
+                {
+                    _logger.LogInformation("Removing negative stock for {0} {1}", "Dispensary", product.Item?.ProductName);
+                    stock.Quantity = 0;
+                }
+                foreach (var stock in product.Stocks.AsEnumerable().Where(x => x.Quantity < 0))
+                {
+                    _logger.LogInformation("Removing negative stock for {0} {1}", "Stocks", product.Item?.ProductName);
+                    stock.Quantity = 0;
+                }
+                _context.Entry(product).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+            }
         }
-
-        _logger.LogInformation("Payment discrepancy found");
-        var rowsAffected = await _context.Payments.Where(x => x.Amount < 0).ExecuteDeleteAsync(token);
-        _logger.LogInformation("{0} Payment issue(s) resolved", rowsAffected);
-
+        
     }
     public async Task UpdateStock(Guid id, string Option, ProductOrderItem[] items)
     {
