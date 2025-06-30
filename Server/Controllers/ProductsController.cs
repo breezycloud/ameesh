@@ -439,14 +439,15 @@ public class ProductsController : ControllerBase
         return IsValid;
 	}
     
-    public async IAsyncEnumerable<List<ProductItems>> GetProductsList()
+    public async IAsyncEnumerable<List<ProductItems>> GetProductsList(Guid id)
     {
         int DefaultPageSize = 100;
-        var totalCount = await _context.Products.CountAsync();
+        var totalCount = await _context.Products.Where(x => x.StoreId == id).CountAsync();
 
         for (var i = 0; i <= Math.Ceiling(totalCount / Convert.ToDecimal(DefaultPageSize)); i++)
         {
-            var data = await _context.Products.Include(item => item.Item)
+            var data = await _context.Products.Where(x => x.StoreId == id)
+                                .Include(item => item.Item)
                                 .ThenInclude(b => b.Brand)
                                 .Include(item => item.Item)
                                 .ThenInclude(category => category!.Category)
@@ -481,14 +482,19 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("productlist")]
-    public async Task<ActionResult> Export()
+    public async Task<ActionResult> Export(Guid storeId)
     {
-        var model = new ProductReportTemplate { StoreName = "Ameesh Luxury" };
-        await foreach (var item in GetProductsList())
+        ProductReportTemplate template = new();
+        var store = await _context.Stores.AsNoTracking().FirstOrDefaultAsync(x => x.Id == storeId);
+        if (store is null)
+            return NotFound("Store not found");
+
+        template = new ProductReportTemplate { StoreName = store.BranchName };
+        await foreach (var item in GetProductsList(storeId))
         {
-            model.Items.AddRange(item);
+            template.Items.AddRange(item);
         }
-        var doc = new ProductReport(model);
+        var doc = new ProductReport(template);
         var pdf = doc.GeneratePdf();
 
         return File(pdf, "application/pdf");

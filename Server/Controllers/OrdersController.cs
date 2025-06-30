@@ -227,7 +227,7 @@ public class OrdersController : ControllerBase
         }
         foreach (var x in orders)
         {
-            x.ThirdPartyItems = _context.Orders.AsEnumerable().Where(o => o.Id == x.Id && x.ThirdPartyItems.Any()).SelectMany(o => o.ThirdPartyItems).ToList();
+            //x.ThirdPartyItems = _context.Orders.AsEnumerable().Where(o => o.Id == x.Id && x.ThirdPartyItems.Any()).SelectMany(o => o.ThirdPartyItems).ToList();
             var saleItem = new SaleItem
             {
                 Id = x.Id,

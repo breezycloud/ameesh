@@ -213,6 +213,10 @@
             Cancel();
         }
         SnackBar.Add("Transaction Successfull", Severity.Success);
+        if(IsEdit)
+        {
+            nav.NavigateTo($"order/{Order.Id}");
+        }
         AppState.IsProcessing = false;
     }
 

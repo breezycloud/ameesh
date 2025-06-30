@@ -10,7 +10,7 @@ using Shared.Enums;
 using Shared.Helpers;
 using Shared.Models.Company;
 using Shared.Models.Customers;
-
+using Shared.Models.Orders;
 using Shared.Models.Products;
 using Shared.Models.Users;
 
@@ -19,7 +19,7 @@ namespace Server.Data;
 public class SeedData
 {
     private static DateTime Now = DateTime.UtcNow;
-    public static void EnsureSeeded(IServiceProvider services, bool IsDev)
+    public static async Task EnsureSeeded(IServiceProvider services, bool IsDev)
     {
         var factory = services.GetRequiredService<IServiceScopeFactory>();
         using var scope = factory.CreateScope();
@@ -38,8 +38,45 @@ public class SeedData
             //RemoveQuantities(services);
             //AddExpenseTypes(db);
             //ImportCustomers(services);
+            await db.Payments.Include(x => x.Order).Where(x => x.Order!.OrderDate.Month != DateTime.Now.Month || x.Order.OrderDate.Year != DateTime.Now.Year).ExecuteDeleteAsync();
+            var lastOrders = await db.Orders
+                .Where(x => x.OrderDate.Month != DateTime.Now.Month || x.OrderDate.Year != DateTime.Now.Year)
+                .ToListAsync();
 
-            
+            int totalOrders = lastOrders.Count;
+            int processed = 0;
+
+            foreach (var x in lastOrders)
+            {
+                db.Payments.Add(new Payment
+                {
+                    Id = Guid.NewGuid(),
+                    OrderId = x.Id,
+                    Amount = x.SubTotal,
+                    PaymentDate = x.CreatedDate,
+                    PaymentMode = PaymentMode.POS,
+                    CreatedDate = x.CreatedDate,
+                    UserId = x.UserId,
+                    Order = null,
+                    Cashier = null,
+                });
+                await db.Orders.Where(p => p.Id == x.Id).ExecuteUpdateAsync(s => s.SetProperty(p => p.PaymentConfirmed, true)
+                    .SetProperty(p => p.ModifiedDate, x.CreatedDate));
+                await db.SaveChangesAsync();
+
+                processed++;
+                Console.WriteLine($"Processed {processed} of {totalOrders} last orders.");
+            }
+        }
+    }
+
+    private static async IAsyncEnumerable<Order> LastOrders(AppDbContext db)
+    {
+        await foreach (var order in db.Orders
+                     .Where(x => x.OrderDate.Month != DateTime.Now.Month || x.OrderDate.Year != DateTime.Now.Year)
+                     .AsAsyncEnumerable())
+        {
+            yield return order;
         }
     }
 

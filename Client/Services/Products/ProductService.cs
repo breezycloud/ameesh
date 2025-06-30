@@ -60,9 +60,10 @@ public interface IProductService
     public Task<int> GetTotalExpiryProducts(Guid id);
     public Task<int> GetTotalDispensaryExpiryProducts(Guid id);
     public Task<int> GetTotalStoreExpiryProducts(Guid id);
-    public Task GetProductsList();
+    public Task GetProductsList(Guid storeId);
+
     Task StockAudit(Guid id);
-    public Task<byte[]>? GetProductsListAsync();
+    public Task<byte[]>? GetProductsListAsync(Guid storeId);
 }
 
 public class ProductService : IProductService
@@ -75,9 +76,9 @@ public class ProductService : IProductService
         _js = js;
     }
 
-    public async Task GetProductsList()
+    public async Task GetProductsList(Guid storeId)
     {        
-        var content = await GetProductsListAsync();        
+        var content = await GetProductsListAsync(storeId);        
         try
         {            
             await _js.InvokeAsync<object>("exportFile", "Products.pdf", Convert.ToBase64String(content));
@@ -106,9 +107,9 @@ public class ProductService : IProductService
 
 
 
-    public async Task<byte[]>? GetProductsListAsync()
+    public async Task<byte[]>? GetProductsListAsync(Guid storeId)
     {
-        return await _client.CreateClient("AppUrl").GetByteArrayAsync("api/products/productlist");
+        return await _client.CreateClient("AppUrl").GetByteArrayAsync($"api/products/productlist?storeId={storeId}");
     }
 
     public async Task<List<string>?> GetItemsName(CancellationToken token)

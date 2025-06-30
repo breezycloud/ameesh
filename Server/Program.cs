@@ -37,7 +37,7 @@ builder.Services.AddSession(options => options.IdleTimeout = TimeSpan.FromMinute
 
 string ConnectionString = string.Empty;
 #if DEBUG
-    ConnectionString = builder.Configuration.GetConnectionString("Production")!;
+    ConnectionString = builder.Configuration.GetConnectionString("Local")!;
 #else
     ConnectionString = builder.Configuration.GetConnectionString("Production");
 #endif
@@ -82,8 +82,7 @@ builder.Services.AddHostedService<ServerPeriodicJob>();
 
 builder.Services.AddResponseCompression(opts =>
 {
-    opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
-        ["application/octet-stream"]);
+    opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/octet-stream"]);
 });
 
 builder.Services.AddHttpClient();
@@ -91,7 +90,7 @@ builder.Services.AddSingleton<ILoggerProvider, ApplicationLoggerProvider>();
 
 
 var app = builder.Build();
-//SeedData.EnsureSeeded(app.Services, true);
+//await SeedData.EnsureSeeded(app.Services, true);
 
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions

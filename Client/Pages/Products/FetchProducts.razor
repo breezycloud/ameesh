@@ -264,7 +264,7 @@ else
 		AppState.IsProcessing = true;
 		try
 		{
-			await ProductService.GetProductsList();
+			await ProductService.GetProductsList(AppState!.StoreID);
 		}
 		catch (Exception ex)
 		{
