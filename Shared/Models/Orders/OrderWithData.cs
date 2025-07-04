@@ -37,10 +37,10 @@ public class OrderWithData
     public string? DeliveryStatus { get; set; }
     public OrderStatus OrderStatus { get; set; }
     public DateTime CreatedDate { get; set; }
-    public DateTime ModifiedDate { get; set; }
+    public DateTime ModifiedDate { get; set; }    
     public bool DiscountAboveLimit()
-    {        
-        var EligibleDiscount =  TotalAmount * (IsHasDiscount ? 0.1M :  0.05M);
+    {
+        var EligibleDiscount = TotalAmount * (IsHasDiscount ? 0.1M : 0.05M);
         if (Discount > EligibleDiscount)
             return true;
         else

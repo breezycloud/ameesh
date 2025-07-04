@@ -8,19 +8,25 @@ namespace HyLook.Shared.Models;
 public class SaleItem
 {
     public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
     public DateOnly Date { get; set; }    
     public string? Customer { get; set; }
+    [NotMapped]
     public bool IsHasDiscount { get; set; }
     public string? ReceiptNo { get; set; }
+    [NotMapped]
     public string? Option { get; set; }
+    [NotMapped]
     [Column(TypeName = "decimal(18, 2)")]
     public decimal OtherService { get; set; }
+    [NotMapped]
     [Column(TypeName = "decimal(18,2)")]
     public decimal Quantity { get; set; } = 0;
     [Column(TypeName = "decimal(18, 2)")]
     public decimal BuyPrice { get; set; }
     [Column(TypeName = "decimal(18, 2)")]
     public decimal SellPrice { get; set; }
+    [NotMapped]
     [Column(TypeName = "decimal(18, 2)")]
     public decimal AmountPaid { get; set; }
     
@@ -30,11 +36,13 @@ public class SaleItem
     public decimal Discount { get; set; }
     [Column(TypeName = "decimal(18, 2)")]
     public decimal SubTotal {get; set;}
+    [NotMapped]
     [Column(TypeName = "decimal(18, 2)")]
     public decimal Balance { get; set; }    
     [Column(TypeName = "decimal(18,2)")]
     public decimal Profit { get; set; }
-    public PaymentMode Mode { get; set; }
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal TP_Total { get; set; }
     public bool DiscountAboveLimit()
     {
         var EligibleDiscount =  TotalAmount * 0.05M;
@@ -43,14 +51,10 @@ public class SaleItem
         else
             return false;
     }
+    [NotMapped]
     public decimal ReturnsQty { get; set; }
-    public decimal Refund { get; set;}
-    public bool HasReturns { get; set; } = false;
-    public bool HasOtherServices { get; set; } = false;
-    public bool HasOrderItems { get; set; } = false;
-    public string? Sale { get; set; }
-    public string? Cashier { get; set; }
-    public string? Dispenser { get; set; }
+    [NotMapped]
+    public decimal Refund { get; set;}    
     public string Remark  => GetRemark() ?? string.Empty;
     public string GetRemark() 
     {
@@ -58,9 +62,7 @@ public class SaleItem
         if (IsHasDiscount && Balance > 0)
             remark = "F & F";
         else if (DiscountAboveLimit())
-            remark = "Discount";
-        else if (HasReturns)
-            remark = "Returns";
+            remark = "Discount";        
 
         return remark;
     }

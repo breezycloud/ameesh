@@ -7,6 +7,7 @@ using Shared.Models.Users;
 using Shared.Models.Expenses;
 using Shared.Models.Logging;
 using Shared.Models.Welfare;
+using HyLook.Shared.Models;
 
 namespace Server.Context;
 
@@ -40,8 +41,16 @@ public partial class AppDbContext : DbContext
     public DbSet<Penalty> Penalties { get; set; } = default!;
     public DbSet<OrderReferer> Referrals { get; set; } = default!;
 
+    public DbSet<SaleItem> StoreSales { get; set; } = default!;
+
+    
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<SaleItem>()
+                    .ToView("vwSalesReportByStore")
+                    .HasNoKey();
     }
 }

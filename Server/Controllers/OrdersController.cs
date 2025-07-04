@@ -48,72 +48,51 @@ public class OrdersController : ControllerBase
                 EndDate = filter!.EndDate is not null ? filter.EndDate!.Value.ToString("dd/MM/yyyy") : "",
             };
 
+        IQueryable<SaleItem> salesItemQuery;
         IQueryable<Order> ordersQuery;
         IQueryable<ProductOrderItem> itemsQuery;
         List<SaleItem> thirdPartySales = [];
         List<Order> data = [];
-        itemsQuery = _context.OrderItems.AsNoTracking()
-                                            .AsSplitQuery()
-                                            .Include(x => x.ProductData)
-                                            .ThenInclude(x => x!.Item)
-                                            .Where(x => x.ProductData!.StoreId == filter.StoreID);        
+        // itemsQuery = _context.OrderItems.AsNoTracking()
+        //                                     .AsSplitQuery()
+        //                                     .Include(x => x.ProductData)
+        //                                     .ThenInclude(x => x!.Item)
+        //                                     .Where(x => x.ProductData!.StoreId == filter.StoreID);        
+
+        salesItemQuery = _context.StoreSales.Where(x => x.StoreId == filter.StoreID);
         if (filter.Criteria == "Date")
         {
             if (filter.Option == "All")
             {
-
-                ordersQuery = itemsQuery.Include(x => x.Order)
-                                   .Include(x => x.Order!.User)
-                                    .Include(x => x.Order!.Customer)
-                                    .Include(x => x.Order!.Payments)
-                                    .ThenInclude(x => x.Cashier)
-                                    .Where(x => x.Order!.OrderDate == DateOnly.FromDateTime(filter!.StartDate!.Value))
-                                    .Select(x => new Order
-                                    {
-                                        Id = x.Order!.Id,
-                                        OrderDate = x.Order.OrderDate,
-                                        CustomerId = x.Order.CustomerId,
-                                        Customer = x.Order.Customer,
-                                        ReceiptNo = x.Order.ReceiptNo,
-                                        DeliveryAmt = x.Order.DeliveryAmt,
-                                        Discount = x.Order.Discount,
-                                        CreatedDate = x.Order.CreatedDate,
-                                        ModifiedDate = x.Order.ModifiedDate,
-                                        UserId = x.Order.UserId,
-                                        User = x.Order.User,
-                                        Payments = x.Order.Payments,
-                                        ProductOrders = x.Order.ProductOrders.ToList(),
-                                        ThirdPartyItems = x.Order.ThirdPartyItems.ToList(),
-                                        ReturnedProducts = x.Order.ReturnedProducts.ToList()
-                                    });
-            thirdPartySales = _context.Orders.AsNoTracking()
-                .Where(x => x.StoreId == filter.StoreID && x.ThirdPartyItems.Any()
-                && x.OrderDate == DateOnly.FromDateTime(filter!.StartDate!.Value))
-                .Include(x => x.Customer)
-                .Include(x => x.User)
-                .Include(x => x.Payments)
-                .ThenInclude(x => x.Cashier)
-                .AsSplitQuery()
-                .AsEnumerable()
-                .Select(x => new SaleItem
-                {
-                    Id = x.Id,
-                    Date = x.OrderDate,
-                    Option = "Store",
-                    Customer = x.Customer!.CustomerName,
-                    IsHasDiscount = x.Customer!.HasDiscount,
-                    ReceiptNo = x.ReceiptNo,
-                    AmountPaid = x.Payments.Sum(p => p.Amount),
-                    TotalAmount = x.TotalAmount,
-                    SubTotal = x.SubTotal,
-                    Balance = x.Balance,
-                    BuyPrice = x.ThirdPartyItems.Sum(x => x.Cost),
-                    SellPrice = x.ThirdPartyItems.Sum(x => x.Total),
-                    Profit = AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),
-                    Quantity = (int)x.ThirdPartyItems.Sum(x => x.Quantity),
-                    HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
-                    ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault())
-                }).ToList();
+                // thirdPartySales = _context.Orders.AsNoTracking()
+                // .Where(x => x.StoreId == filter.StoreID && x.ThirdPartyItems.Any()
+                // && x.OrderDate == DateOnly.FromDateTime(filter!.StartDate!.Value))
+                // .Include(x => x.Customer)
+                // .Include(x => x.User)
+                // .Include(x => x.Payments)
+                // .ThenInclude(x => x.Cashier)
+                // .AsSplitQuery()
+                // .AsEnumerable()
+                // .Select(x => new SaleItem
+                // {
+                //     Id = x.Id,
+                //     Date = x.OrderDate,
+                //     Option = "Store",
+                //     Customer = x.Customer!.CustomerName,
+                //     IsHasDiscount = x.Customer!.HasDiscount,
+                //     ReceiptNo = x.ReceiptNo,
+                //     AmountPaid = x.Payments.Sum(p => p.Amount),
+                //     TotalAmount = x.TotalAmount,
+                //     SubTotal = x.SubTotal,
+                //     Balance = x.Balance,
+                //     BuyPrice = x.ThirdPartyItems.Sum(x => x.Cost),
+                //     SellPrice = x.ThirdPartyItems.Sum(x => x.Total),
+                //     Profit = AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),
+                //     Quantity = (int)x.ThirdPartyItems.Sum(x => x.Quantity),
+                //     HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
+                //     ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault())
+                // }).ToList();
+                salesItemQuery = salesItemQuery.Where(x => x.Date == DateOnly.FromDateTime(filter!.StartDate!.Value));            
 
             }
             else
@@ -132,59 +111,36 @@ public class OrdersController : ControllerBase
         {
             if (filter.Option == "All")
             {
-                ordersQuery = itemsQuery.Include(x => x.Order)
-                                   .Include(x => x.Order!.User)
-                                    .Include(x => x.Order!.Customer)
-                                    .Include(x => x.Order!.Payments)
-                                    .ThenInclude(x => x.Cashier)
-                                    .Where(x => x.Order!.OrderDate >= DateOnly.FromDateTime(filter!.StartDate!.Value) && x.Order!.OrderDate <= DateOnly.FromDateTime(filter!.EndDate!.Value))
-                                    .Select(x => new Order
-                                    {
-                                        Id = x.Order!.Id,
-                                        OrderDate = x.Order.OrderDate,
-                                        CustomerId = x.Order.CustomerId,
-                                        Customer = x.Order.Customer,
-                                        ReceiptNo = x.Order.ReceiptNo,
-                                        DeliveryAmt = x.Order.DeliveryAmt,
-                                        Discount = x.Order.Discount,
-                                        CreatedDate = x.Order.CreatedDate,
-                                        ModifiedDate = x.Order.ModifiedDate,
-                                        UserId = x.Order.UserId,
-                                        User = x.Order.User,
-                                        Payments = x.Order.Payments,
-                                        ProductOrders = x.Order.ProductOrders.ToList(),
-                                        ThirdPartyItems = x.Order.ThirdPartyItems.ToList(),
-                                        ReturnedProducts = x.Order.ReturnedProducts.ToList()
-                                    });
+                salesItemQuery = salesItemQuery.Where(x => x.Date >= DateOnly.FromDateTime(filter!.StartDate!.Value) && x.Date <= DateOnly.FromDateTime(filter!.EndDate!.Value));                                    
 
-                thirdPartySales = _context.Orders.AsNoTracking()
-                .Where(x => x.StoreId == filter.StoreID && x.ThirdPartyItems.Any())
-                .Where(x => x.OrderDate >= DateOnly.FromDateTime(filter!.StartDate!.Value) && x.OrderDate <= DateOnly.FromDateTime(filter!.EndDate!.Value))
-                .Include(x => x.Customer)
-                .Include(x => x.User)
-                .Include(x => x.Payments)
-                .ThenInclude(x => x.Cashier)
-                .AsSplitQuery()
-                .AsEnumerable()
-                .Select(x => new SaleItem
-                {
-                    Id = x.Id,
-                    Date = x.OrderDate,
-                    Option = "Store",
-                    Customer = x.Customer!.CustomerName,
-                    IsHasDiscount = x.Customer!.HasDiscount,
-                    ReceiptNo = x.ReceiptNo,
-                    AmountPaid = x.Payments.Sum(p => p.Amount),
-                    TotalAmount = x.TotalAmount,
-                    SubTotal = x.SubTotal,
-                    Balance = x.Balance,
-                    BuyPrice = x.ThirdPartyItems.Sum(x => x.Cost),
-                    SellPrice = x.ThirdPartyItems.Sum(x => x.Total),
-                    Profit = AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),
-                    Quantity = (int)x.ThirdPartyItems.Sum(x => x.Quantity),
-                    HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
-                    ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault())
-                }).ToList();
+                // thirdPartySales = _context.Orders.AsNoTracking()
+                // .Where(x => x.StoreId == filter.StoreID && x.ThirdPartyItems.Any())
+                // .Where(x => x.OrderDate >= DateOnly.FromDateTime(filter!.StartDate!.Value) && x.OrderDate <= DateOnly.FromDateTime(filter!.EndDate!.Value))
+                // .Include(x => x.Customer)
+                // .Include(x => x.User)
+                // .Include(x => x.Payments)
+                // .ThenInclude(x => x.Cashier)
+                // .AsSplitQuery()
+                // .AsEnumerable()
+                // .Select(x => new SaleItem
+                // {
+                //     Id = x.Id,
+                //     Date = x.OrderDate,
+                //     Option = "Store",
+                //     Customer = x.Customer!.CustomerName,
+                //     IsHasDiscount = x.Customer!.HasDiscount,
+                //     ReceiptNo = x.ReceiptNo,
+                //     AmountPaid = x.Payments.Sum(p => p.Amount),
+                //     TotalAmount = x.TotalAmount,
+                //     SubTotal = x.SubTotal,
+                //     Balance = x.Balance,
+                //     BuyPrice = x.ThirdPartyItems.Sum(x => x.Cost),
+                //     SellPrice = x.ThirdPartyItems.Sum(x => x.Total),
+                //     Profit = AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),
+                //     Quantity = (int)x.ThirdPartyItems.Sum(x => x.Quantity),
+                //     HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
+                //     ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault())
+                // }).ToList();
                 // ordersQuery = _context.Orders.AsNoTracking()
                 //     .Include(x => x.User)
                 //     .Include(x => x.Customer)
@@ -208,8 +164,8 @@ public class OrdersController : ControllerBase
             }
         }
 
-        var orders = await ordersQuery
-            .OrderByDescending(x => x.ModifiedDate)
+        var orders = await salesItemQuery
+            .OrderByDescending(x => x.Date)
             .ToListAsync(cancellationToken);
         
 
@@ -221,37 +177,37 @@ public class OrdersController : ControllerBase
             StartDate = filter.StartDate!.Value.ToString("dd/MM/yyyy"),
             EndDate = filter!.EndDate is not null ? filter.EndDate!.Value.ToString("dd/MM/yyyy") : "",
         };
-        if (!orders.Any())
-        {
-            Report.SaleItems.AddRange(thirdPartySales);
-        }
-        foreach (var x in orders)
-        {
-            //x.ThirdPartyItems = _context.Orders.AsEnumerable().Where(o => o.Id == x.Id && x.ThirdPartyItems.Any()).SelectMany(o => o.ThirdPartyItems).ToList();
-            var saleItem = new SaleItem
-            {
-                Id = x.Id,
-                Date = x.OrderDate,
-                Option = "Store",
-                Customer = x.Customer!.CustomerName,
-                IsHasDiscount = x.Customer!.HasDiscount,
-                ReceiptNo = x.ReceiptNo,
-                AmountPaid = x.Payments.Sum(p => p.Amount),
-                TotalAmount = x.TotalAmount,
-                SubTotal = x.SubTotal,
-                Balance = x.Balance,
-                BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice) + x.ThirdPartyItems.Sum(x => x.Cost),
-                SellPrice = x.ProductOrders.Sum(x => x.Cost) + x.ThirdPartyItems.Sum(x => x.Total),
-                Profit = AppState.CalculateProfit(x.ProductOrders) + AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),
-                Quantity = x.ProductOrders.Sum(p => p.Quantity) + (int)x.ThirdPartyItems.Sum(x => x.Quantity),
-                HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
-                ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault()),
-                HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
-                Refund = x.ReturnedProducts.Sum(r => (decimal)r.Quantity! * r.Cost.GetValueOrDefault()),
-                Discount = x.Discount,
-            };
-            Report.SaleItems.Add(saleItem);
-        }
+        Report.SaleItems.AddRange(orders);
+        // if (!orders.Any())
+        // {
+        //     Report.SaleItems.AddRange(thirdPartySales);
+        // }
+        // foreach (var x in orders)
+        // {            
+        //     var saleItem = new SaleItem
+        //     {
+        //         Id = x.Id,
+        //         Date = x.OrderDate,
+        //         Option = "Store",
+        //         Customer = x.Customer!.CustomerName,
+        //         IsHasDiscount = x.Customer!.HasDiscount,
+        //         ReceiptNo = x.ReceiptNo,
+        //         AmountPaid = x.Payments.Sum(p => p.Amount),
+        //         TotalAmount = x.TotalAmount,
+        //         SubTotal = x.SubTotal,
+        //         Balance = x.Balance,
+        //         BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice) + x.ThirdPartyItems.Sum(x => x.Cost),
+        //         SellPrice = x.ProductOrders.Sum(x => x.Cost) + x.ThirdPartyItems.Sum(x => x.Total),
+        //         Profit = AppState.CalculateProfit(x.ProductOrders) + AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),
+        //         Quantity = x.ProductOrders.Sum(p => p.Quantity) + (int)x.ThirdPartyItems.Sum(x => x.Quantity),
+        //         HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
+        //         ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault()),
+        //         HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
+        //         Refund = x.ReturnedProducts.Sum(r => (decimal)r.Quantity! * r.Cost.GetValueOrDefault()),
+        //         Discount = x.Discount,
+        //     };
+        //     Report.SaleItems.Add(saleItem);
+        // }
         var report = new SalesReport(Report);
         var pdf = report.GeneratePdf();
         return File(pdf, "application/pdf", "your_pdf_filename.pdf");
@@ -428,34 +384,15 @@ public class OrdersController : ControllerBase
                                      (parameter.HasThirdItems && x.ThirdPartyItems.Any()) ||
                                      (x.Address != null && !string.IsNullOrEmpty(x.Address.State) && 
                                      x.Address.State.ToLower().Contains(pattern)));
-        }
-
-        if (!string.IsNullOrEmpty(parameter.PaymentStatus))
-        {
-            if (parameter.PaymentStatus == PaymentStatus.Awaiting.ToString())
-            {
-                query = query.Where(x => (x.ProductOrders.Sum(p => p.Quantity * p.Cost) + x.DeliveryAmt - x.Discount - x.Payments.Sum(p => p.Amount)) == 0 && !x.PaymentConfirmed);                
-            }
-            else if (parameter.PaymentStatus == PaymentStatus.Paid.ToString())
-            {
-                query = query.Where(x => x.PaymentConfirmed);                
-            }
-            else
-            {
-                query = query.Where(x => (x.ProductOrders.Sum(p => p.Quantity * p.Cost)  + x.DeliveryAmt - x.Discount - x.Payments.Sum(p => p.Amount)) > 0);
-            }
-        }
+        }        
 
         if (parameter.HasThirdItems)
         {
             query = query.Where(x => x.ThirdPartyItems.Any());
         }
+        
 
-        response.TotalCount = await query.CountAsync(cancellationToken);
-
-        var pagedQuery = query.Skip(parameter.Page)
-                              .Take(parameter.PageSize)
-                              .Select(x => new OrderWithData
+        var pagedQuery = query.AsEnumerable().Select(x => new OrderWithData
                               {
                                   Id = x.Id,
                                   Date = x.OrderDate,
@@ -481,12 +418,16 @@ public class OrdersController : ControllerBase
                                   CreatedDate = x.CreatedDate,
                                   ModifiedDate = x.ModifiedDate
                               });
+        
 
-        response.Data = new List<OrderWithData>();
-        await foreach (var order in pagedQuery.AsAsyncEnumerable().WithCancellation(cancellationToken))
+        if (!string.IsNullOrEmpty(parameter.PaymentStatus))
         {
-            response.Data.Add(order);
+            pagedQuery = pagedQuery.Where(x => x.PaymentStatus == parameter.PaymentStatus);
         }
+
+        response.TotalCount = pagedQuery.Count();
+        
+        response.Data = pagedQuery.Skip(parameter.Page).Take(parameter.PageSize).ToList();
 
         return response;
     }
@@ -1021,29 +962,29 @@ public class OrdersController : ControllerBase
 
         foreach (var x in Orders.AsParallel())
         {
-            var saleItem = new SaleItem
-            {
-                Id = x.Id,
-                Date = x.OrderDate,
-                Option = "Store",                
-                ReceiptNo = x.ReceiptNo,
-                AmountPaid = x.Payments.Sum(p => p.Amount),
-                TotalAmount = x.TotalAmount,
-                SubTotal = x.SubTotal,
-                Balance = x.Balance,
-                BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice) + x.ThirdPartyItems.Sum(x => x.Cost),
-                SellPrice = x.ProductOrders.Sum(x => x.Cost) + x.ThirdPartyItems.Sum(x => x.Total),
-                Profit = AppState.CalculateProfit(x.ProductOrders) + AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),            
-                Quantity = x.ProductOrders.Sum(p => p.Quantity) + (int)x.ThirdPartyItems.Sum(x => x.Quantity),
-                HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
-                ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault()),
-                HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
-                Refund = x.ReturnedProducts.Sum(r => (decimal)r.Quantity! * r.Cost.GetValueOrDefault()),                
-                Discount = x.Discount,
-            };
+            // var saleItem = new SaleItem
+            // {
+            //     Id = x.Id,
+            //     Date = x.OrderDate,
+            //     Option = "Store",                
+            //     ReceiptNo = x.ReceiptNo,
+            //     AmountPaid = x.Payments.Sum(p => p.Amount),
+            //     TotalAmount = x.TotalAmount,
+            //     SubTotal = x.SubTotal,
+            //     Balance = x.Balance,
+            //     BuyPrice = x.ProductOrders.Sum(x => x.BuyPrice) + x.ThirdPartyItems.Sum(x => x.Cost),
+            //     SellPrice = x.ProductOrders.Sum(x => x.Cost) + x.ThirdPartyItems.Sum(x => x.Total),
+            //     Profit = AppState.CalculateProfit(x.ProductOrders) + AppState.CalculateProfit(x.ThirdPartyItems) - x.ReturnedProducts.Sum(s => s.Cost.GetValueOrDefault()),            
+            //     Quantity = x.ProductOrders.Sum(p => p.Quantity) + (int)x.ThirdPartyItems.Sum(x => x.Quantity),
+            //     HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
+            //     ReturnsQty = x.ReturnedProducts.Sum(p => p.Quantity.GetValueOrDefault()),
+            //     HasOrderItems = x.ProductOrders.Any() || x.ThirdPartyItems.Any(),
+            //     Refund = x.ReturnedProducts.Sum(r => (decimal)r.Quantity! * r.Cost.GetValueOrDefault()),                
+            //     Discount = x.Discount,
+            // };
 
             //saleItem.Cashier = x.Payments.AsEnumerable().LastOrDefault()!.Cashier!.ToString();
-            Report.SaleItems.Add(saleItem);
+            // Report.SaleItems.Add(saleItem);
         }
         return Report;
     }

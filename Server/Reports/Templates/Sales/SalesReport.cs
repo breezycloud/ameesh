@@ -81,12 +81,36 @@ public class SalesReport(SalesReportTemplate? template) : IDocument
                 row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumTotalAmount:N2}").FontSize(9);
                 row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumDiscount:N2}").FontSize(9);
                 row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumSubTotal:N2}").FontSize(9);
-                row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumAmountPaid:N2}").FontSize(9);
-                row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumRefund:N2}").FontSize(9);
-                row.RelativeItem().Element(Style).AlignRight().Text($"{(template!.SumAmountPaid - template!.SumRefund):N2}").FontSize(9);
+                // row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumAmountPaid:N2}").FontSize(9);
+                // row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumRefund:N2}").FontSize(9);
+                // row.RelativeItem().Element(Style).AlignRight().Text($"{(template!.SumAmountPaid - template!.SumRefund):N2}").FontSize(9);
                 row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumProfit:N2}").FontSize(9);                
-                row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumBalance:N2}").FontSize(9);                
+                row.RelativeItem().Element(Style).AlignRight().Text($"{template!.SumTP:N2}").FontSize(9);
                 // row.RelativeItem().Element(Style).Text("").FontSize(9);                
+            });
+            column.Item().AlignRight().Row(row =>
+            {                
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().AlignRight().Element(Style).Text($"Note: TP (Third party)").FontSize(7);
+                    col.Item().AlignRight().Element(Style).Text($"Grand Total").Italic().Bold();
+                });
+                row.RelativeItem().Element(Style).Text("").FontSize(9);
+                row.RelativeItem().Element(Style).Text("").FontSize(9);
+                row.RelativeItem().Element(Style).Text("").FontSize(9);
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().AlignRight().Element(Style).Text($"{template!.SumTP:N2}").FontSize(9);
+                    col.Item().AlignRight().Element(Style).Text($"{template!.SumTotalAmount + template!.SumTP:N2}").FontSize(9);
+                });
+                row.RelativeItem().Element(Style).Text("").FontSize(9);
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().AlignRight().Element(Style).Text($"{template!.SumTP:N2}").FontSize(9);
+                    col.Item().AlignRight().Element(Style).Text($"{template!.SumSubTotal + template!.SumTP:N2}").FontSize(9);
+                });
+                row.RelativeItem().Element(Style).Text("").FontSize(9);
+                row.RelativeItem().Element(Style).Text("").FontSize(9);
             });
 
             static IContainer Style(IContainer container)
@@ -104,17 +128,17 @@ public class SalesReport(SalesReportTemplate? template) : IDocument
             table.ColumnsDefinition(columns =>
             {
                 columns.ConstantColumn(25);
-                columns.RelativeColumn(1.2f);
-                columns.RelativeColumn();
+                columns.RelativeColumn(0.8f);
+                columns.RelativeColumn(0.5f);
                 columns.RelativeColumn(1.5f);
                 columns.RelativeColumn();
                 columns.RelativeColumn();
                 columns.RelativeColumn();
                 columns.RelativeColumn();
                 columns.RelativeColumn();
-                columns.RelativeColumn();
-                columns.RelativeColumn();
-                columns.RelativeColumn();
+                // columns.RelativeColumn();
+                // columns.RelativeColumn();
+                // columns.RelativeColumn();
                 // columns.RelativeColumn();
             });
 
@@ -128,11 +152,11 @@ public class SalesReport(SalesReportTemplate? template) : IDocument
                 header.Cell().Element(CellStyle).AlignRight().Text("Total Amount").FontSize(9);
                 header.Cell().Element(CellStyle).AlignRight().Text("Discount").FontSize(9);
                 header.Cell().Element(CellStyle).AlignRight().Text("Sub Total").FontSize(9);
-                header.Cell().Element(CellStyle).AlignRight().Text("Paid").FontSize(9);
-                header.Cell().Element(CellStyle).AlignRight().Text("Refund").FontSize(9);
-                header.Cell().Element(CellStyle).AlignRight().Text("Net Amount").FontSize(9);
+                // header.Cell().Element(CellStyle).AlignRight().Text("Paid").FontSize(9);
+                // header.Cell().Element(CellStyle).AlignRight().Text("Refund").FontSize(9);
+                // header.Cell().Element(CellStyle).AlignRight().Text("Net Amount").FontSize(9);
                 header.Cell().Element(CellStyle).AlignRight().Text("Profit").FontSize(9);
-                header.Cell().Element(CellStyle).AlignRight().Text("Balance").FontSize(9);
+                header.Cell().Element(CellStyle).AlignRight().Text("TP").FontSize(9);
                 // header.Cell().Element(CellStyle).AlignCenter().Text("Remarks").FontSize(9);
 
                 static IContainer CellStyle(IContainer container)
@@ -154,11 +178,11 @@ public class SalesReport(SalesReportTemplate? template) : IDocument
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.TotalAmount:N2}").FontSize(8);
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.Discount:N2}").FontSize(8);
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.SubTotal:N2}").FontSize(8);
-                table.Cell().Element(CellStyle).AlignRight().Text($"{item.AmountPaid:N2}").FontSize(8);
-                table.Cell().Element(CellStyle).AlignRight().Text($"{item.Refund:N2}").FontSize(8);
-                table.Cell().Element(CellStyle).AlignRight().Text($"{(item.AmountPaid - item.Refund):N2}").FontSize(8);
+                // table.Cell().Element(CellStyle).AlignRight().Text($"{item.AmountPaid:N2}").FontSize(8);
+                // table.Cell().Element(CellStyle).AlignRight().Text($"{item.Refund:N2}").FontSize(8);
+                // table.Cell().Element(CellStyle).AlignRight().Text($"{(item.AmountPaid - item.Refund):N2}").FontSize(8);
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.Profit:N2}").FontSize(8);
-                table.Cell().Element(CellStyle).AlignRight().Text($"{(item.Balance - item.Refund):N2}").FontSize(8);                
+                table.Cell().Element(CellStyle).AlignRight().Text($"{item.TP_Total:N2}").FontSize(8);                
                 // table.Cell().Element(CellStyle).AlignCenter().Text(item.GetRemark()).FontSize(8);
                 //if (item.GetRemark().Contains("F & F"))
 

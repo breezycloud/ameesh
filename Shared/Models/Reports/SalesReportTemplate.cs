@@ -23,14 +23,19 @@ public class SalesReportTemplate
     public decimal SumSellPrice => SaleItems.Sum(x => x.SellPrice);
     [Column(TypeName = "decimal(18, 2)")]
     public decimal SumTotalAmount => SaleItems.Sum(x => x.TotalAmount);
+    [NotMapped]
     [Column(TypeName = "decimal(18, 2)")]
     public decimal SumAmountPaid => SaleItems.Sum(x => x.AmountPaid);
     [Column(TypeName = "decimal(18, 2)")]
     public decimal SumDiscount => SaleItems.Sum(x => x.Discount);
     [Column(TypeName = "decimal(18, 2)")]
     public decimal SumSubTotal => SaleItems.Sum(x => x.SubTotal);
-    [Column(TypeName = "decimal(18, 2)")]
+    [NotMapped]
+    [Column(TypeName = "decimal(18, 2)")]    
     public decimal SumBalance => SaleItems.Sum(x => x.Balance);
+    [Column(TypeName = "decimal(18, 2)")]    
+    public decimal SumTP => SaleItems.Sum(x => x.TP_Total);
+    [NotMapped]
     [Column(TypeName = "decimal(18, 2)")]
     public decimal SumRefund => SaleItems.Sum(x => x.Refund);
     [Column(TypeName = "decimal(18, 2)")]

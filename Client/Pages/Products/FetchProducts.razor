@@ -52,9 +52,9 @@ else
 				 RowClick="@HandleSelectedDataItemChanged"
 				 @bind-SelectedDataItem="category"
 				 SortMode="SortMode.Multiple"
-			 Outlined>
+			 	 Outlined>
 		<ToolBarContent>
-			<MudButton Color="Color.Primary" Size="Size.Small" Disabled="AppState.IsProcessing" OnClick="Print">Print Stocks</MudButton>
+			<MudButton Color="Color.Primary" Size="Size.Small" Disabled="AppState.IsProcessing" OnClick="@Print">Print Stocks</MudButton>
 			<MudSpacer />
 			<MudTextField T="string" Value="AppState._searchString" ValueChanged="@(s => OnSearch(s))" Placeholder="Search" Immediate="false"
 						  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
@@ -71,7 +71,7 @@ else
 					<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Info" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
 					<MudButton StartIcon="@Icons.Material.Filled.Search" Color="Color.Primary" OnClick="() => OnView(context.Item.Id)" Size="Size.Small">View</MudButton>					
 					<AuthorizeView Roles="Admin, Master" Context="auth">
-						<Authorized>							
+						<Authorized>
 							<MudButton StartIcon="@Icons.Material.Filled.Delete" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
 						</Authorized>
 					</AuthorizeView>
@@ -85,7 +85,6 @@ else
 			<MudDataGridPager T="ProductByStore" />
 		</PagerContent>
 	</MudDataGrid>
-
 }
 
 
@@ -264,7 +263,7 @@ else
 		AppState.IsProcessing = true;
 		try
 		{
-			await ProductService.GetProductsList(AppState!.StoreID);
+			nav.NavigateTo("print-stock-report");
 		}
 		catch (Exception ex)
 		{
@@ -273,6 +272,11 @@ else
 		}
 		AppState.IsProcessing = false;
 
+	}
+
+	private void StockBreakdown()
+	{
+		nav.NavigateTo("breakdown");
 	}
 	public async ValueTask DisposeAsync()
 	{

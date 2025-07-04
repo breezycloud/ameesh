@@ -461,6 +461,8 @@ public class ProductsController : ControllerBase
                 if (product.Total <= 0)                
                     continue;
 
+                
+
                 foreach (var stock in product.Stocks)
                 {
                     yield return new List<ProductItems>()
@@ -472,7 +474,7 @@ public class ProductsController : ControllerBase
                             ProductName = product.Item!.ProductName,
                             CostPrice = stock.BuyPrice.GetValueOrDefault(),
                             SellPrice = product.SellPrice.GetValueOrDefault(),
-                            DispensaryQuantity = product.DispensaryQuantity,
+                            DispensaryQuantity = product.Dispensary.FirstOrDefault()!.Quantity!.Value,
                             StoreQuantity = stock.Quantity.GetValueOrDefault(),
                         }
                     };

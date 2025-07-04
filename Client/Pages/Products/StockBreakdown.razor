@@ -1,0 +1,133 @@
+@page "/print-stock-report"
+@layout AppLayout
+@inject IProductService ProductService
+
+
+<h3 class="mt-4">Printable Stock Report</h3>
+<MudButton Size="Size.Small" OnClick="@Print">Print Report</MudButton>
+@* <button class="btn btn-primary mb-3 d-print-none" @onclick="Print">🖨 Print Report</button> *@
+
+@if (products.Count == 0 && !loading)
+{
+    <p><em>No products found.</em></p>
+}
+else
+{    
+    @foreach (var p in products)
+    {
+        <MudPaper Class="mb-4 p-3" Elevation="1">
+            <MudText Typo="Typo.h5" Class="mb-2">
+                🛒 <strong>@p.ProductName</strong>
+            </MudText>
+
+            <MudTable T="Stock" Items=p.Stocks Dense="true" Bordered="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Source</MudTh>
+                    <MudTh>Date Added</MudTh>
+                    <MudTh>Quantity</MudTh>
+                    <MudTh>Buy Price</MudTh>
+                    <MudTh>Expiry Date</MudTh>
+                    <MudTh>Total Cost</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    @foreach (var s in p.Dispensary)
+                    {
+                        var expired = s.ExpiryDate.HasValue && s.ExpiryDate < DateTime.Today;
+                        <MudTr Class="@(expired ? "mud-table-row-danger" : null)">
+                            <MudTd>Dispensary</MudTd>
+                            <MudTd>@s.Date.ToShortDateString()</MudTd>
+                            <MudTd>@s.Quantity</MudTd>
+                            <MudTd>@(s.BuyPrice?.ToString("N2") ?? "N/A")</MudTd>
+                            <MudTd>@(s.ExpiryDate?.ToShortDateString() ?? "N/A")</MudTd>
+                            <MudTd>
+                                @(s.Quantity.HasValue && s.BuyPrice.HasValue
+                                    ? (s.Quantity.Value * s.BuyPrice.Value).ToString("N2")
+                                    : "N/A")
+                            </MudTd>
+                        </MudTr>
+                    }
+                    @foreach (var s in p.Stocks)
+                    {
+                        var expired = s.ExpiryDate.HasValue && s.ExpiryDate < DateTime.Today;
+                        <MudTr Class="@(expired ? "mud-table-row-danger" : null)">
+                            <MudTd>Store</MudTd>
+                            <MudTd>@s.Date.ToShortDateString()</MudTd>
+                            <MudTd>@s.Quantity</MudTd>
+                            <MudTd>@(s.BuyPrice?.ToString("N2") ?? "N/A")</MudTd>
+                            <MudTd>@(s.ExpiryDate?.ToShortDateString() ?? "N/A")</MudTd>
+                            <MudTd>
+                                @(s.Quantity.HasValue && s.BuyPrice.HasValue
+                                    ? (s.Quantity.Value * s.BuyPrice.Value).ToString("N2")
+                                    : "N/A")
+                            </MudTd>
+                        </MudTr>
+                    }
+                    <MudTr Class="mud-theme-dark fw-bold">
+                        <MudTd  colspan="5" Align="Align.Right">Total Inventory Cost:</MudTd>
+                        <MudTd>
+                            @(
+                                p.Dispensary
+                                    .Where(x => x.Quantity.HasValue && x.BuyPrice.HasValue)
+                                    .Sum(x => x.Quantity.Value * x.BuyPrice.Value)
+                                +
+                                p.Stocks
+                                    .Where(x => x.Quantity.HasValue && x.BuyPrice.HasValue)
+                                    .Sum(x => x.Quantity.Value * x.BuyPrice.Value)
+                            ).ToString("N2")
+                        </MudTd>
+                    </MudTr>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+    @if (loading)
+    {
+        <div class="text-center my-3">
+            <MudProgressCircular Indeterminate="true" Size="Size.Medium" Class="me-2" /> Loading more...
+        </div>
+    }
+    else if (!allLoaded)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="LoadMore" Class="d-print-none">Load More</MudButton>
+    }
+}
+
+@code {
+    private List<ProductByStore> products = new();
+    private int page = 1;
+    private const int pageSize = 10;
+    private bool loading = false;
+    private bool allLoaded = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMore();
+    }
+
+    private async Task LoadMore()
+    {
+        loading = true;
+        StateHasChanged();
+        
+        var parameter = new PaginationParameter { FilterId = AppState.StoreID, Page = page * pageSize, PageSize = pageSize };
+        var batch = await ProductService.GetPagedProducts(parameter);			
+        
+        if (batch!.Data == null || batch.Data.Count == 0)
+        {
+            allLoaded = true;
+        }
+        else
+        {
+            products.AddRange(batch.Data);
+            page++;
+        }
+
+        loading = false;
+        StateHasChanged();
+    }
+
+    private async Task Print()
+    {
+        await js.InvokeVoidAsync("window.print");
+    }
+}
