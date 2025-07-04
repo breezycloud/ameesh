@@ -130,6 +130,7 @@ public class ProductsController : ControllerBase
                                                   .SetProperty(p => p.MarkupType, product.MarkupType)
                                                   .SetProperty(p => p.MarkupAmount, product.MarkupAmount)
                                                   .SetProperty(p => p.MarkupPercentage, product.MarkupPercentage)
+                                                  .SetProperty(p => p.Dispensary, product.Dispensary)
                                                   .SetProperty(p => p.Stocks, product.Stocks));
         return rowsAffected > 0 ? true : false;
     }

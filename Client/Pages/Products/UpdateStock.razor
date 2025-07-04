@@ -13,39 +13,50 @@
             <MudGrid Spacing="2">
                 <MudItem xs="12">
                     <MudTextField @bind-Value="Product!.ProductName" Margin="Margin.Dense" Label="Product" Variant="Variant.Outlined" Required />
-                </MudItem>     
+                </MudItem>
+                <MudItem xs="12">
+                    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
+                        <MudRadioGroup T="string" Value="Source"  ValueChanged="@SourceChanged">
+                            <MudRadio Dense Value="@("Dispensary")">Dispensary</MudRadio>
+                            <MudRadio Dense Value="@("Store")">Store</MudRadio>
+                        </MudRadioGroup>
+                    </MudStack>
+                </MudItem>
                 <MudItem xs="12">
                     <MudSelect T="Stock" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" @bind-Value="@Stock" Label="Select stock"
-                                Dense Variant="Variant.Outlined" ToStringFunc="@(e => e==null ? null : $"Qty left {e.Quantity} Exp on {e.ExpiryDate!.Value:dd/MM/yyyy}")">
+                                Dense Variant="Variant.Outlined" ToStringFunc="@(e => e==null ? null : $"Qty left {e.Quantity}")">
                         @foreach (var e in Stocks!)
                         {
                             <MudSelectItem T="Stock" Value="@e"></MudSelectItem>
                         }
                     </MudSelect>
-                </MudItem>           
-                <MudItem xs="12">
-                    <MudNumericField @bind-Value="Stock!.BuyPrice" Label="Cost Price" Margin="Margin.Dense" Variant="Variant.Outlined"></MudNumericField>
-                </MudItem>
-                <MudItem xs="12">
-                    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
-                        <MudRadioGroup T="MarkupType" @bind-Value="Product!.MarkupType">
-                            <MudRadio Dense Value="@MarkupType.Fixed">Fixed Amount</MudRadio>
-                            <MudRadio Dense Value="@MarkupType.Percentage">Percentage</MudRadio>
-                        </MudRadioGroup>
-                    </MudStack>
-                </MudItem>
-                @if (Product!.MarkupType == MarkupType.Fixed)
+                </MudItem>      
+                @if (Source == "Store")
                 {
-                    <MudItem xs="12" sm="6">
-                        <MudTextField id="figure-right"  T="decimal" Value="Product!.MarkupAmount" ValueChanged="CalculateSellPrice" Format="N2" Label="Amount" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+                    <MudItem xs="12">
+                        <MudNumericField @bind-Value="Stock!.BuyPrice" Label="Cost Price" Margin="Margin.Dense" Variant="Variant.Outlined"></MudNumericField>
                     </MudItem>
-                }
-                else
-                {
-                    <MudItem xs="12" sm="6">
-                        <MudNumericField id="figure-center" T="decimal" Value="Product!.MarkupPercentage" ValueChanged="CalculateSellPrice" Label="Percentage" Min="0" Max="100" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
+                    <MudItem xs="12">
+                        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
+                            <MudRadioGroup T="MarkupType" @bind-Value="Product!.MarkupType">
+                                <MudRadio Dense Value="@MarkupType.Fixed">Fixed Amount</MudRadio>
+                                <MudRadio Dense Value="@MarkupType.Percentage">Percentage</MudRadio>
+                            </MudRadioGroup>
+                        </MudStack>
                     </MudItem>
-                }
+                    @if (Product!.MarkupType == MarkupType.Fixed)
+                    {
+                        <MudItem xs="12" sm="6">
+                            <MudTextField id="figure-right"  T="decimal" Value="Product!.MarkupAmount" ValueChanged="CalculateSellPrice" Format="N2" Label="Amount" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+                        </MudItem>
+                    }
+                    else
+                    {
+                        <MudItem xs="12" sm="6">
+                            <MudNumericField id="figure-center" T="decimal" Value="Product!.MarkupPercentage" ValueChanged="CalculateSellPrice" Label="Percentage" Min="0" Max="100" Variant="Variant.Outlined" Margin="Margin.Dense"></MudNumericField>
+                        </MudItem>
+                    }
+                }                
                 <MudItem xs="12" sm="6">
                     <MudNumericField id="figure-right" ReadOnly @bind-Value="Product!.Price" Min="0" Margin="Margin.Dense" Label="Unit Price" Variant="Variant.Outlined"></MudNumericField>
                 </MudItem>
@@ -71,6 +82,7 @@
     public MudDialogInstance? DialogInstance { get; set; }
 
     private bool IsReadOnly = true;
+    private string Source { get; set; } 
     [Parameter]
 
     public ProductByStore? Product { get; set; } = new();
@@ -85,14 +97,22 @@
         hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithStatefulReconnect().Build();
         var mode = await localStorage.GetItemAsync<bool?>("mode");
         if (mode is not null || mode!.Value)
-            await hub.StartAsync();      
-
-        Stock = Product!.Stocks!.LastOrDefault();
+            await hub.StartAsync();              
     }
 
 
 
     void Close() => DialogInstance?.Close(DialogResult.Ok(true));
+
+    private void SourceChanged(string source)
+    {
+        Source = source;
+        if (Source == "Dispensary")
+            Stocks = Product!.Dispensary.Where(x => x.Quantity > 0).ToArray();
+        else
+            Stocks = Product!.Stocks.Where(x => x.Quantity > 0).ToArray();
+        StateHasChanged();
+    }
 
     private void CalculateSellPrice(decimal value)
     {
@@ -143,8 +163,18 @@
         try
         {
             Product!.ModifiedDate = DateTime.UtcNow;
-            Product.Stocks.RemoveAt(0);
-            Product.Stocks.Add(Stock);
+            if (Source == "Dispensary")
+            {
+                var ds = Product.Dispensary.First(x => x.id == Stock.id);
+                Product.Dispensary.Remove(ds);
+                Product.Dispensary.Add(Stock);
+            }
+            else
+            {
+                var ds = Product.Stocks.First(x => x.id == Stock.id);
+                Product.Stocks.Remove(ds);
+                Product.Stocks.Add(Stock);
+            }            
             response = await ItemService.EditProduct(Product!);
             if (response)
             {
