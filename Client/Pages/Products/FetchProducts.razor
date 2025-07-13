@@ -263,7 +263,7 @@ else
 		AppState.IsProcessing = true;
 		try
 		{
-			nav.NavigateTo("print-stock-report");
+			await ProductService.GetProductsList(AppState!.StoreID);
 		}
 		catch (Exception ex)
 		{

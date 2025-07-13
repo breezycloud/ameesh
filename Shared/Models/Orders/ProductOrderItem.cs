@@ -22,7 +22,7 @@ public class ProductOrderItem
     public decimal Quantity { get; set; }
     [Column(TypeName = "decimal(18, 2)")]
     public decimal Cost { get; set; }
-    public OrderStatus Status { get; set; } = OrderStatus.Pending;
+    public OrderStatus Status { get; set; } = OrderStatus.Completed;
     public DateTime ModifiedDate { get; set; } = DateTime.UtcNow;
     [ForeignKey(nameof(OrderId))]
     public virtual Order? Order { get; set; }

@@ -37,36 +37,9 @@ public class SeedData
             //ImportData(services);
             //RemoveQuantities(services);
             //AddExpenseTypes(db);
-            //ImportCustomers(services);
-            await db.Payments.Include(x => x.Order).Where(x => x.Order!.OrderDate.Month != DateTime.Now.Month || x.Order.OrderDate.Year != DateTime.Now.Year).ExecuteDeleteAsync();
-            var lastOrders = await db.Orders
-                .Where(x => x.OrderDate.Month != DateTime.Now.Month || x.OrderDate.Year != DateTime.Now.Year)
-                .ToListAsync();
-
-            int totalOrders = lastOrders.Count;
-            int processed = 0;
-
-            foreach (var x in lastOrders)
-            {
-                db.Payments.Add(new Payment
-                {
-                    Id = Guid.NewGuid(),
-                    OrderId = x.Id,
-                    Amount = x.SubTotal,
-                    PaymentDate = x.CreatedDate,
-                    PaymentMode = PaymentMode.POS,
-                    CreatedDate = x.CreatedDate,
-                    UserId = x.UserId,
-                    Order = null,
-                    Cashier = null,
-                });
-                await db.Orders.Where(p => p.Id == x.Id).ExecuteUpdateAsync(s => s.SetProperty(p => p.PaymentConfirmed, true)
-                    .SetProperty(p => p.ModifiedDate, x.CreatedDate));
-                await db.SaveChangesAsync();
-
-                processed++;
-                Console.WriteLine($"Processed {processed} of {totalOrders} last orders.");
-            }
+            //ImportCustomers(services);            
+            var rowsAffected = await db.OrderItems.Where(p => p.Status == OrderStatus.Pending).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, OrderStatus.Completed));                
+            Console.WriteLine($"Processed {rowsAffected} orders.");
         }
     }
 

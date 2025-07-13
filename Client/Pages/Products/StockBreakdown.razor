@@ -81,7 +81,7 @@ else
         </MudPaper>
     }
     @if (loading)
-    {
+    {        
         <div class="text-center my-3">
             <MudProgressCircular Indeterminate="true" Size="Size.Medium" Class="me-2" /> Loading more...
         </div>
@@ -93,7 +93,7 @@ else
 }
 
 @code {
-    private List<ProductByStore> products = new();
+    private List<ProductByStore> products = new();        
     private int page = 1;
     private const int pageSize = 10;
     private bool loading = false;

@@ -37,7 +37,7 @@ builder.Services.AddSession(options => options.IdleTimeout = TimeSpan.FromMinute
 
 string ConnectionString = string.Empty;
 #if DEBUG
-    ConnectionString = builder.Configuration.GetConnectionString("Local")!;
+    ConnectionString = builder.Configuration.GetConnectionString("Production")!;
 #else
     ConnectionString = builder.Configuration.GetConnectionString("Production");
 #endif
@@ -55,7 +55,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(ConnectionString, o => o.SetPostgresVersion(16, 3));
 });
 
-
 builder.Services.AddAuthentication(x =>
 {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -70,11 +69,11 @@ builder.Services.AddAuthentication(x =>
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = false,
         ValidateAudience = false,
-    };    
+    };
 });
 
-builder.Services.AddSignalR(options => 
-{    
+builder.Services.AddSignalR(options =>
+{
     options.StatefulReconnectBufferSize = 1000;
 });
 

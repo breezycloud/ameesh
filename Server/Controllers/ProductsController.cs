@@ -449,7 +449,7 @@ public class ProductsController : ControllerBase
         {
             var data = await _context.Products.Where(x => x.StoreId == id)
                                 .Include(item => item.Item)
-                                .ThenInclude(b => b.Brand)
+                                .ThenInclude(b => b!.Brand)
                                 .Include(item => item.Item)
                                 .ThenInclude(category => category!.Category)
                                 .OrderBy(x => x.Item!.ProductName)
@@ -464,19 +464,27 @@ public class ProductsController : ControllerBase
 
                 
 
-                foreach (var stock in product.Stocks)
+                var groupedStocks = product.Stocks
+                    .GroupBy(s => s.BuyPrice)
+                    .Select(g => new
+                    {
+                        BuyPrice = g.Key,
+                        TotalQuantity = g.Sum(x => x.Quantity ?? 0)
+                    });
+
+                foreach (var stockGroup in groupedStocks)
                 {
                     yield return new List<ProductItems>()
                     {
                         new ProductItems
                         {
-                            BrandName = product.Item!.Brand!.BrandName,
-                            CategoryName = product.Item!.Category!.CategoryName,
-                            ProductName = product.Item!.ProductName,
-                            CostPrice = stock.BuyPrice.GetValueOrDefault(),
-                            SellPrice = product.SellPrice.GetValueOrDefault(),
-                            DispensaryQuantity = product.Dispensary.FirstOrDefault()!.Quantity!.Value,
-                            StoreQuantity = stock.Quantity.GetValueOrDefault(),
+                            BrandName = product.Item!.Brand?.BrandName,
+                            CategoryName = product.Item!.Category?.CategoryName,
+                            ProductName = product.Item?.ProductName,
+                            CostPrice = stockGroup.BuyPrice ?? 0,
+                            SellPrice = product.SellPrice ?? 0,
+                            DispensaryQuantity = product.Dispensary.Select(q => q.Quantity).FirstOrDefault() ?? 0,
+                            StoreQuantity = stockGroup.TotalQuantity,
                         }
                     };
                 }

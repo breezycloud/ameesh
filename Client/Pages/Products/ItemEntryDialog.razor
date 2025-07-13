@@ -12,7 +12,7 @@
             <MudText Typo="Typo.h6">@(IsEdit ? "Update" : "Add") Product</MudText>
         </TitleContent>
         <DialogContent>
-            <MudGrid Spacing="1">
+            <MudGrid Spacing="0">
                 <MudItem xs="12">
                     <MudAutocomplete T="Store" AnchorOrigin="Origin.BottomCenter" ReadOnly="IsReadOnly" Value="Store" Label="Store" ShowProgressIndicator="true"
                                      SearchFunc="@SearchStore" Dense="true" Variant="Variant.Outlined" ValueChanged="StoreChanged" ProgressIndicatorColor="Color.Primary"
