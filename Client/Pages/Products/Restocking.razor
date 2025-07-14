@@ -48,20 +48,16 @@ else
 
 	private HubConnection? hub;
 
-	protected override async Task OnParametersSetAsync()
+	protected override void OnParametersSet()
 	{
-		@* var builder = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect();
-        builder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 1000);
-        hub = builder.Build();
-        var internetfound = await js.InvokeAsync<bool>("checkinternet");
-        if (internetfound)
-            await hub.StartAsync();                       *@
-
+		if (!string.IsNullOrWhiteSpace(AppState.SelectedOption))
+			OptionChanged(AppState.SelectedOption);
 	}
 
 	void OptionChanged(string option)
-	{
+	{	
 		SelectedOption = option;
+		js.InvokeVoidAsync("console.log", SelectedOption);
 		StateHasChanged();
 	}
 
@@ -69,7 +65,7 @@ else
 
 	public async ValueTask DisposeAsync()
 	{
-		await hub!.StopAsync();
-		await hub!.DisposeAsync();
+		@* await hub!.StopAsync();
+		await hub!.DisposeAsync(); *@
 	}
 }

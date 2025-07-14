@@ -34,7 +34,7 @@
                 @if (Source == "Store")
                 {
                     <MudItem xs="12">
-                        <MudNumericField @bind-Value="Stock!.BuyPrice" Label="Cost Price" For="@(() => Stock!.BuyPrice)" Margin="Margin.Dense" Variant="Variant.Outlined"></MudNumericField>
+                        <MudNumericField T="decimal?" Value="Stock!.BuyPrice" ValueChanged="@CostChanged" Label="Cost Price" For="@(() => Stock!.BuyPrice)" Margin="Margin.Dense" Variant="Variant.Outlined"></MudNumericField>
                     </MudItem>
                     <MudItem xs="12">
                         <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
@@ -135,6 +135,17 @@
         StateHasChanged();
     }
 
+    private void CostChanged(decimal? value)
+    {
+        if (value is null || value < 0)
+        {
+            SnackBar.Add("Cost price is required", Severity.Error);
+            return;
+        }
+        Stock!.BuyPrice = value;
+        CalculateSellPrice(Product!.MarkupAmount);
+    }
+
     private void CalculateSellPrice(decimal value)
     {
         if (Product!.MarkupType == MarkupType.Percentage)
@@ -192,8 +203,9 @@
             }
             else
             {
-                var ds = Product.Stocks.First(x => x.id == Stock.id);
-                Product.Stocks.Remove(ds);
+                var ds = Product.Stocks.FirstOrDefault(x => x.id == Stock.id);
+                if (ds is not null)
+                    Product.Stocks.Remove(ds);
                 Product.Stocks.Add(Stock);
             }            
             response = await ItemService.EditProduct(Product!);

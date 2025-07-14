@@ -68,7 +68,16 @@ else
 			<PropertyColumn Title="Date Created" Property="x => x.CreatedDate.ToString()" Sortable="true" />
 			<TemplateColumn>
 				<CellTemplate>
-					<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Info" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
+					@if (context.Item.DispensaryQuantity == 0 && context.Item.StoreQuantity == 0)
+					{
+						<MudStack Row Wrap="Wrap.Wrap">
+							<MudButton StartIcon="@Icons.Material.Filled.Restore" Color="Color.Info" OnClick="() => OnRestore(context.Item)" Size="Size.Small">Restock</MudButton>							
+						</MudStack>
+					}
+					else
+					{
+						<MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Info" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
+					}					
 					<MudButton StartIcon="@Icons.Material.Filled.Search" Color="Color.Primary" OnClick="() => OnView(context.Item.Id)" Size="Size.Small">View</MudButton>					
 					<AuthorizeView Roles="Admin, Master" Context="auth">
 						<Authorized>
@@ -186,6 +195,13 @@ else
 	private void OnView(Guid id)
 	{
 		nav.NavigateTo($"viewstock/{id}");
+	}
+
+	private void OnRestore(ProductByStore product)
+	{
+		AppState._searchString = product.ProductName;
+		AppState.SelectedOption = "Store";
+		nav.NavigateTo("restocking");
 	}
 
 	private async Task OnEdit(ProductByStore product)
