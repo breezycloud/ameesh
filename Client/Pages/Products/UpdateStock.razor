@@ -23,7 +23,7 @@
                     </MudStack>
                 </MudItem>
                 <MudItem xs="12">
-                    <MudSelect T="Stock" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" @bind-Value="@Stock" Label="Select stock"
+                    <MudSelect T="Stock" AnchorOrigin="Origin.BottomCenter" Margin="Margin.Dense" Value="@Stock" ValueChanged="@StockChanged" Label="Select stock"
                                 Dense Variant="Variant.Outlined" ToStringFunc="@(e => e==null ? null : $"Qty left {e.Quantity}")">
                         @foreach (var e in Stocks!)
                         {
@@ -34,7 +34,7 @@
                 @if (Source == "Store")
                 {
                     <MudItem xs="12">
-                        <MudNumericField @bind-Value="Stock!.BuyPrice" Label="Cost Price" Margin="Margin.Dense" Variant="Variant.Outlined"></MudNumericField>
+                        <MudNumericField @bind-Value="Stock!.BuyPrice" Label="Cost Price" For="@(() => Stock!.BuyPrice)" Margin="Margin.Dense" Variant="Variant.Outlined"></MudNumericField>
                     </MudItem>
                     <MudItem xs="12">
                         <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
@@ -72,8 +72,9 @@
             <MudButton OnClick="Close">Close</MudButton>
             <MudButton Disabled="@AppState.IsProcessing" ButtonType="ButtonType.Submit" Variant="Variant.Filled"
                        Color="Color.Primary">@(AppState.IsProcessing ? "Processing" : "Save")</MudButton>
-        </DialogActions>
+        </DialogActions>        
     </MudDialog>
+    <ValidationSummary/>
 </EditForm>
 
 @code {
@@ -105,12 +106,32 @@
     void Close() => DialogInstance?.Close(DialogResult.Ok(true));
 
     private void SourceChanged(string source)
-    {
-        Source = source;
-        if (Source == "Dispensary")
+    {        
+        if (source == "Dispensary")
+        {
             Stocks = Product!.Dispensary.Where(x => x.Quantity > 0).ToArray();
+            if (!Stocks.Any())
+            {
+                SnackBar.Add("You should add the stock to store first", Severity.Warning);
+                Source = "Store";
+                Stocks = [new Stock()];
+            }
+            else
+                Source = source;    
+        }            
         else
+        {
             Stocks = Product!.Stocks.Where(x => x.Quantity > 0).ToArray();
+            Source = source;
+        }            
+        js.InvokeVoidAsync("console.log", Source, Stocks);
+        StateHasChanged();
+    }
+
+    private void StockChanged(Stock stock)
+    {
+        Stock = stock;
+        js.InvokeVoidAsync("console.log", stock);
         StateHasChanged();
     }
 
