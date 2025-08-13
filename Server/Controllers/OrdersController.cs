@@ -16,6 +16,7 @@ using Shared.Models.Orders;
 using Shared.Models.Reports;
 using Server.Pages.Reports.Templates.Receipt;
 using Shared.Models.Products;
+using Npgsql;
 
 namespace Server.Controllers;
 
@@ -25,6 +26,7 @@ namespace Server.Controllers;
 //[ResponseCache(CacheProfileName = "Default60")]
 public class OrdersController : ControllerBase
 {
+
 	private readonly AppDbContext _context;
 	private readonly ILogger<OrdersController> _logger;
 
@@ -988,9 +990,61 @@ public class OrdersController : ControllerBase
         }
         return Report;
     }
+    
+    [HttpPost("storereport")]
+    public async Task<IActionResult> GetSalesReportByStoreAsync(SalesReportRequest request)
+    {
+        try
+        {
+            var store = await _context.Stores.FindAsync(request.StoreId);
+            var reportData = _context.SalesReport.AsNoTracking().Where(x => x.StoreId == request.StoreId).OrderBy(x => x.Date).AsQueryable();
+            
+
+            if (request.EndDate is not null)
+            {
+                reportData = reportData.Where(x => x.Date >= request.StartDate && x.Date <= request.EndDate);
+            }
+            else
+                reportData = reportData.Where(x => x.Date == request.StartDate);
+
+            var summary = new SalesReportSummary
+            {
+                TotalSales = await reportData.SumAsync(x => x.StoreSale),
+                TotalProfit = await reportData.SumAsync(x => x.StoreProfit),
+                TotalAmountDue = await reportData.SumAsync(x => x.AmountDue),
+                TotalDiscount = await reportData.SumAsync(x => x.Discount),
+                TotalSubTotal = await reportData.SumAsync(x => x.Subtotal),
+                TotalTP = await reportData.SumAsync(x => x.ThirdPartyOrderAmount),
+                TotalOrders = await reportData.CountAsync()
+            };
+
+            var Report = new SalesReportResponse
+            {
+                Success = true,
+                StoreName = store?.BranchName,
+                BranchAddress = store?.BranchAddress,
+                StartDate = request.StartDate.ToString("dd/MM/yyyy"),
+                EndDate = request.EndDate?.ToString("dd/MM/yyyy"),
+                Data = await reportData.ToListAsync(),
+                Summary = summary
+            };
+            var report = new NewSalesReport(Report);
+            var pdf = report.GeneratePdf();
+            return File(pdf, "application/pdf", "your_pdf_filename.pdf");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating sales report for store {StoreId}", request.StoreId);
+            return BadRequest(new SalesReportResponse
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
 
 	private bool OrderExists(Guid id)
-	{
-		return (_context.Orders?.Any(e => e.Id == id)).GetValueOrDefault();
-	}
+    {
+        return (_context.Orders?.Any(e => e.Id == id)).GetValueOrDefault();
+    }
 }

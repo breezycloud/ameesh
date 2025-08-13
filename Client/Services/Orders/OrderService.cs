@@ -47,6 +47,7 @@ public interface IOrderService
     Task<bool> GetPaymentStatus(Guid id);
     Task<bool> Delete(Guid id);
     Task ExportThirdParty(ExportFilter filter, CancellationToken token);
+    Task<SalesReportResponse> GenerateReportAsync(SalesReportRequest request);
 }
 public class OrderService : IOrderService
 {
@@ -126,9 +127,9 @@ public class OrderService : IOrderService
         }
     }
 
-     public async Task DeliveredOrder(Guid id)
-     {
-      try
+    public async Task DeliveredOrder(Guid id)
+    {
+        try
         {
             await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/delivered", new CompleteBill(id, Guid.Empty));
         }
@@ -136,8 +137,8 @@ public class OrderService : IOrderService
         {
 
             throw;
-        }  
-     }
+        }
+    }
     public async Task<bool> UpdateOrder(Order? model)
     {
         try
@@ -196,7 +197,7 @@ public class OrderService : IOrderService
         {
 
             throw;
-        }        
+        }
     }
 
     public async Task<bool> UpdateOrderItems(List<ProductOrderItem> items)
@@ -354,13 +355,13 @@ public class OrderService : IOrderService
         return (storeID, null);
     }
     public async Task GetBillQrCode(Guid id, string Type, string ReceiptNo)
-    {        
+    {
         await _js.InvokeVoidAsync("XPrinter.Test", Convert.ToBase64String(content));
     }
     public async Task GetReceiptBase64String(string Type, ReportData report)
     {
         try
-        {            
+        {
             await _js.InvokeVoidAsync("XPrinter.Test", Convert.ToBase64String(content));
         }
         catch (Exception ex)
@@ -430,17 +431,17 @@ public class OrderService : IOrderService
     public async Task<Order?> GetOrder(string? receiptNumber, Guid storeId)
     {
         return await _client.CreateClient("AppUrl").GetFromJsonAsync<Order?>($"api/orders/byreceiptno?rno={receiptNumber}&storeId={storeId}");
-    }
+    }    
     public async Task SaleReport(ReportFilter filter)
     {
         string reportName = $"{filter!.ReportOption} Report {(filter.Criteria == "Date" ? $"{filter.StartDate:d}" : $"{filter.StartDate:d} - {filter.EndDate:d}")}.pdf";
         SalesReportTemplate? template = null;
 
-        HttpResponseMessage response = await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/report", filter);
+        HttpResponseMessage response = await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/storereport", new SalesReportRequest{ StoreId = filter.StoreID, StartDate = filter.StartDate.Value, EndDate = filter.EndDate});
 
         var content = await response.Content.ReadAsByteArrayAsync();
         try
-        {                
+        {
             await _js.InvokeAsync<object>("exportFile", reportName, Convert.ToBase64String(content));
         }
         catch (Exception ex)
@@ -458,12 +459,12 @@ public class OrderService : IOrderService
     }
     public async Task GetReceipt(Guid id)
     {
-        var response = await _client.CreateClient("AppUrl").GetByteArrayAsync($"api/orders/receipt/{id}");        
+        var response = await _client.CreateClient("AppUrl").GetByteArrayAsync($"api/orders/receipt/{id}");
         await _js.InvokeVoidAsync("exportFile", $"{DateTime.UtcNow.Ticks} Receipt.pdf", Convert.ToBase64String(response));
     }
     public async Task PrintReceipt(ReportData report)
     {
-        using var response = await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/receipt", report);    
+        using var response = await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/receipt", report);
         var contents = await response.Content.ReadAsByteArrayAsync();
         await _js.InvokeVoidAsync("exportFile", $"{DateTime.UtcNow.Ticks} Receipt.pdf", Convert.ToBase64String(contents));
     }
@@ -478,4 +479,33 @@ public class OrderService : IOrderService
             return false;
         }
     }
+
+    public async Task<SalesReportResponse> GenerateReportAsync(SalesReportRequest request)
+        {
+            try
+            {
+                using var response = await _client.CreateClient("AppUrl").PostAsJsonAsync("api/orders/reportbystore", request);                
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadFromJsonAsync<SalesReportResponse>() ?? new SalesReportResponse();
+                }
+                else
+                {
+                    return new SalesReportResponse
+                    {
+                        Success = false,
+                        Message = $"HTTP Error: {response.StatusCode}"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                return new SalesReportResponse
+                {
+                    Success = false,
+                    Message = ex.Message
+                };
+            }
+        }    
+    
 }
