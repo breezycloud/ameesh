@@ -1,6 +1,7 @@
 ﻿@using Client.Services.Welfare
 @using Shared.Enums
 @inject IOrderService OrderService
+@inject IProductService ProductService
 @inject ISalaryBonusService BonusService
 
 @implements IAsyncDisposable
@@ -64,7 +65,7 @@
     {        
         id = await localStorage.GetItemAsync<Guid>("uid");
         hub = new HubConnectionBuilder().WithUrl(nav.ToAbsoluteUri("/hubs")).WithAutomaticReconnect().WithStatefulReconnect().Build();
-        await hub.StartAsync();        
+        await hub.StartAsync();
     }
 
     void PaymentChanged(bool value)
@@ -141,9 +142,9 @@
         }
         
         bool success = false;
+        var internetfound = await js.InvokeAsync<bool>("checkinternet");
         try
-        {
-            var internetfound = await js.InvokeAsync<bool>("checkinternet");
+        {            
             if (!IsEdit)
             {
                 success = await OrderService.AddProductOrder(Order);    
@@ -152,17 +153,13 @@
                     SnackBar.Add("Operation failed!", Severity.Error);
                 }
                 else
-                {
-                    var items = Order!.ProductOrders.ToArray();
-                    if (internetfound && hub!.State == HubConnectionState.Disconnected)
-                        await hub.StartAsync();                
-                    await hub!.SendAsync("UpdateStock", Store!.Id, "Dispensary"!, items);
+                {                    
                     if (Expense)
                     {
                         var expense = new ExpenseEntryDto(Store!.Id, Order.UserId, 
                             Guid.Parse("30bef2c8-fb10-447b-8ac2-9a651d91088b"),
                             Order!.ReceiptNo, Order!.CreatedDate);
-                        await hub!.SendAsync("AutoExpense", expense);   
+                        await OrderService.AutoExpense(expense);   
                     }
                 }
             }
@@ -206,7 +203,11 @@
                 }
             }
             if(!IsEdit)
+            {                
                 AppState.ClearOrderItems();
+            }     
+            if (internetfound && hub.State == HubConnectionState.Disconnected)           
+                await hub.StartAsync();
             await hub!.SendAsync("UpdateOrder");
             await hub!.SendAsync("RefreshOrderTimer");
             await hub!.SendAsync("UpdateOrder");

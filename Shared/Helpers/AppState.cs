@@ -31,6 +31,9 @@ public class AppState
 
     public event EventHandler? OnSuccess;
     public void ClearOrderItems() => OnSuccess?.Invoke(this, EventArgs.Empty);
+
+    public event EventHandler? OnUpdateCatalog;
+    public void UpdateInventory() => OnUpdateCatalog?.Invoke(this, EventArgs.Empty);
     public WelfareType WelfareType { get; set; } = WelfareType.Salary;
     public string? SelectedOption { get; set; }
     public string? Token { get; set; }

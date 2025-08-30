@@ -1,6 +1,7 @@
 ﻿using ApexCharts;
 using Microsoft.JSInterop;
 using Shared.Helpers;
+using Shared.Models.Orders;
 using Shared.Models.Products;
 using Shared.Models.Reports;
 using System.Data.Common;
@@ -19,13 +20,13 @@ public interface IProductService
     Task<bool> DeleteBrand(Guid id);
     Task<Brand?> GetBrandById(Guid id);
     Task<Brand[]?> GetBrands();
-    Task<GridDataResponse<Brand>?> GetPagedBrands(PaginationParameter parameter);    
+    Task<GridDataResponse<Brand>?> GetPagedBrands(PaginationParameter parameter);
     Task<bool> AddCategory(Category model);
     Task<bool> EditCategory(Category model);
     Task<bool> DeleteCategory(Guid id);
     Task<Category?> GetCategoryById(Guid id);
     Task<Category[]?> GetCategories();
-    Task<GridDataResponse<Category>?> GetPagedCategories(PaginationParameter parameter);    
+    Task<GridDataResponse<Category>?> GetPagedCategories(PaginationParameter parameter);
     Task<bool> AddProduct(Product model);
     Task<bool> EditProduct(Product model);
     Task<bool> EditProduct(ProductByStore model);
@@ -48,7 +49,7 @@ public interface IProductService
     Task<bool> EditItem(Item model);
     Task<bool> DeleteItem(Guid id);
     Task<Item?> GetItemById(Guid id);
-    Task<Item[]?> GetItems();   
+    Task<Item[]?> GetItems();
     Task<Item[]?> GetItemsByCategory(Guid categoryId);
     Task<GridDataResponse<Item>?> GetPagedItems(PaginationParameter parameter);
     Task<List<string>?> GetItemsName(CancellationToken token);
@@ -64,6 +65,8 @@ public interface IProductService
 
     Task StockAudit(Guid id);
     public Task<byte[]>? GetProductsListAsync(Guid storeId);
+    
+    Task<bool> UpdateStock(Guid id, string Option, ProductOrderItem[] items);
 }
 
 public class ProductService : IProductService
@@ -604,6 +607,21 @@ public class ProductService : IProductService
             return response.IsSuccessStatusCode;
         }
         catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    public async Task<bool> UpdateStock(Guid id, string Option, ProductOrderItem[] items)
+    {
+        try
+        {
+            using var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/products/updatestock?id={id}&option={Option}", items);
+            response.EnsureSuccessStatusCode();
+            return response.IsSuccessStatusCode;
+        }
+        catch (System.Exception)
         {
 
             throw;

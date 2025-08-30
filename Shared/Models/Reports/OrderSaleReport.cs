@@ -41,11 +41,13 @@ public class SalesReportResponse
 
 public class SalesReportSummary
 {
-    public decimal TotalSales { get; set; }
-    public decimal TotalProfit { get; set; }
-    public decimal TotalAmountDue { get; set; }
+    public decimal TotalAmount { get; set; }
     public decimal TotalDiscount { get; set; }
     public decimal TotalSubTotal { get; set; }
+    public decimal TotalAmountPaid { get; set; }
+    public decimal TotalAmountDue { get; set; }        
+    public decimal TotalSales { get; set; }
+    public decimal TotalProfit { get; set; }
     public decimal TotalTP { get; set; }
     public int TotalOrders { get; set; }
 }

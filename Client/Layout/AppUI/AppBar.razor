@@ -19,7 +19,7 @@
     <AuthorizeView Roles="Admin, Master">
         <MudButton Href="/dashboard" Color="Color.Inherit" Class="@LayoutService?.GetActiveLinkClass("dashboard")" Variant="Variant.Text">Dashboard</MudButton>
         <MudButton Href="/customers" Color="Color.Inherit" Class="@LayoutService?.GetActiveLinkClass("customers")" Variant="Variant.Text">Customers</MudButton>
-        <MudMenu @ref="_menuCP" Color="Color.Inherit" Variant="Variant.Text" Class="mx-1 px-3" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Items" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+        <MudMenu @ref="_menuCP" Color="Color.Inherit" Variant="Variant.Text" Class="@LayoutService?.GetActiveLinkClass("", "categories, items, products")" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Items" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
             <MudList Clickable="true">
                 <MudListItem OnClick="@(() => Nav("categories", "items"))">
                     <div class="d-flex">
@@ -44,7 +44,7 @@
             </MudList>
         </MudMenu>        
     
-        <MudMenu @ref="_menuSales" Color="Color.Inherit" Variant="Variant.Text" Class="mx-1 px-3" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Billings" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+        <MudMenu @ref="_menuSales" Color="Color.Inherit" Variant="Variant.Text" Class="@LayoutService?.GetActiveLinkClass("order")" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Billings" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
             <MudList Clickable="true">
                 <MudListItem OnClick="@(() => Nav("orders", "sales"))">
                     <div class="d-flex">
@@ -58,7 +58,7 @@
                 </MudListItem>
             </MudList>
         </MudMenu>     
-        <MudMenu @ref="_menuExpenses" Color="Color.Inherit" Variant="Variant.Text" Class="mx-1 px-3" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Salary & Expenses" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+        <MudMenu @ref="_menuExpenses" Color="Color.Inherit" Variant="Variant.Text" Class="@LayoutService?.GetActiveLinkClass("", "expensetypes, expenses,salary-welfare")" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Salary & Expenses" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
             <MudList Clickable="true">
                 <MudListItem OnClick="@(() => Nav("expensetypes", "expense"))">
                     <div class="d-flex">
@@ -91,7 +91,7 @@
     <AuthorizeView Roles="Manager">
         <MudButton Href="/dashboard" Color="Color.Inherit" Class="@LayoutService?.GetActiveLinkClass("dashboard")" Variant="Variant.Text">Dashboard</MudButton>
         <MudButton Href="/customers" Color="Color.Inherit" Class="@LayoutService?.GetActiveLinkClass("customers")" Variant="Variant.Text">Customers</MudButton>
-        <MudMenu @ref="_menuSales" Color="Color.Inherit" Variant="Variant.Text" Class="mx-1 px-3" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Billings" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+        <MudMenu @ref="_menuSales" Color="Color.Inherit" Variant="Variant.Text" Class="@LayoutService?.GetActiveLinkClass("order")" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Billings" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
             <MudList Clickable="true">
                 <MudListItem OnClick="@(() => Nav("orders", "sales"))">
                     <div class="d-flex">
@@ -105,7 +105,7 @@
                 </MudListItem>
             </MudList>
         </MudMenu>             
-        <MudMenu @ref="_menuExpenses" Color="Color.Inherit" Variant="Variant.Text" Class="mx-1 px-3" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Salary & Expenses" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+        <MudMenu @ref="_menuExpenses" Color="Color.Inherit" Variant="Variant.Text" Class="@LayoutService?.GetActiveLinkClass("", "expensetypes, expenses,salary-welfare")" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Salary & Expenses" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
             <MudList Clickable="true">
                 <MudListItem OnClick="@(() => Nav("expensetypes", "expense"))">
                     <div class="d-flex">
@@ -127,7 +127,7 @@
     </AuthorizeView>
     <AuthorizeView Roles="Store">
         <MudMenu></MudMenu>
-        <MudMenu @ref="_menuCP" Color="Color.Inherit" Variant="Variant.Text" Class="mx-1 px-3" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Items" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+        <MudMenu @ref="_menuCP" Color="Color.Inherit" Variant="Variant.Text" Class="@LayoutService?.GetActiveLinkClass("", "items")" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Items" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
             <MudList Clickable="true">
                 <MudListItem OnClick="@(() => Nav("categories", "items"))">
                     <div class="d-flex">

@@ -20,7 +20,7 @@ public class LayoutService
         _navigation = navigation;
     }
 
-    private string ActiveClass = "mud-chip-text mud-chip-color-primary mx-1 px-3";
+    private string ActiveClass = "mud-chip-text mud-chip-color-primary mx-1 px-3 rounded-lg";
 
     public bool ActiveUri(string url)
     {
@@ -28,12 +28,27 @@ public class LayoutService
     }
     public string GetActiveLinkClass(string url = "", string url2 = "")
     {
-        if (_navigation.Uri.Contains(url))
+        // First priority: exact or partial match on `url`
+        if (!string.IsNullOrEmpty(url) && _navigation.Uri.Contains(url, StringComparison.OrdinalIgnoreCase))
+        {
             return ActiveClass;
-        else if (string.IsNullOrEmpty(url) && _navigation.Uri.Contains(url2))
-            return ActiveClass;
-        else
-            return "mx-1 px-3";
+        }
+
+        // Second: check if current URI starts with any of the comma-separated paths in `url2`
+        if (string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(url2))
+        {
+            var paths = url2.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var path in paths)
+            {
+                if (_navigation.Uri.Contains(path, StringComparison.OrdinalIgnoreCase))
+                {
+                    return ActiveClass;
+                }
+            }
+        }
+
+        return "mx-1 px-3";
     }
 
     public void SetDarkMode(bool value)

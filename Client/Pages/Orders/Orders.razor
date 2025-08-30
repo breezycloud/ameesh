@@ -105,7 +105,11 @@
                         </MudButton>
                     }
                     <MudButton Disabled="AppState.IsProcessing" Color="Color.Dark" OnClick="() => Print(context.Item.Id)" Size="Size.Small">Print</MudButton>
-                    <MudButton Disabled="AppState.IsProcessing" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+                    <AuthorizeView Roles="Admin, Master" Context="tx">
+                        <Authorized>
+                            <MudButton Disabled="AppState.IsProcessing" Color="Color.Secondary" OnClick="() => OnDelete(context.Item.Id)" Size="Size.Small">Delete</MudButton>
+                        </Authorized>
+                    </AuthorizeView>
                 </CellTemplate>
             </TemplateColumn>     
     </Columns>

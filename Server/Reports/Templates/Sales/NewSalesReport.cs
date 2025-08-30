@@ -80,9 +80,12 @@ public class NewSalesReport(SalesReportResponse? template) : IDocument
         {
             table.ColumnsDefinition(columns =>
             {
-                columns.ConstantColumn(25);
-                columns.RelativeColumn(0.5f);
+                columns.ConstantColumn(15);
+                columns.RelativeColumn();
                 columns.RelativeColumn(1.5f);
+                columns.RelativeColumn();
+                columns.RelativeColumn();
+                columns.RelativeColumn();
                 columns.RelativeColumn();
                 columns.RelativeColumn();
                 columns.RelativeColumn();
@@ -94,8 +97,11 @@ public class NewSalesReport(SalesReportResponse? template) : IDocument
             table.Footer(footer => {
 
                 footer.Cell().RowSpan(3).ColumnSpan(3).Element(Style).Text("Total").ExtraBlack().ExtraBold().Italic().FontSize(11);
-                footer.Cell().Element(Style).AlignRight().Text($"{template!.Summary.TotalSubTotal:N2}").FontSize(9);                
+                footer.Cell().Element(Style).AlignRight().Text($"{template!.Summary.TotalAmount:N2}").FontSize(9);                
                 footer.Cell().Element(Style).AlignRight().Text($"{template!.Summary.TotalDiscount:N2}").FontSize(9);
+                footer.Cell().Element(Style).AlignRight().Text($"{template!.Summary.TotalSubTotal:N2}").FontSize(9);
+                footer.Cell().Element(Style).AlignRight().Text($"{template!.Summary.TotalAmountPaid:N2}").FontSize(9);
+                footer.Cell().Element(Style).AlignRight().Text($"{template!.Summary.TotalAmountDue:N2}").FontSize(9);
                 footer.Cell().Element(Style).AlignRight().Text($"{template!.Summary.TotalSales:N2}").FontSize(9);
                 footer.Cell().Element(Style).AlignRight().Text($"{template!.Summary.TotalProfit:N2}").FontSize(9);                
                 footer.Cell().Element(Style).AlignRight().Text($"{template!.Summary.TotalTP:N2}").FontSize(9);
@@ -116,15 +122,18 @@ public class NewSalesReport(SalesReportResponse? template) : IDocument
             // step 1
             table.ColumnsDefinition(columns =>
             {
-                columns.ConstantColumn(25);
-                columns.RelativeColumn(0.5f);
-                columns.RelativeColumn(1.5f);
+                columns.ConstantColumn(15);
+                columns.RelativeColumn();
+                columns.RelativeColumn(2.5f);
                 columns.RelativeColumn();
                 columns.RelativeColumn();
                 columns.RelativeColumn();
                 columns.RelativeColumn();
                 columns.RelativeColumn();
-                columns.RelativeColumn();               
+                columns.RelativeColumn();
+                columns.RelativeColumn();
+                columns.RelativeColumn();
+                columns.RelativeColumn(1.5f);               
             });
 
             // step 2
@@ -136,6 +145,9 @@ public class NewSalesReport(SalesReportResponse? template) : IDocument
                 header.Cell().Element(CellStyle).AlignRight().Text("Total Amount").FontSize(9);
                 header.Cell().Element(CellStyle).AlignRight().Text("Discount").FontSize(9);
                 header.Cell().Element(CellStyle).AlignRight().Text("Sub Total").FontSize(9);
+                header.Cell().Element(CellStyle).AlignRight().Text("Amount Paid").FontSize(9);
+                header.Cell().Element(CellStyle).AlignRight().Text("Amount Due").FontSize(9);
+                header.Cell().Element(CellStyle).AlignRight().Text("Store Sale").FontSize(9);
                 header.Cell().Element(CellStyle).AlignRight().Text("Profit").FontSize(9);
                 header.Cell().Element(CellStyle).AlignRight().Text("TP").FontSize(9);
                 header.Cell().Element(CellStyle).AlignCenter().Text("Status").FontSize(9);
@@ -145,8 +157,9 @@ public class NewSalesReport(SalesReportResponse? template) : IDocument
                     return container.DefaultTextStyle(x => x.SemiBold()).ShowOnce().PaddingVertical(5).BorderBottom(1).BorderColor(Colors.Black);
                 }
             });
+        
 
-            // step 3
+        // step 3
             foreach (var item in template!.Data.DistinctBy(x => x.ReceiptNo))
             {
                 table.Cell().Element(CellStyle).Text(text =>
@@ -158,12 +171,12 @@ public class NewSalesReport(SalesReportResponse? template) : IDocument
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.TotalAmount:N2}").FontSize(8);
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.Discount:N2}").FontSize(8);
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.Subtotal:N2}").FontSize(8);
-                // table.Cell().Element(CellStyle).AlignRight().Text($"{item.AmountPaid:N2}").FontSize(8);
-                // table.Cell().Element(CellStyle).AlignRight().Text($"{item.Refund:N2}").FontSize(8);
-                // table.Cell().Element(CellStyle).AlignRight().Text($"{(item.AmountPaid - item.Refund):N2}").FontSize(8);
+                table.Cell().Element(CellStyle).AlignRight().Text($"{item.AmountPaid:N2}").FontSize(8);
+                table.Cell().Element(CellStyle).AlignRight().Text($"{item.AmountDue:N2}").FontSize(8);
+                table.Cell().Element(CellStyle).AlignRight().Text($"{item.StoreSale:N2}").FontSize(8);
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.StoreProfit:N2}").FontSize(8);
                 table.Cell().Element(CellStyle).AlignRight().Text($"{item.ThirdPartyOrderAmount:N2}").FontSize(8);
-                table.Cell().Element(CellStyle).AlignCenter().Text(item.Status).FontSize(8);
+                table.Cell().Element(CellStyle).AlignCenter().Text(item.Status).FontColor(GetStatusColor(item.Status)).SemiBold().FontSize(8);
                 //if (item.GetRemark().Contains("F & F"))
 
 
@@ -177,4 +190,13 @@ public class NewSalesReport(SalesReportResponse? template) : IDocument
 
     }
 
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Pending" => Colors.Red.Darken3,
+            "Paid" => Colors.LightGreen.Darken3,
+            _ => Colors.Orange.Darken3
+        };
+    }
 }

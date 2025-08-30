@@ -17,6 +17,7 @@ using Shared.Models.Reports;
 using Server.Pages.Reports.Templates.Receipt;
 using Shared.Models.Products;
 using Npgsql;
+using Shared.Models.Expenses;
 
 namespace Server.Controllers;
 
@@ -817,10 +818,52 @@ public class OrdersController : ControllerBase
 			return Problem("Entity set 'AppDbContext.Orders'  is null.");
 		}
 		_context.Orders.Add(category);
+        foreach (var item in category.ProductOrders)
+        {
+            _logger.LogInformation("Updating product quantity");
+            var product = await _context.Products.Where(x => x.Id == item.ProductId).FirstOrDefaultAsync();
+            product!.Dispensary.FirstOrDefault(x => x.id == item.StockId)!.Quantity -= item.Quantity;            
+            _context.Entry(product).State = EntityState.Modified;            
+            _logger.LogInformation("Successfully Updated {0} Quantity", item.Product);
+        }
 		await _context.SaveChangesAsync();
 
 		return CreatedAtAction("GetOrder", new { id = category.Id }, category);
 	}
+
+    [HttpPost("autoexpense")]
+    public async Task<ActionResult> AutoExpense(ExpenseEntryDto expense)
+    {
+        try
+        {
+            var eType = await _context.ExpenseTypes.FindAsync(expense.TypeId);
+            if (eType is null)
+            {
+                return BadRequest("Expense type is not found");
+            }
+            _logger.LogInformation("Adding Automatic expense");
+            await _context.Expenses.AddAsync(new Expense
+            {
+                Id = Guid.NewGuid(),
+                UserId = expense.UserId,
+                Date = expense.CreatedDate,
+                StoreId = expense.StoreId,
+                Description = "Automatic order expense",
+                TypeId = expense.TypeId,
+                Reference = expense.ReferenceNo,
+                PaymentMode = PaymentMode.None,
+                Amount = 4000,
+                CreatedDate = expense.CreatedDate
+            });
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Saved Automatic expense");
+            return Ok("Saved Automatic expense");
+        }
+        catch (System.Exception ex)
+        {
+            return Problem(ex.Message);
+        }
+    }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
@@ -1005,7 +1048,7 @@ public class OrdersController : ControllerBase
                 reportData = reportData.Where(x => x.Date >= request.StartDate && x.Date <= request.EndDate);
             }
             else
-                reportData = reportData.Where(x => x.Date == request.StartDate);
+                reportData = reportData.Where(x => x.Date.Date == request.StartDate.Date);
 
             var summary = new SalesReportSummary
             {
@@ -1014,6 +1057,8 @@ public class OrdersController : ControllerBase
                 TotalAmountDue = await reportData.SumAsync(x => x.AmountDue),
                 TotalDiscount = await reportData.SumAsync(x => x.Discount),
                 TotalSubTotal = await reportData.SumAsync(x => x.Subtotal),
+                TotalAmount = await reportData.SumAsync(x => x.TotalAmount),
+                TotalAmountPaid = await reportData.SumAsync(x => x.AmountPaid),
                 TotalTP = await reportData.SumAsync(x => x.ThirdPartyOrderAmount),
                 TotalOrders = await reportData.CountAsync()
             };
