@@ -45,7 +45,7 @@ public partial class AppDbContext : DbContext
     public DbSet<SaleItem> StoreSales { get; set; } = default!;
 
     public DbSet<SaleRecord> SalesReport { get; set; } = default!;
-
+    public DbSet<ThirdPartySale> ThirdPartySales { get; set; } = default!;
     
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -54,6 +54,10 @@ public partial class AppDbContext : DbContext
 
         modelBuilder.Entity<SaleRecord>()
                     .ToView("salesreportbystore")
+                    .HasNoKey();
+
+        modelBuilder.Entity<ThirdPartySale>()
+                    .ToView("vw_third_party_sales")
                     .HasNoKey();
 
         modelBuilder.Entity<SaleItem>()

@@ -206,7 +206,7 @@
             {                
                 AppState.ClearOrderItems();
             }     
-            if (internetfound && hub.State == HubConnectionState.Disconnected)           
+            if (internetfound && hub!.State == HubConnectionState.Disconnected)           
                 await hub.StartAsync();
             await hub!.SendAsync("UpdateOrder");
             await hub!.SendAsync("RefreshOrderTimer");

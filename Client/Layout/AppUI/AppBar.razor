@@ -124,7 +124,7 @@
         <MudButton Href="/orders" Color="Color.Inherit" Class="@LayoutService!.GetActiveLinkClass("orders")" Variant="Variant.Text">Billing</MudButton>
         <MudButton OnClick="@(() => Dialog.Show<SalesReport>(""))" Color="Color.Inherit" Variant="Variant.Text">Sales Report</MudButton>
         <MudButton OnClick="@(() => Dialog.Show<StockReport>(""))" Color="Color.Inherit" Variant="Variant.Text">Stock Report</MudButton>
-    </AuthorizeView>
+    </AuthorizeView>        
     <AuthorizeView Roles="Store">
         <MudMenu></MudMenu>
         <MudMenu @ref="_menuCP" Color="Color.Inherit" Variant="Variant.Text" Class="@LayoutService?.GetActiveLinkClass("", "items")" PopoverClass="docs-layout-menu-shadow" ListClass="d-flex px-4 pb-2 docs-appbar-special-menu" LockScroll="true" Label="Items" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">

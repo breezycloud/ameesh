@@ -1,5 +1,6 @@
 @using Shared.Enums
 @inject IOrderService OrderService
+@inject IStoreService StoreService
 
 <EditForm Model="reportFilter" OnValidSubmit="GetReport">
     <DataAnnotationsValidator/>
@@ -9,10 +10,10 @@
         </TitleContent>
         <DialogContent>
             <MudStack Spacing="5" AlignItems="AlignItems.Center" Justify="Justify.Center" Wrap="Wrap.Wrap">                
-                @* <MudRadioGroup T="string" Value="reportFilter!.Criteria" ValueChanged="FilterChanged">
-                    <MudRadio Size="Size.Small" Value="@("Date")">Date</MudRadio>
-                    <MudRadio Size="Size.Small" Value="@("Range")">Range</MudRadio>
-                </MudRadioGroup> *@
+                <MudAutocomplete AnchorOrigin="Origin.BottomCenter" Dense="true" Label="Branch" T="Store"
+                                 @bind-Value="Store" SearchFunc="@Search" ShowProgressIndicator="true"
+                                 Variant="Variant.Outlined" Immediate="true" ResetValueOnEmptyText Margin="Margin.Dense"
+                                 ToStringFunc="@(e => e == null ? null : $"{e.BranchName}")" />
                 <MudDatePicker @bind-Date="StartDate" PickerVariant="PickerVariant.Dialog"
                                Label="@(reportFilter!.Criteria == "Date" ? "Date" : "Start Date")" DisableToolbar="true" />
                 @if (reportFilter!.Criteria == "Range")
@@ -42,6 +43,8 @@
     private DateTime? EndDate = DateTime.UtcNow;
     private DateRange _dateRange = new DateRange(DateTime.UtcNow.Date, DateTime.UtcNow.AddDays(7).Date);            
 
+    private Store? Store; private Store[]? stores = [];
+        
     void Close() => DialogInstance?.Close(DialogResult.Ok(true));
 
     void FilterChanged(string option)
@@ -50,10 +53,34 @@
         StateHasChanged();
     }    
 
+    private async Task<IEnumerable<Store>?> Search(string value)
+    {
+        try
+        {
+            stores = await StoreService.GetStores();
+            if (string.IsNullOrEmpty(value))
+                return stores;
+
+            return stores!.Where(x => x.BranchName!.Contains(value, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
     private async Task GetReport()
     {
-        AppState.IsProcessing = true;                
-        reportFilter!.StoreID = StoreID;
+        AppState.IsProcessing = true;
+        if (Store is null)
+        {
+            SnackBar.Add("Select Store to proceed", Severity.Warning);
+            AppState.IsProcessing = false;
+            return;
+        }
+
+        reportFilter!.StoreID = Store.Id;
         if (reportFilter!.Criteria == "Date")
         {
             if (StartDate is null)

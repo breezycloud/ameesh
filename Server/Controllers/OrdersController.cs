@@ -1088,6 +1088,59 @@ public class OrdersController : ControllerBase
         }
     }
 
+    [HttpPost("tpreport")]
+    public async Task<IActionResult> GetTpSalesReportByStoreAsync(SalesReportRequest request)
+    {
+        try
+        {
+            var store = await _context.Stores.FindAsync(request.StoreId);
+            var reportData = _context.ThirdPartySales.AsNoTracking().Where(x => x.StoreId == request.StoreId).OrderBy(x => x.Date).AsQueryable();
+            
+
+            if (request.EndDate is not null)
+            {
+                reportData = reportData.Where(x => x.Date >= DateOnly.FromDateTime(request.StartDate) && x.Date <= DateOnly.FromDateTime(request.EndDate.Value));
+            }
+            else
+                reportData = reportData.Where(x => x.Date == DateOnly.FromDateTime(request.StartDate));
+
+            var summary = new SalesReportSummary
+            {
+                TotalSales = await reportData.SumAsync(x => x.StoreSale),
+                TotalProfit = await reportData.SumAsync(x => x.StoreProfit),
+                TotalAmountDue = await reportData.SumAsync(x => x.AmountDue),
+                TotalDiscount = await reportData.SumAsync(x => x.Discount),
+                TotalSubTotal = await reportData.SumAsync(x => x.SubTotal),
+                TotalAmount = await reportData.SumAsync(x => x.TotalAmount),
+                TotalAmountPaid = await reportData.SumAsync(x => x.AmountPaid),
+                TotalOrders = await reportData.CountAsync()
+            };
+
+            var Report = new SalesReportResponse
+            {
+                Success = true,
+                StoreName = store?.BranchName,
+                BranchAddress = store?.BranchAddress,
+                StartDate = request.StartDate.ToString("dd/MM/yyyy"),
+                EndDate = request.EndDate?.ToString("dd/MM/yyyy"),
+                ThirdPartySales = await reportData.ToListAsync(),
+                Summary = summary
+            };
+            var report = new ThirdPartySalesReport(Report);
+            var pdf = report.GeneratePdf();
+            return File(pdf, "application/pdf", "your_pdf_filename.pdf");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating sales report for store {StoreId}", request.StoreId);
+            return BadRequest(new SalesReportResponse
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
+
 	private bool OrderExists(Guid id)
     {
         return (_context.Orders?.Any(e => e.Id == id)).GetValueOrDefault();

@@ -192,7 +192,8 @@ public class OrderService : IOrderService
     {
         try
         {
-            var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/orders/export", filter, token);
+            var criteria = new SalesReportRequest { StoreId = filter.StoreID, StartDate = filter.StartDate.Value, EndDate = filter.EndDate };
+            var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/orders/tpreport", filter, token);
             var content = await response.Content.ReadAsByteArrayAsync();
             await _js.InvokeAsync<object>("exportFile", $"Thirdparty Order {filter.StartDate!.Value.ToShortDateString()}-{filter.EndDate!.Value.ToShortDateString()}.pdf", Convert.ToBase64String(content));
         }

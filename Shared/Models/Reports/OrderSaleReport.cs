@@ -35,6 +35,8 @@ public class SalesReportResponse
     public string? EndDate { get; set; }
     public string? Criteria => string.IsNullOrWhiteSpace(EndDate) ? "Date" : "Range";
     public List<SaleRecord> Data { get; set; } = new();
+    public List<ThirdPartySale> ThirdPartySales { get; set; } = new();
+
     public string Message { get; set; } = string.Empty;
     public SalesReportSummary Summary { get; set; } = new();
 }
@@ -83,4 +85,22 @@ public class SaleRecord
     public decimal ThirdPartyOrderAmount { get; set; }
     [Column("status")]
     public string Status { get; set; }
+}
+
+public class ThirdPartySale
+{
+    public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
+    public string? ReceiptNo { get; set; }
+    public DateOnly Date { get; set; } // or DateTime if using older EF Core
+    public string? Customer { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal Discount { get; set; }
+    public decimal SubTotal { get; set; }
+    public decimal AmountPaid { get; set; }
+    public decimal AmountDue { get; set; }
+    public decimal StoreSale { get; set; }
+    public decimal StoreProfit { get; set; }
+    public decimal ThirdPartyOrderAmount { get; set; }
+    public string? Status { get; set; }
 }
