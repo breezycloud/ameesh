@@ -34,13 +34,103 @@ public class SeedData
                 AddExpenseTypes(db);
                 ImportCustomers(services);
             }
+            CancellationTokenSource tokenSource = new();
+            var ct = tokenSource.Token;
+            if (ct.IsCancellationRequested)
+                return;
+            await CleanOverpaidOrders(services, ct);
             //ImportData(services);
             //RemoveQuantities(services);
             //AddExpenseTypes(db);
             //ImportCustomers(services);            
-            var rowsAffected = await db.OrderItems.Where(p => p.Status == OrderStatus.Pending).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, OrderStatus.Completed));                
-            Console.WriteLine($"Processed {rowsAffected} orders.");
+            // var rowsAffected = await db.OrderItems.Where(p => p.Status == OrderStatus.Pending).ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, OrderStatus.Completed));                
+            // Console.WriteLine($"Processed {rowsAffected} orders.");
         }
+    }
+
+    private static async Task CleanOverpaidOrders(IServiceProvider services, CancellationToken ct)
+    {        
+        var factory = services.GetRequiredService<IServiceScopeFactory>();
+        using var scope = factory.CreateScope();
+        using var _context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var problematicOrders = _context.Orders
+            .Include(o => o.Payments)
+            .Include(x => x.ProductOrders)
+            .AsEnumerable()
+            .Where(o => o.Payments.Sum(p => p.Amount) > o.SubTotal)
+            .ToList();
+
+        var removedPayments = new List<Payment>();
+        var affectedOrderIds = new List<Guid>();
+
+        // using var transaction = await _context.Database.BeginTransactionAsync(ct);
+
+        try
+        {
+            foreach (var order in problematicOrders)
+            {
+                var payments = order.Payments.OrderBy(p => p.CreatedDate).ToList();
+                decimal runningTotal = 0;
+
+                foreach (var payment in payments)
+                {
+                    if (runningTotal + payment.Amount > order.SubTotal)
+                    {
+                        // This payment causes overpayment → mark for removal
+                        _context.Payments.Remove(payment);
+                        removedPayments.Add(payment);
+                    }
+                    runningTotal += payment.Amount;
+                }
+
+                if (removedPayments.Any(p => p.OrderId == order.Id))
+                {
+                    affectedOrderIds.Add(order.Id);
+                    order.ModifiedDate = DateTime.UtcNow;
+                }
+            }
+
+            if (removedPayments.Any())
+            {
+                await _context.SaveChangesAsync(ct);
+                // await transaction.CommitAsync(ct);
+
+                // Log what was removed
+                Console.WriteLine(
+                    "CLEANUP: Removed {0} duplicate/over payments from {1} orders: {2}",
+                    removedPayments.Count,
+                    affectedOrderIds.Distinct().Count(),
+                    string.Join(", ", affectedOrderIds.Distinct()));
+
+                // var removed = new
+                // {
+                //     RemovedPaymentCount = removedPayments.Count,
+                //     AffectedOrders = affectedOrderIds.Distinct().ToList(),
+                //     Details = removedPayments.Select(p => new
+                //     {
+                //         p.Id,
+                //         p.Amount,
+                //         p.CreatedDate,
+                //         p.OrderId
+                //     })
+                // };
+
+                // Console.WriteLine(removed.RemovedPaymentCount);
+            }
+            else
+            {
+                // await transaction.RollbackAsync(ct);
+                Console.WriteLine("No overpayments found to remove.");
+            }
+        }
+        catch (Exception ex)
+        {
+            // await transaction.RollbackAsync(ct);
+            Console.WriteLine("Failed to cleanup overpaid orders {0}", ex);
+            Console.WriteLine("Cleanup failed. Check logs.");
+        }
+
     }
 
     private static async IAsyncEnumerable<Order> LastOrders(AppDbContext db)

@@ -31,6 +31,7 @@ public class ServerPeriodicJob : BackgroundService, IDisposable
             using var service = scope.ServiceProvider.GetRequiredService<OrderService>();
             // await service.RemovePaymentDiscrepancies(stoppingToken);
             await service.UpdateStock(stoppingToken);
+            await service.CleanOverpaidOrders(stoppingToken);
         }
     }
     void IDisposable.Dispose()

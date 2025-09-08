@@ -89,7 +89,7 @@ builder.Services.AddSingleton<ILoggerProvider, ApplicationLoggerProvider>();
 
 
 var app = builder.Build();
-//await SeedData.EnsureSeeded(app.Services, true);
+await SeedData.EnsureSeeded(app.Services, true);
 
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions

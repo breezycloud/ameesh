@@ -27,7 +27,8 @@ public class ReportFilter
 public class ExportFilter 
 {
     [Required]
-    public string? Criteria { get; set; } = "Range";    
+    public string? Criteria { get; set; } = "Range";
+    public string? Option { get; set; } = "Item";
     public Guid StoreID { get; set; }
     public DateTime? StartDate { get; set; }   
     public DateTime? EndDate { get; set; }    

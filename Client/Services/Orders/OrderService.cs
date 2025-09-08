@@ -189,12 +189,21 @@ public class OrderService : IOrderService
     }
 
     public async Task ExportThirdParty(ExportFilter filter, CancellationToken token)
-    {
+    {        
         try
         {
-            var criteria = new SalesReportRequest { StoreId = filter.StoreID, StartDate = filter.StartDate.Value, EndDate = filter.EndDate };
-            var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/orders/tpreport", filter, token);
-            var content = await response.Content.ReadAsByteArrayAsync();
+            byte[]? content = null;
+            if (filter.Option == "Item")
+            {
+                var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/orders/export", filter, token);
+                content = await response.Content.ReadAsByteArrayAsync();
+            }
+            else
+            {
+                var criteria = new SalesReportRequest { StoreId = filter.StoreID, StartDate = filter.StartDate.Value, EndDate = filter.EndDate };
+                var response = await _client.CreateClient("AppUrl").PostAsJsonAsync($"api/orders/tpreport", criteria, token);
+                content = await response.Content.ReadAsByteArrayAsync();
+            }            
             await _js.InvokeAsync<object>("exportFile", $"Thirdparty Order {filter.StartDate!.Value.ToShortDateString()}-{filter.EndDate!.Value.ToShortDateString()}.pdf", Convert.ToBase64String(content));
         }
         catch (Exception)

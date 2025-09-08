@@ -149,6 +149,86 @@ public class OrderService(ILogger<OrderService> _logger, AppDbContext _context) 
             _logger.LogInformation("Successfully Updated {0} Quantity", item.Product);
         }
     }
+    public async Task CleanOverpaidOrders(CancellationToken ct)
+    {                
+        var problematicOrders = _context.Orders
+            .Include(o => o.Payments)
+            .Include(x => x.ProductOrders)
+            .AsEnumerable()
+            .Where(o => o.Payments.Sum(p => p.Amount) > o.SubTotal)
+            .ToList();
+
+        var removedPayments = new List<Payment>();
+        var affectedOrderIds = new List<Guid>();
+
+        // using var transaction = await _context.Database.BeginTransactionAsync(ct);
+
+        try
+        {
+            foreach (var order in problematicOrders)
+            {
+                var payments = order.Payments.OrderBy(p => p.CreatedDate).ToList();
+                decimal runningTotal = 0;
+
+                foreach (var payment in payments)
+                {
+                    if (runningTotal + payment.Amount > order.SubTotal)
+                    {
+                        // This payment causes overpayment → mark for removal
+                        _context.Payments.Remove(payment);
+                        removedPayments.Add(payment);
+                    }
+                    runningTotal += payment.Amount;
+                }
+
+                if (removedPayments.Any(p => p.OrderId == order.Id))
+                {
+                    affectedOrderIds.Add(order.Id);
+                    order.ModifiedDate = DateTime.UtcNow;
+                }
+            }
+
+            if (removedPayments.Any())
+            {
+                await _context.SaveChangesAsync(ct);
+                // await transaction.CommitAsync(ct);
+
+                // Log what was removed
+                Console.WriteLine(
+                    "CLEANUP: Removed {0} duplicate/over payments from {1} orders: {2}",
+                    removedPayments.Count,
+                    affectedOrderIds.Distinct().Count(),
+                    string.Join(", ", affectedOrderIds.Distinct()));
+
+                // var removed = new
+                // {
+                //     RemovedPaymentCount = removedPayments.Count,
+                //     AffectedOrders = affectedOrderIds.Distinct().ToList(),
+                //     Details = removedPayments.Select(p => new
+                //     {
+                //         p.Id,
+                //         p.Amount,
+                //         p.CreatedDate,
+                //         p.OrderId
+                //     })
+                // };
+
+                // Console.WriteLine(removed.RemovedPaymentCount);
+            }
+            else
+            {
+                // await transaction.RollbackAsync(ct);
+                Console.WriteLine("No overpayments found to remove.");
+            }
+        }
+        catch (Exception ex)
+        {
+            // await transaction.RollbackAsync(ct);
+            Console.WriteLine("Failed to cleanup overpaid orders {0}", ex);
+            Console.WriteLine("Cleanup failed. Check logs.");
+        }
+
+    }
 
     public async Task<int> GetTotalExpiryProducts(Guid id)
     {
