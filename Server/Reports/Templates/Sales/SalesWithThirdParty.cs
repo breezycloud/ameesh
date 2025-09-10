@@ -102,8 +102,11 @@ public class SalesWithThirdParty(ThirdpartySalesReportTemplate template) : IDocu
             {
                 column.Item().Row(row => 
                 {
-                    row.AutoItem().Text($"Receipt #: {item.ReceiptNo}").FontSize(10);
-                    // row.AutoItem().Text(item.Customer).FontSize(8);
+                    row.AutoItem().Column(col =>
+                    {
+                        col.Item().Text($"Receipt #: {item.ReceiptNo}").FontSize(9).Bold();
+                        col.Item().Text($"Customer: {item.Customer}").FontSize(9).Bold();
+                    });                    
                 });
                 column.Item().Table(table =>
                 {

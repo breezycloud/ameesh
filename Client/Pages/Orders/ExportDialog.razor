@@ -12,7 +12,7 @@
             <MudStack Spacing="5" AlignItems="AlignItems.Center" Justify="Justify.Center" Wrap="Wrap.Wrap">                
                 <MudRadioGroup @bind-Value="reportFilter!.Option">
                     <MudRadio Value="@("Item")" Color="Color.Primary">Third-party Items</MudRadio>
-                    <MudRadio Value="@("Report")" Color="Color.Secondary">Third-party Report</MudRadio>                    
+                    <MudRadio Value="@("Report")" Color="Color.Secondary">Third-party (only) Report</MudRadio>                    
                 </MudRadioGroup>
                 <MudAutocomplete AnchorOrigin="Origin.BottomCenter" Dense="true" Label="Branch" T="Store"
                                  @bind-Value="Store" SearchFunc="@Search" ShowProgressIndicator="true"
