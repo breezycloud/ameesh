@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Client.Handlers;
 using Microsoft.JSInterop;
 using Shared.Helpers;
 using Shared.Models.Users;
@@ -153,21 +154,40 @@ public class SalaryService(IHttpClientFactory _client, IJSRuntime _js) : ISalary
     }
 
     public async Task GetReport(ReportCriteria criteria)
-    {        
+    {
         byte[]? content = null;
+
         try
         {
-            var response = await _client.CreateClient("AppUrl").PostAsJsonAsync("api/salary/report", criteria);
+            string endpoint = criteria.ReportType switch
+            {
+                "Advance" => "api/salaryadvances/report",
+                "Bonus" => "api/salarybonus/report",
+                "Penalty" => "api/penalties/report",
+                _ => "api/salary/report" 
+            };
+
+            var client = _client.CreateClient("AppUrl");
+            var response = await client.PostAsJsonAsync(endpoint, criteria);
+
             if (!response.IsSuccessStatusCode)
                 return;
-            
+
             content = await response.Content.ReadAsByteArrayAsync();
-            await _js.InvokeAsync<object>("exportFile", $"{criteria!.Month!.Value}/{criteria!.Year!.Value} Salary Report.pdf", Convert.ToBase64String(content));
+
+            string fileName = $"{StringConverter.ConvertToMonth(criteria.Month!.Value)} {criteria.Year!.Value} {criteria.ReportType} Report.pdf";
+
+            await _js.InvokeVoidAsync(
+                "exportFile",
+                fileName,
+                Convert.ToBase64String(content)
+            );
         }
-        catch (System.Exception)
+        catch (Exception ex)
         {
-            
+            Console.WriteLine($"Report generation failed: {ex.Message}");
             throw;
         }
     }
+
 }

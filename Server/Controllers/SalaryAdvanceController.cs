@@ -5,7 +5,9 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
 using Server.Context;
+using Server.Pages.Reports.Templates.Welfare;
 using Shared.Enums;
 using Shared.Helpers;
 using Shared.Models.Welfare;
@@ -24,15 +26,15 @@ public class SalaryAdvanceController : ControllerBase
     }
 
     [HttpPost("pagedprojection")]
-	public async Task<ActionResult<GridDataResponse<WelfareData>>> PagedCategories(PaginationParameter parameter, CancellationToken cancellationToken)
-	{
+    public async Task<ActionResult<GridDataResponse<WelfareData>>> PagedCategories(PaginationParameter parameter, CancellationToken cancellationToken)
+    {
         GridDataResponse<WelfareData> response = new();
         if (!string.IsNullOrEmpty(parameter.SearchTerm))
         {
             var pattern = $"%{parameter.SearchTerm}%";
-            response.TotalCount = await _context.SalaryAdvances.AsNoTracking().Include(x => x.User).AsSplitQuery().Where(x => x.User!.ToString().Contains(pattern, StringComparison.OrdinalIgnoreCase) || 
+            response.TotalCount = await _context.SalaryAdvances.AsNoTracking().Include(x => x.User).AsSplitQuery().Where(x => x.User!.ToString().Contains(pattern, StringComparison.OrdinalIgnoreCase) ||
                                 x.Amount.ToString().Contains(pattern, StringComparison.OrdinalIgnoreCase)).CountAsync(cancellationToken);
-            response.Data = await _context.SalaryAdvances.AsNoTracking().Include(x => x.User).AsSplitQuery().Where(x => x.User!.ToString().Contains(pattern, StringComparison.OrdinalIgnoreCase) || 
+            response.Data = await _context.SalaryAdvances.AsNoTracking().Include(x => x.User).AsSplitQuery().Where(x => x.User!.ToString().Contains(pattern, StringComparison.OrdinalIgnoreCase) ||
                                 x.Amount.ToString().Contains(pattern, StringComparison.OrdinalIgnoreCase)).OrderByDescending(x => x.CreatedDate).ThenByDescending(x => x.ModifiedDate).Skip(parameter.Page).Take(parameter.PageSize).Select(x => new WelfareData
                                 {
                                     Id = x.Id,
@@ -50,20 +52,45 @@ public class SalaryAdvanceController : ControllerBase
         {
             response.TotalCount = await _context.SalaryAdvances.AsNoTracking().CountAsync(cancellationToken);
             response.Data = await _context.SalaryAdvances.AsNoTracking().Include(x => x.User).AsSplitQuery().OrderByDescending(x => x.CreatedDate).ThenByDescending(x => x.ModifiedDate).Skip(parameter.Page).Take(parameter.PageSize).Select(x => new WelfareData
-                                {
-                                    Id = x.Id,
-                                    UserId = x.UserId,
-                                    Type = WelfareType.Advance,
-                                    Month = x.Month,
-                                    Year = x.Year,
-                                    StaffName = x.User!.ToString(),
-                                    Amount = x.Amount,
-                                    Comment = x.Comment,
-                                    CreatedDate = x.CreatedDate
-                                }).ToListAsync();
-        }                
+            {
+                Id = x.Id,
+                UserId = x.UserId,
+                Type = WelfareType.Advance,
+                Month = x.Month,
+                Year = x.Year,
+                StaffName = x.User!.ToString(),
+                Amount = x.Amount,
+                Comment = x.Comment,
+                CreatedDate = x.CreatedDate
+            }).ToListAsync();
+        }
         return response;
-	}
+    }
+
+    [HttpPost("advance-report")]
+    public async Task<IActionResult> AdvanceReport(ReportCriteria criteria, CancellationToken cancellationToken)
+    {
+        var data = await _context.SalaryAdvances
+            .AsNoTracking()
+            .Include(x => x.User)
+            .Where(x => x.Month == criteria.Month && x.Year == criteria.Year)
+            .Select(x => new SalaryAdvanceReportDto
+            {
+                Date = x.CreatedDate.ToString("yyyy-MM-dd"),
+                Staff = x.User!.ToString(),
+                Amount = x.Amount,
+                Comment = x.Comment
+            })
+            .OrderByDescending(x => x.Amount)
+            .ToListAsync(cancellationToken);
+
+        var reportData = new SalaryAdvanceReportData(criteria, data);
+        var report = new SalaryAdvanceReport(reportData);
+        var pdf = report.GeneratePdf();
+
+        return File(pdf, "application/pdf", $"SalaryAdvance_{criteria.Month}_{criteria.Year}.pdf");
+    }
+
 
     // GET: api/SalaryAdvance
     [HttpGet]

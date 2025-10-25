@@ -6,7 +6,10 @@ namespace Shared.Models.Welfare;
 public class ReportCriteria
 {
     [Required]
-    public int? Month { get; set; }
+    public string? ReportType { get; set; } = "Salary";
+
     [Required]
-    public int? Year { get; set; }
+    public int? Month { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow).Month;
+    [Required]
+    public int? Year { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow).Year;
 }

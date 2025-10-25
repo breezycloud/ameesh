@@ -11,7 +11,7 @@
 	<DataAnnotationsValidator/>
 	<MudDialog>
 		<TitleContent>
-			<MudText Typo="Typo.h6">Salary Report</MudText>
+			<MudText Typo="Typo.h6">Salary & Welfare Report</MudText>
 		</TitleContent>
 		<DialogContent>
             @if (AppState.IsBusy)
@@ -21,22 +21,38 @@
             else
             {
                 <MudGrid Spacing="1">
+                    <MudItem xs="12">
+                        <MudSelect Strict Margin="Margin.Dense" Dense AnchorOrigin="Origin.BottomCenter" @bind-Value="Data!.ReportType" Label="Report Type" Variant="Variant.Outlined" For="(() => Data!.ReportType)">
+                            <MudSelectItem Value="@("Salary")">Salary</MudSelectItem>
+                            <MudSelectItem Value="@("Advance")">Advance</MudSelectItem>
+                            <MudSelectItem Value="@("Penalty")">Penalty</MudSelectItem>
+                            <MudSelectItem Value="@("Bonus")">Bonus</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>                
                     <MudItem xs="12" sm="6">
-                        <MudSelect Strict Margin="Margin.Dense" Dense AnchorOrigin="Origin.BottomCenter" @bind-Value="Data!.Month" Label="Month" Variant="Variant.Outlined" For="(() => Data!.Month)">
-                            @foreach(var item in MonthYear!.OrderByDescending(x => x.Month))
+                    <MudSelect Margin="Margin.Dense" Dense AnchorOrigin="Origin.BottomCenter"
+                                @bind-Value="Data.Month" Label="Month" Variant="Variant.Outlined" 
+                                For="(() => Data.Month)">
+                            @foreach (var month in Months)
                             {
-                                <MudSelectItem Value="@item.Month">@item.Month</MudSelectItem>
+                                <MudSelectItem Value="@(month as int?)">
+                                    @StringConverter.ConvertToMonth(month)
+                                </MudSelectItem>
                             }
                         </MudSelect>
                     </MudItem>
+
                     <MudItem xs="12" sm="6">
-                        <MudSelect Strict Margin="Margin.Dense" Dense AnchorOrigin="Origin.BottomCenter" @bind-Value="Data!.Year" Label="Year" Variant="Variant.Outlined" For="(() => Data!.Year)">
-                            @foreach(var item in MonthYear!.OrderByDescending(x => x.Year))
+                        <MudSelect Margin="Margin.Dense" Dense AnchorOrigin="Origin.BottomCenter"
+                                @bind-Value="Data.Year" Label="Year" Variant="Variant.Outlined" 
+                                For="(() => Data.Year)">
+                            @foreach (var year in Years.OrderByDescending(y => y))
                             {
-                                <MudSelectItem Value="@item.Year">@item.Year</MudSelectItem>
+                                <MudSelectItem Value="@(year as int?)">@year</MudSelectItem>
                             }
-                        </MudSelect>                    
+                        </MudSelect>
                     </MudItem>
+
                 </MudGrid>
             }                
 		</DialogContent>
@@ -53,6 +69,8 @@
 	public MudDialogInstance? DialogInstance { get; set; }
     private List<ReportCriteria>? MonthYear = [];
     private ReportCriteria? Data = new();    
+    private List<int> Months = Enumerable.Range(1, 12).ToList();
+    private List<int> Years = Enumerable.Range(DateTime.UtcNow.Year - 5, 11).ToList();
     void Close() => DialogInstance?.Close(DialogResult.Ok(true));
 
     protected override async Task OnInitializedAsync()
@@ -61,30 +79,24 @@
         MonthYear = await SalaryService.GetSalMonthYear();
         AppState.IsBusy = false;
     }
-    private async Task<IEnumerable<int>?> SearchMonth(string month)
+    private async Task<IEnumerable<int>> SearchMonth(string? searchTerm)
     {
-        if (MonthYear!.Count == 0)
-        {
-            MonthYear = await SalaryService.GetSalMonthYear();
-        }
+        var query = Months.AsEnumerable();
 
-        if (string.IsNullOrEmpty(month))
-            return MonthYear!.Select(x => x.Month.GetValueOrDefault());        
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+            query = query.Where(m => m.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
 
-        return MonthYear!.Where(x => x!.Month!.ToString()!.Contains(month, StringComparison.OrdinalIgnoreCase)).Select(x => x.Month.GetValueOrDefault());
+        return await Task.FromResult(query);
     }
 
-    private async Task<IEnumerable<int>?> SearchYear(string year)
+    private async Task<IEnumerable<int>> SearchYear(string? searchTerm)
     {
-        if (MonthYear!.Count == 0)
-        {
-            MonthYear = await SalaryService.GetSalMonthYear();
-        }
+        var query = Years.AsEnumerable();
 
-        if (string.IsNullOrEmpty(year))
-            return MonthYear!.Select(x => x.Year.GetValueOrDefault());        
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+            query = query.Where(y => y.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
 
-        return MonthYear!.Where(x => x!.Month!.ToString()!.Contains(year, StringComparison.OrdinalIgnoreCase)).Select(x => x.Year.GetValueOrDefault());
+        return await Task.FromResult(query);
     }
 
     private async Task Get()
@@ -94,8 +106,5 @@
         AppState.IsProcessing = false;
     }
 
-    public async ValueTask DisposeAsync()
-    {
-
-    }
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
