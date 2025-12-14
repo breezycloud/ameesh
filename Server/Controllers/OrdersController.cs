@@ -396,31 +396,31 @@ public class OrdersController : ControllerBase
         
 
         var pagedQuery = query.AsEnumerable().Select(x => new OrderWithData
-                              {
-                                  Id = x.Id,
-                                  Date = x.OrderDate,
-                                  StoreName = x.Store!.BranchName,
-                                  CustomerName = x.Customer!.CustomerName,
-                                  IsHasDiscount = x.Customer!.HasDiscount,
-                                  OrderType = "Store",
-                                  ReceiptNo = x.ReceiptNo,
-                                  HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
-                                  HasOrderItems = x.ProductOrders.Any(),
-                                  TotalAmount = x.TotalAmount,
-                                  SubTotal = x.SubTotal,
-                                  PaymentStatus = x.GetPaymentStatus().ToString(),
-                                  DeliveryStatus = x.GetDeliveryStatus(),
-                                  HasDelievery = x.HasDelievery,
-                                  Dispatched = x.Dispatched,
-                                  Delivered = x.Delivered,
-                                  OrderStatus = x.Status,
-                                  Balance = x.Balance,
-                                  Discount = x.Discount,
-                                  Sale = x.User!.ToString(),
-                                  Cashier = x.Payments.OrderByDescending(x => x.PaymentDate).FirstOrDefault()!.Cashier!.ToString(),
-                                  CreatedDate = x.CreatedDate,
-                                  ModifiedDate = x.ModifiedDate
-                              });
+                            {
+                                Id = x.Id,
+                                Date = x.OrderDate,
+                                StoreName = x.Store!.BranchName,
+                                CustomerName = x.Customer!.CustomerName,
+                                IsHasDiscount = x.Customer!.HasDiscount,
+                                OrderType = "Store",
+                                ReceiptNo = x.ReceiptNo,
+                                HasReturns = x.ReturnedProducts.Any(p => p.Quantity > 0),
+                                HasOrderItems = x.ProductOrders.Any(),
+                                TotalAmount = x.TotalAmount,
+                                SubTotal = x.SubTotal,
+                                PaymentStatus = x.GetPaymentStatus().ToString(),
+                                DeliveryStatus = x.GetDeliveryStatus(),
+                                HasDelievery = x.HasDelievery,
+                                Dispatched = x.Dispatched,
+                                Delivered = x.Delivered,
+                                OrderStatus = x.Status,
+                                Balance = x.Balance,
+                                Discount = x.Discount,
+                                Sale = x.User!.ToString(),
+                                Cashier = x.Payments.OrderByDescending(x => x.PaymentDate).FirstOrDefault()?.Cashier?.ToString() ?? "",
+                                CreatedDate = x.CreatedDate,
+                                ModifiedDate = x.ModifiedDate
+                            });
         
 
         if (!string.IsNullOrEmpty(parameter.PaymentStatus))
