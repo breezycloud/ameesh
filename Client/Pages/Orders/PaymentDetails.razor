@@ -19,13 +19,13 @@
         <PropertyColumn Property="x => x.Amount" Title="Amount" Format="N2" />
         <PropertyColumn Property="x => x.PaymentMode" Title="Payment Mode" />
         <PropertyColumn Property="x => x.Cashier!.ToString()" Title="Cashier" />
-         <AuthorizeView Roles="Admin, Master, Manager" Context="ctx">
+        @* <AuthorizeView Roles="Admin, Master, Manager" Context="ctx">
             <TemplateColumn CellClass="d-flex justify-end" Context="context">
                 <CellTemplate>
                     <MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OnEdit(context.Item)" Size="Size.Small">Edit</MudButton>
                 </CellTemplate>
             </TemplateColumn>
-         </AuthorizeView>
+         </AuthorizeView> *@
     </Columns>
     <NoRecordsContent>
         <MudText Typo="Typo.h6">Empty record</MudText>

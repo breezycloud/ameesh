@@ -74,10 +74,22 @@ public class PaymentsController(AppDbContext _context) : ControllerBase
         }
 
         var currentPaymentSum = await _context.Payments.Where(x => x.OrderId == OrderId).SumAsync(x => x.Amount);
-        var Order = await _context.Orders.Include(x => x.Payments).Include(x => x.ProductOrders).FirstOrDefaultAsync(x => x.Id == OrderId);
-        if (currentPaymentSum > Order!.Balance)
+        
+        var Order = await _context.Orders.AsNoTracking()
+                                         .AsSplitQuery()
+                                         .Include(x => x.Payments)
+                                         .Include(x => x.ProductOrders)
+                                         .ThenInclude(x => x.ProductData)
+                                         .FirstOrDefaultAsync(x => x.Id == OrderId);
+        Console.WriteLine("Order Total Amount {0}", Order!.TotalAmount.ToString("N2"));
+        Console.WriteLine("Order SubTotal Amount {0}", Order!.SubTotal.ToString("N2"));
+        Console.WriteLine("Order Discount {0}", Order!.Discount.ToString("N2"));
+        Console.WriteLine("Order Balance {0}", Order!.Balance.ToString("N2"));
+        Console.WriteLine("Current Payment Sum {0} - Balance {1}", currentPaymentSum.ToString("N2"), Order!.Balance.ToString("N2"));
+        var newPaymentsSum = pays.Sum(x => x.Amount);
+        if (newPaymentsSum > currentPaymentSum + Order!.Balance)
         {
-             return BadRequest($"Payment amount {currentPaymentSum} exceeds remaining balance {Order!.Balance}.");
+            return BadRequest($"Payment amount {newPaymentsSum} exceeds remaining balance {Order!.Balance}.");
         }
         
         var payments = _context.Payments.AsParallel().Where(x => x.OrderId == OrderId && x.Amount < 0).ToList();
