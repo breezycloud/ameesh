@@ -130,7 +130,7 @@
                 return;
             }
         }
-        else 
+        @* else 
         {
             var paid = Order.Payments.Sum(x => x.Amount);
             if (!IsEdit && (paid == 0 || AmountDue > 0))
@@ -139,7 +139,7 @@
                 SnackBar.Add("Complete the payment to proceed", Severity.Warning);
                 return;
             }
-        }
+        } *@
         
         bool success = false;
         var internetfound = await js.InvokeAsync<bool>("checkinternet");
