@@ -27,13 +27,13 @@ public class SeedData
         if (IsDev)
         {
             //db.Database.EnsureDeleted();
-            if (db.Database.EnsureCreated())
-            {
-                AddUsers(db);
-                AddCustomers(db);
-                AddExpenseTypes(db);
-                ImportCustomers(services);
-            }
+            //if (db.Database.EnsureCreated())
+            //{
+            //    AddUsers(db);
+            //    AddCustomers(db);
+            //    AddExpenseTypes(db);
+            //    ImportCustomers(services);
+            //}
             CancellationTokenSource tokenSource = new();
             var ct = tokenSource.Token;
             if (ct.IsCancellationRequested)
