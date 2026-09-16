@@ -26,14 +26,13 @@ public class SeedData
         using var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         if (IsDev)
         {
-            //db.Database.EnsureDeleted();
-            //if (db.Database.EnsureCreated())
-            //{
-            //    AddUsers(db);
-            //    AddCustomers(db);
-            //    AddExpenseTypes(db);
-            //    ImportCustomers(services);
-            //}
+            db.Database.EnsureCreated();
+            if (!db.Users.Any())
+            {
+                AddUsers(db);
+                AddCustomers(db);
+                AddExpenseTypes(db);
+            }
             CancellationTokenSource tokenSource = new();
             var ct = tokenSource.Token;
             if (ct.IsCancellationRequested)
